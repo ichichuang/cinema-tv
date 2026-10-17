@@ -22,6 +22,9 @@ fun CinemaTheme(content: @Composable () -> Unit) {
                 onSurface = TextMain,
                 surfaceVariant = PanelHi,
                 onSurfaceVariant = TextSub,
+                // 输入框未聚焦时的描边：Material 默认是带紫调的灰，和暖金主题不搭
+                outline = TextSub.copy(alpha = 0.55f),
+                outlineVariant = TextSub.copy(alpha = 0.25f),
             ),
             content = content,
         )

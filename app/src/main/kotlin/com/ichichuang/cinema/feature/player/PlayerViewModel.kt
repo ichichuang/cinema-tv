@@ -195,7 +195,8 @@ class PlayerViewModel(
         val s = _state.value
         val line = s.lines.getOrNull(index) ?: return
         autoSwitched = 0
-        switchToLine(index, keepEpisodeName = s.episodeName)
+        // 手动换线路：带着当前进度换过去，"像没换过一样"接着看
+        switchToLine(index, keepEpisodeName = s.episodeName, resumeMs = s.positionMs)
         _state.update {
             it.copy(
                 lineIndex = index,
@@ -282,7 +283,8 @@ class PlayerViewModel(
         if (s.lines.size > 1 && autoSwitched < s.lines.size - 1) {
             autoSwitched++
             val next = (s.lineIndex + 1) % s.lines.size
-            switchToLine(next, keepEpisodeName = s.episodeName)
+            // 自动容错换线路也带着进度走：卡一下不该让用户从头看
+            switchToLine(next, keepEpisodeName = s.episodeName, resumeMs = s.positionMs)
             _state.update {
                 it.copy(
                     lineIndex = next,
@@ -300,14 +302,16 @@ class PlayerViewModel(
         }
     }
 
-    /** 换线路时尽量停在"同一集"（线路之间的集名通常一致） */
-    private fun switchToLine(index: Int, keepEpisodeName: String) {
+    /** 换线路时尽量停在"同一集 + 同一个位置"（线路之间的集名通常一致） */
+    private fun switchToLine(index: Int, keepEpisodeName: String, resumeMs: Long = 0L) {
         val s = _state.value
         val episodes = s.lines.getOrNull(index)?.episodes ?: return
         val epIndex = episodes.indexOfFirst { it.name == keepEpisodeName }.takeIf { it >= 0 }
             ?: s.episodeIndex.coerceIn(0, (episodes.size - 1).coerceAtLeast(0))
         _state.update { it.copy(episodes = episodes, episodeIndex = epIndex) }
-        playEpisode(episodes.getOrNull(epIndex), 0L)
+        // 关键：把"看到哪儿了"带过去。以前这里写的是 0L ——
+        // 手动换条线路就等于把进度清零、"继续观看"直接消失，这是很伤的动作。
+        playEpisode(episodes.getOrNull(epIndex), resumeMs)
     }
 
     private fun onEpisodeEnded() {

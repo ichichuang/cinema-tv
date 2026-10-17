@@ -1,6 +1,7 @@
 package com.ichichuang.cinema.feature.settings
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,10 +27,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
+import com.ichichuang.cinema.core.design.Motion
 import com.ichichuang.cinema.core.design.Panel
 import com.ichichuang.cinema.core.design.TextMain
 import com.ichichuang.cinema.core.design.TextSub
@@ -59,23 +64,26 @@ fun SettingsScreen(
     val m = rememberTvMetrics()
     val state by vm.state.collectAsState()
     val updateState by updateCenter.state.collectAsState()
+    val scroll = rememberScrollState()
 
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier
                 .fillMaxSize()
                 .background(Ink)
-                .padding(m.dp(48f))
+                // 可滚动：电视字号调大、或将来加设置项时，内容不会被裁在屏幕外
+                .verticalScroll(scroll)
+                .padding(m.dp(40f))
                 // 更新浮层打开时关掉底下整屏的焦点（否则方向键会透过浮层乱跑）
                 .then(if (updateState.panelOpen) Modifier.focusProperties { canFocus = false } else Modifier)
         ) {
             Text(
                 text = "设置",
                 color = TextMain,
-                fontSize = m.sp(32f),
+                fontSize = m.sp(30f),
                 fontWeight = FontWeight.Bold,
             )
-            Spacer(Modifier.height(m.dp(28f)))
+            Spacer(Modifier.height(m.dp(22f)))
 
             // ── 接口地址（唯一必须由用户提供的东西）────────────────
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -113,7 +121,7 @@ fun SettingsScreen(
                 fontSize = m.sp(15f),
             )
 
-            Spacer(Modifier.height(m.dp(30f)))
+            Spacer(Modifier.height(m.dp(22f)))
 
             // ── 更新地址 + 检查更新 ─────────────────────────────
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -179,13 +187,25 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(Modifier.height(m.dp(30f)))
-            SettingRow("分类语言", "简体中文")
-            SettingRow("字幕样式", "默认")
-            SettingRow("清空图片缓存", "自动管理")
-            SettingRow("跳过片头片尾", "关")
+            Spacer(Modifier.height(m.dp(22f)))
 
-            Spacer(Modifier.weight(1f))
+            // ── 图片缓存：真能清掉的那一项 ──────────────────────
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("图片缓存", color = TextMain, fontSize = m.sp(20f))
+                    Spacer(Modifier.height(m.dp(6f)))
+                    Text(
+                        text = state.cacheMessage
+                            ?: "海报缓存攒多了会占空间。电视存储紧张时清一下，不影响观看。",
+                        color = if (state.cacheMessage != null) Gold.copy(alpha = 0.9f) else TextSub,
+                        fontSize = m.sp(15f),
+                    )
+                }
+                Spacer(Modifier.width(m.dp(16f)))
+                DarkButton(text = "清空缓存", onClick = vm::clearImageCache)
+            }
+
+            Spacer(Modifier.height(m.dp(26f)))
             Text(
                 text = "「当前版本 v${updateCenter.currentVersionName}」 · 按遥控器「返回」键回到首页",
                 color = TextSub,
@@ -209,13 +229,20 @@ fun SettingsScreen(
 private fun GoldButton(text: String, onClick: () -> Unit) {
     val m = rememberTvMetrics()
     val radius = m.dp(10f)
+    val interaction = remember { MutableInteractionSource() }
     Box(
         Modifier
-            .tvFocus(radius)
+            .tvFocus(
+                cornerRadius = radius,
+                borderColor = Color.White.copy(alpha = 0.9f),
+                interactionSource = interaction,
+            )
             .clip(RoundedCornerShape(radius))
             .background(Gold)
+            // 按钮文案会在「保存 / 已保存 ✓」之间变，宽度跟着平滑过渡，别"啪"地一跳
+            .animateContentSize(animationSpec = Motion.swap())
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interaction,
                 indication = null,
             ) { onClick() }
             .padding(horizontal = m.dp(26f), vertical = m.dp(16f)),
@@ -229,14 +256,15 @@ private fun GoldButton(text: String, onClick: () -> Unit) {
 private fun DarkButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     val m = rememberTvMetrics()
     val radius = m.dp(10f)
+    val interaction = remember { MutableInteractionSource() }
     Box(
         Modifier
-            .tvFocus(radius)
+            .tvFocus(radius, interactionSource = interaction)
             .clip(RoundedCornerShape(radius))
             .background(Panel)
             .clickable(
                 enabled = enabled,
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interaction,
                 indication = null,
             ) { onClick() }
             .padding(horizontal = m.dp(22f), vertical = m.dp(16f)),
@@ -247,20 +275,5 @@ private fun DarkButton(text: String, enabled: Boolean = true, onClick: () -> Uni
             fontSize = m.sp(17f),
             fontWeight = FontWeight.Medium,
         )
-    }
-}
-
-@Composable
-private fun SettingRow(title: String, value: String) {
-    val m = rememberTvMetrics()
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = m.dp(14f)),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, color = TextMain, fontSize = m.sp(20f))
-        Spacer(Modifier.weight(1f))
-        Text(value, color = TextSub, fontSize = m.sp(18f))
     }
 }

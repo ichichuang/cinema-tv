@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -32,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import com.ichichuang.cinema.core.design.Gold
@@ -70,7 +72,7 @@ fun UpdateOverlay(
     AnimatedVisibility(
         visible = state.panelOpen,
         enter = fadeIn(Motion.enter()) + scaleIn(initialScale = 0.94f, animationSpec = Motion.enter()),
-        exit = fadeOut(Motion.quick()),
+        exit = fadeOut(Motion.quick()) + scaleOut(targetScale = 0.97f, animationSpec = Motion.quick()),
         modifier = modifier,
     ) {
         Box(
@@ -280,14 +282,19 @@ private fun PanelAction(
 ) {
     val m = rememberTvMetrics()
     val radius = m.dp(12f)
+    val interaction = remember { MutableInteractionSource() }
     Box(
         Modifier
             .then(if (focus != null) Modifier.focusRequester(focus) else Modifier)
-            .tvFocus(radius)
+            .tvFocus(
+                cornerRadius = radius,
+                borderColor = if (primary) Color.White.copy(alpha = 0.9f) else Gold,
+                interactionSource = interaction,
+            )
             .clip(RoundedCornerShape(radius))
             .background(if (primary) Gold else PanelHi)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interaction,
                 indication = null,
             ) { onClick() }
             .padding(horizontal = m.dp(28f), vertical = m.dp(15f)),

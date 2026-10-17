@@ -1,5 +1,6 @@
 package com.ichichuang.cinema.core.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -13,7 +14,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
+import com.ichichuang.cinema.core.design.Motion
 import com.ichichuang.cinema.core.design.TextMain
 import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.design.rememberTvMetrics
@@ -44,14 +49,30 @@ fun PosterCard(
     val m = rememberTvMetrics()
     val radius = m.dp(14f)
     val shape = RoundedCornerShape(radius)
+    // 焦点和按压共用同一个交互源：按下时立刻缩一下，是"这台电视跟手"的关键
+    val interaction = remember { MutableInteractionSource() }
+    var focused by remember { mutableStateOf(false) }
+    // 未聚焦时标题偏灰、聚焦时亮起来：扫视整墙时焦点落在哪儿一眼就能看出来
+    val titleColor by animateColorAsState(
+        targetValue = if (focused) TextMain else TextMain.copy(alpha = 0.72f),
+        animationSpec = Motion.quick(),
+        label = "posterTitle",
+    )
 
     Column(
         modifier = modifier
-            // ⭐ 一行拿到统一焦点动效（放大 + 金边 + 回弹）
-            .tvFocus(radius, onFocusChanged = { focused -> if (focused) onFocused() })
+            // ⭐ 一行拿到统一焦点动效（放大 + 光晕 + 按压回弹）
+            .tvFocus(
+                cornerRadius = radius,
+                interactionSource = interaction,
+                onFocusChanged = { isFocused ->
+                    focused = isFocused
+                    if (isFocused) onFocused()
+                },
+            )
             .clip(shape)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interaction,
                 indication = null,
             ) { onClick() },
     ) {
@@ -108,7 +129,7 @@ fun PosterCard(
         Spacer(Modifier.height(m.dp(10f)))
         Text(
             text = movie.title,
-            color = TextMain,
+            color = titleColor,
             fontSize = m.sp(20f),
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,

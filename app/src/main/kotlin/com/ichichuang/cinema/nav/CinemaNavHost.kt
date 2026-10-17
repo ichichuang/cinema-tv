@@ -14,16 +14,18 @@ import com.ichichuang.cinema.core.design.Motion
 import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.feature.home.HomeScreen
 import com.ichichuang.cinema.feature.player.PlayerScreen
+import com.ichichuang.cinema.feature.search.SearchScreen
 import com.ichichuang.cinema.feature.settings.SettingsScreen
 import com.ichichuang.cinema.feature.update.UpdateCenter
 
 /**
- * 全部路由。只有 3 个页面 —— 这是刻意的：
- * 首页（含常驻详情）→ 播放 → 设置。
+ * 全部路由。只有 4 个页面 —— 这是刻意的：
+ * 首页（含常驻详情）→ 搜索 → 播放 → 设置。
  * 极简不是少写代码，是少让用户做选择。
  */
 private object Routes {
     const val HOME = "home"
+    const val SEARCH = "search"
     const val SETTINGS = "settings"
     const val PLAYER = "player/{movieId}?title={title}"
 
@@ -54,7 +56,15 @@ fun CinemaNavHost(updateCenter: UpdateCenter) {
             HomeScreen(
                 onPlay = { movie -> nav.navigate(Routes.player(movie)) },
                 onOpenSettings = { nav.navigate(Routes.SETTINGS) },
+                onOpenSearch = { nav.navigate(Routes.SEARCH) },
                 updateCenter = updateCenter,
+            )
+        }
+
+        composable(Routes.SEARCH) {
+            SearchScreen(
+                onPlay = { movie -> nav.navigate(Routes.player(movie)) },
+                onBack = { nav.popBackStack() },
             )
         }
 

@@ -1,8 +1,10 @@
 package com.ichichuang.cinema.feature.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ichichuang.cinema.data.settings.CinemaSettings
+import com.ichichuang.cinema.data.settings.ImageCache
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 data class SettingsUiState(
     /** 已经保存进 DataStore 的地址 */
@@ -23,9 +26,15 @@ data class SettingsUiState(
     val updateSaved: String = "",
     val updateDraft: String = "",
     val justSavedUpdate: Boolean = false,
+
+    /** 清缓存的反馈（"已清掉 32.4 MB 缓存"） */
+    val cacheMessage: String? = null,
 )
 
-class SettingsViewModel(private val settings: CinemaSettings) : ViewModel() {
+class SettingsViewModel(
+    private val settings: CinemaSettings,
+    private val context: Context,
+) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
@@ -84,6 +93,22 @@ class SettingsViewModel(private val settings: CinemaSettings) : ViewModel() {
             settings.setUpdateUrl(CinemaSettings.DEFAULT_UPDATE_URL)
             _state.update {
                 it.copy(updateDraft = CinemaSettings.DEFAULT_UPDATE_URL, updateSaved = CinemaSettings.DEFAULT_UPDATE_URL)
+            }
+        }
+    }
+
+    /** 清空海报缓存：真清，并如实告诉用户清掉了多少 */
+    fun clearImageCache() {
+        viewModelScope.launch {
+            val freed = ImageCache.clear(context)
+            _state.update {
+                it.copy(
+                    cacheMessage = when {
+                        freed == null -> "这次没清掉，重启一下应用再试"
+                        freed <= 0L -> "缓存本来就是空的"
+                        else -> "已清掉 " + "%.1f".format(Locale.US, freed / 1024.0 / 1024.0) + " MB 海报缓存"
+                    },
+                )
             }
         }
     }

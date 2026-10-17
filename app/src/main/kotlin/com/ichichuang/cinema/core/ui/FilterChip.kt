@@ -57,6 +57,7 @@ fun FilterChip(
 ) {
     val m = rememberTvMetrics()
     var focused by remember { mutableStateOf(false) }
+    val interaction = remember { MutableInteractionSource() }
 
     val bg by animateColorAsState(
         targetValue = when {
@@ -79,11 +80,12 @@ fun FilterChip(
 
     Box(
         modifier = modifier
-            // tvFocus 必须放在最前（它自己负责放大 + 描边，且描边画在内容之上）
+            // tvFocus 必须放在最前（它自己负责放大 + 光晕 + 按压回弹，且描边画在内容之上）
             .tvFocus(
                 cornerRadius = m.dp(if (big) 22f else 18f),
                 borderColor = if (selected) Color.White.copy(alpha = 0.85f) else Gold,
                 scale = if (big) Motion.FOCUS_SCALE else 1.08f,
+                interactionSource = interaction,
                 onFocusChanged = { isFocused ->
                     focused = isFocused
                     onFocusChanged?.invoke(isFocused)
@@ -92,7 +94,7 @@ fun FilterChip(
             .clip(RoundedCornerShape(50))
             .background(bg)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interaction,
                 indication = null,
             ) { onClick() }
             .padding(

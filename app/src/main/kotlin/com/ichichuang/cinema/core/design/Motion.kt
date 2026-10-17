@@ -3,6 +3,7 @@ package com.ichichuang.cinema.core.design
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -30,6 +31,10 @@ object Motion {
     const val DUR_FAST = 140   // 小元素状态变化：chip 高亮、图标变色
     const val DUR_BASE = 200   // 标准过渡：条目出现
     const val DUR_ENTER = 280  // 页面级进入/浮层滑入
+    const val DUR_SWAP = 260   // 大块内容换人（详情面板换片）
+
+    /** 焦点光晕的不透明度：细金边 + 一圈软光晕，深色背景上才"亮得起来" */
+    const val GLOW_ALPHA = 0.20f
 
     /** 焦点动效：带轻微回弹（弹簧），遥控器移动时有"肉感"而不是死板线性 */
     fun <T> focus(): FiniteAnimationSpec<T> =
@@ -39,4 +44,21 @@ object Motion {
     fun <T> quick(): FiniteAnimationSpec<T> = tween(DUR_FAST, easing = EaseOut)
     fun <T> base(): FiniteAnimationSpec<T> = tween(DUR_BASE, easing = EaseOut)
     fun <T> enter(): FiniteAnimationSpec<T> = tween(DUR_ENTER, easing = EaseOut)
+
+    /**
+     * 按压反馈：比焦点更硬更快（刚度高、阻尼低）。
+     * 遥控器按下去的那一瞬间必须"有回弹的实感" —— 这是电视上最容易缺、
+     * 也最影响"这台电视好用吗"的一环。用弹簧而不是 tween：手感是"摁下去"而不是"变过去"。
+     */
+    fun <T> press(): FiniteAnimationSpec<T> =
+        spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessHigh)
+
+    /**
+     * 必须**连续**的动画（播放进度条）：线性、无缓动。
+     * 进度每秒才上报一次，用缓动会看出来"一抽一抽"，线性才像真在走。
+     */
+    fun <T> linear(ms: Int): FiniteAnimationSpec<T> = tween(ms, easing = LinearEasing)
+
+    /** 大块内容换人：淡入 + 微微上浮，用"换镜头"的方式替代硬切 */
+    fun <T> swap(): FiniteAnimationSpec<T> = tween(DUR_SWAP, easing = EaseOut)
 }

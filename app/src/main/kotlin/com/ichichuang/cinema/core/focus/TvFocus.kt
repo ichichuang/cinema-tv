@@ -1,6 +1,8 @@
 package com.ichichuang.cinema.core.focus
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,6 +52,10 @@ import com.ichichuang.cinema.core.design.rememberTvMetrics
  * @param cornerRadius 圆角半径，必须和调用方 clip 用的圆角一致
  * @param scale        放大比例，默认 1.06（Motion.FOCUS_SCALE）
  * @param borderColor  焦点边框色，默认暖金
+ * @param interactionSource 传进来就有**按压反馈**（按下缩小 + 弹簧回弹）。
+ *   要和 `clickable` 用**同一个** interactionSource，否则按下状态收不到。
+ *   为什么必须有：遥控器按 OK 到动作生效之间往往有一两百毫秒，
+ *   没有即时反馈的话，用户会以为"没按上"而连按两下。
  * @param onFocusChanged 焦点变化回调（用来更新右侧详情等联动内容）
  */
 @Composable
@@ -58,23 +64,30 @@ fun Modifier.tvFocus(
     scale: Float = Motion.FOCUS_SCALE,
     borderColor: Color = Gold,
     borderWidthDp: Float = 2f,
+    interactionSource: InteractionSource? = null,
     onFocusChanged: ((Boolean) -> Unit)? = null,
 ): Modifier {
     val m = rememberTvMetrics()
     var focused by remember { mutableStateOf(false) }
     val callback by rememberUpdatedState(onFocusChanged)
 
-    val progress by animateFloatAsState(
+    val focus by animateFloatAsState(
         targetValue = if (focused) 1f else 0f,
         animationSpec = Motion.focus(),
         label = "tvFocus",
+    )
+    val press by animateFloatAsState(
+        targetValue = if (interactionSource?.collectIsPressedAsState()?.value == true) 1f else 0f,
+        animationSpec = Motion.press(),
+        label = "tvPress",
     )
 
     val borderWidth = m.dp(borderWidthDp)
 
     return this
         .graphicsLayer {
-            val s = 1f + (scale - 1f) * progress
+            // 焦点放大 + 按下回缩，叠在同一个图层里（嵌套 graphicsLayer 会互相打架）
+            val s = 1f + (scale - 1f) * focus + (Motion.PRESS_SCALE - 1f) * press
             scaleX = s
             scaleY = s
         }
@@ -85,17 +98,28 @@ fun Modifier.tvFocus(
         }
         .drawWithContent {
             drawContent()
-            if (progress > 0.01f) {
+            if (focus > 0.01f) {
                 val sw = borderWidth.toPx()
                 val r = cornerRadius.toPx()
-                // 描边压在内容外沿：往里缩半个线宽，避免被父容器裁掉一半
+                // ① 内圈软光晕：往里画一圈更宽的淡光。深色背景上"亮起来"靠的是它，
+                //    只画细线的话在电视上几乎看不出来（尤其 1.5 米外看）。
+                val glowInset = sw * 0.6f
+                drawRoundRect(
+                    color = borderColor.copy(alpha = Motion.GLOW_ALPHA * focus),
+                    topLeft = Offset(glowInset, glowInset),
+                    size = Size(size.width - glowInset * 2f, size.height - glowInset * 2f),
+                    cornerRadius = CornerRadius((r - glowInset).coerceAtLeast(0f)),
+                    alpha = 1f,
+                    style = Stroke(width = sw * 3.2f),
+                )
+                // ② 外圈细金边：压在内容外沿（往里缩半个线宽，避免被父容器裁掉一半）
                 val inset = sw / 2f
                 drawRoundRect(
                     color = borderColor,
                     topLeft = Offset(inset, inset),
                     size = Size(size.width - sw, size.height - sw),
                     cornerRadius = CornerRadius((r - inset).coerceAtLeast(0f)),
-                    alpha = progress,
+                    alpha = focus,
                     style = Stroke(width = sw),
                 )
             }

@@ -7,6 +7,8 @@ import com.ichichuang.cinema.domain.model.DefaultMovieFilter
 import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.domain.model.MovieDetail
 import com.ichichuang.cinema.domain.model.MovieFilter
+import com.ichichuang.cinema.domain.repository.BrowseMemory
+import com.ichichuang.cinema.domain.repository.BrowseStore
 import com.ichichuang.cinema.domain.repository.CATEGORY_ALL
 import com.ichichuang.cinema.domain.repository.FILTER_ALL
 import com.ichichuang.cinema.domain.repository.FilterStore
@@ -38,12 +40,22 @@ data class HomeUiState(
     val gridGeneration: Int = 0,
     /** 当前焦点所在影片（右侧详情面板显示的就是它） */
     val selected: Movie? = null,
+    /**
+     * 一次性的"请把焦点挪到这部片"请求（处理完 UI 会回报 consumed）。
+     *
+     * 为什么要这么绕：焦点是 UI 的东西，但"焦点该在哪"是状态。
+     * 如果直接用 selected 驱动焦点，用户每按一次右键都会被"重新聚焦一次"；
+     * 所以只在真正需要回显的时刻（从播放器/设置返回、应用重启、换了片源）发这个信号。
+     */
+    val focusTarget: String? = null,
     /** 选中影片的详情（简介 + 线路），焦点停住后异步到货 */
     val detail: MovieDetail? = null,
     val detailLoading: Boolean = false,
     val loading: Boolean = true,
     val loadingMore: Boolean = false,
     val endReached: Boolean = false,
+    /** 翻页失败时的一句人话（不打断观看，只在列表底部说明会重试） */
+    val pageError: String? = null,
     /** 还没配置影视接口地址 → UI 显示引导，而不是报错 */
     val needsSetup: Boolean = false,
     val error: String? = null,
@@ -62,6 +74,7 @@ class HomeViewModel(
     private val repository: MovieRepository,
     private val progress: PlaybackProgress,
     private val filterStore: FilterStore,
+    private val browseStore: BrowseStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
@@ -70,6 +83,10 @@ class HomeViewModel(
     private var page = 0
     private var job: Job? = null
     private var detailJob: Job? = null
+    private var browseSaveJob: Job? = null
+
+    /** 从磁盘读回来的浏览位置，用在**第一次**加载结果上（用完即清，之后换筛选不受它影响） */
+    private var pendingRestore: BrowseMemory? = null
 
     /** 详情缓存：焦点来回移动时不重复打接口（32 位电视内存紧，所以有上限） */
     private val detailCache = LinkedHashMap<String, MovieDetail>()
@@ -79,9 +96,11 @@ class HomeViewModel(
             it.copy(yearOptions = yearOptions(Calendar.getInstance().get(Calendar.YEAR)))
         }
         viewModelScope.launch {
-            // 先恢复上次的筛选（第一次运行 = 默认国语），再开始跟接口地址的变化
+            // 先恢复上次的筛选（第一次运行 = 默认国语）和上次看到哪了，再开始跟接口地址的变化。
+            // 顺序很重要：必须在 collect（会触发第一次加载）之前读完，否则第一次加载用不上记忆。
             val saved = runCatching { filterStore.load() }.getOrNull()
             if (saved != null) _state.update { it.copy(filter = saved) }
+            pendingRestore = runCatching { browseStore.load() }.getOrNull()
 
             // 接口地址变化（第一次填 / 用户改了）→ 自动全部重载，不需要重启应用
             repository.config.collect { addr ->
@@ -112,7 +131,8 @@ class HomeViewModel(
         if (next == _state.value.filter) return
         _state.update { it.copy(filter = next) }
         viewModelScope.launch { runCatching { filterStore.save(next) } }   // 记住这次选择
-        reload()
+        // 换筛选**不抢焦点**：用户这会儿手还在筛选条上，焦点跳进海报墙是耍流氓
+        reload(restoreFocus = false)
     }
 
     /** 焦点落到某部片上：立刻切换右侧详情，并（防抖后）拉详情 */
@@ -128,6 +148,25 @@ class HomeViewModel(
         }
         loadProgress(movie.id)
         loadDetail(movie)
+        scheduleBrowseSave(movie.id)
+    }
+
+    /**
+     * 首页每次"上屏"都会调一次（首次进入 / 从播放器或设置返回）。
+     *
+     * 这是"来回切换后操作回显"的关键：把焦点还给上次看的那部片。
+     * 不这么做的话焦点会落到第一张海报上 —— 右侧详情跟着变成别的片、
+     * 列表还被自动滚回顶部，用户会觉得"我刚才翻的全没了"。
+     */
+    fun onHomeVisible() {
+        val id = _state.value.selected?.id ?: return
+        _state.update { it.copy(focusTarget = id) }
+    }
+
+    /** UI 已经把焦点挪到位了（或发现目标不存在）—— 清掉一次性请求 */
+    fun onFocusTargetConsumed() {
+        if (_state.value.focusTarget == null) return
+        _state.update { it.copy(focusTarget = null) }
     }
 
     /**
@@ -158,7 +197,28 @@ class HomeViewModel(
 
     private fun reloadAll() {
         loadCategories()
-        reload()
+        reload(restoreFocus = true)
+    }
+
+    /**
+     * 焦点回显：优先按 movieId 找（翻页顺序变了、接口换了都不怕），找不到再按位置兜底。
+     * 用完即清 —— 只有"第一次加载"该回到老位置；用户换筛选后应该从新结果的第一张开始。
+     */
+    private fun takeRestoreTarget(movies: List<Movie>): Movie? {
+        val memory = pendingRestore ?: return null
+        pendingRestore = null
+        return memory.movieId?.let { id -> movies.firstOrNull { it.id == id } }
+            ?: movies.getOrNull(memory.index)
+    }
+
+    /** 焦点停住 700ms 才落盘：遥控器划得快，不必每动一下就写一次磁盘 */
+    private fun scheduleBrowseSave(movieId: String) {
+        browseSaveJob?.cancel()
+        browseSaveJob = viewModelScope.launch {
+            delay(700)
+            val index = _state.value.movies.indexOfFirst { it.id == movieId }.coerceAtLeast(0)
+            runCatching { browseStore.save(BrowseMemory(movieId = movieId, index = index)) }
+        }
     }
 
     private fun loadCategories() {
@@ -177,7 +237,12 @@ class HomeViewModel(
         }
     }
 
-    private fun reload() {
+    /**
+     * @param restoreFocus 加载完成后要不要把焦点放到海报上。
+     *   首次进入 / 换了片源 → true（开机就能直接按 OK 看片，回到上次那部片）
+     *   用户换筛选 → false（他正忙着在筛选条上按，别抢焦点）
+     */
+    private fun reload(restoreFocus: Boolean = false) {
         job?.cancel()
         page = 0
         val filter = _state.value.filter
@@ -190,6 +255,7 @@ class HomeViewModel(
                 detailLoading = false,
                 endReached = false,
                 error = null,
+                pageError = null,
                 resumeMs = 0L,
                 relaxedNote = null,
                 gridGeneration = it.gridGeneration + 1,   // 海报墙：这一批是新数据，播入场动画
@@ -210,6 +276,8 @@ class HomeViewModel(
                     } else {
                         filter
                     }
+                    // 恢复上次浏览到的那部片（第一次加载才用得上），没有就落在第一张
+                    val focusMovie = takeRestoreTarget(result.movies) ?: result.movies.firstOrNull()
                     _state.update {
                         it.copy(
                             loading = false,
@@ -217,11 +285,13 @@ class HomeViewModel(
                             movies = result.movies,
                             total = result.total,
                             relaxedNote = if (result.relaxed) relaxedText(fixedFilter) else null,
-                            selected = result.movies.firstOrNull(),
+                            selected = focusMovie,
+                            // 只在"该抢焦点"的场合发这个一次性请求（换筛选时不发）
+                            focusTarget = if (restoreFocus) focusMovie?.id else null,
                             endReached = result.movies.isEmpty(),
                         )
                     }
-                    result.movies.firstOrNull()?.let { loadDetail(it) }
+                    focusMovie?.let { loadDetail(it) }
                 }
                 .onFailure { e ->
                     _state.update { it.copy(loading = false, error = e.message ?: "加载失败") }
@@ -242,11 +312,15 @@ class HomeViewModel(
                             loadingMore = false,
                             movies = it.movies + result.movies,
                             endReached = result.movies.isEmpty(),
+                            pageError = null,
                         )
                     }
                 }
                 .onFailure {
-                    _state.update { it.copy(loadingMore = false) }
+                    // 翻页失败不打断用户：滚到底部会看到一句说明，再往下动一下就会重试
+                    _state.update {
+                        it.copy(loadingMore = false, pageError = "这一页没加载上，再往下翻一下会重新试")
+                    }
                 }
         }
     }

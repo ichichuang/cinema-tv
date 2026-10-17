@@ -4,14 +4,17 @@ import android.app.Activity
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,8 +39,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -102,6 +110,19 @@ fun PlayerScreen(
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             vm.pauseAndSave()
         }
+    }
+
+    // 切到后台（按 Home 键 / 去别的应用 / 电视待机）→ 自动暂停并记住进度。
+    // 不做这一步的话：画面没了、声音还在响，用户会以为应用坏了。
+    // 注意 onStop 不会销毁这个界面，所以要单独监听生命周期，光靠上面的 onDispose 不够。
+    DisposableEffect(activity) {
+        // ComponentActivity 同时是 LifecycleOwner；这里只关心"退到后台要暂停"
+        val lifecycle = (activity as? LifecycleOwner)?.lifecycle
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) vm.pauseAndSave()
+        }
+        lifecycle?.addObserver(observer)
+        onDispose { lifecycle?.removeObserver(observer) }
     }
 
     // 返回键：面板开着先收面板，否则退出并落盘进度
@@ -170,22 +191,25 @@ fun PlayerScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // ② 缓冲转圈（只在等缓冲时出现，且做得小一点、暗一点）
-        if (state.buffering && state.error == null) {
+        // ② 缓冲转圈（只在等缓冲时出现，且做得小一点、暗一点）—— 淡入淡出，别"闪"一下
+        AnimatedVisibility(
+            visible = state.buffering && state.error == null,
+            enter = fadeIn(Motion.base()),
+            exit = fadeOut(Motion.base()),
+            modifier = Modifier.align(Alignment.Center),
+        ) {
             CircularProgressIndicator(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .width(m.dp(46f)),
+                modifier = Modifier.width(m.dp(46f)),
                 color = Gold,
                 strokeWidth = m.dp(3f),
             )
         }
 
-        // ③ 顶部信息（标题 + 当前线路/集）
+        // ③ 顶部信息（标题 + 当前线路/集）—— 淡入 + 从上轻轻落下
         AnimatedVisibility(
             visible = state.controlsVisible && state.error == null,
-            enter = fadeIn(Motion.base()),
-            exit = fadeOut(Motion.quick()),
+            enter = fadeIn(Motion.base()) + slideInVertically(Motion.base()) { -it / 5 },
+            exit = fadeOut(Motion.quick()) + slideOutVertically(Motion.quick()) { -it / 5 },
             modifier = Modifier.align(Alignment.TopCenter),
         ) {
             Column(
@@ -223,22 +247,31 @@ fun PlayerScreen(
             }
         }
 
-        // ④ 底部进度 + 键位提示
+        // ④ 底部进度 + 键位提示 —— 淡入 + 从下轻轻升起
         AnimatedVisibility(
             visible = state.controlsVisible && state.error == null,
-            enter = fadeIn(Motion.base()),
-            exit = fadeOut(Motion.quick()),
+            enter = fadeIn(Motion.base()) + slideInVertically(Motion.base()) { it / 5 },
+            exit = fadeOut(Motion.quick()) + slideOutVertically(Motion.quick()) { it / 5 },
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
             ProgressBar(state = state)
         }
 
-        // ⑤ 临时提示（自动换线路、已续播…）
-        state.hint?.let { hint ->
+        // ⑤ 临时提示（自动换线路、已续播…）：淡入淡出 + 轻微上浮，不是"啪"地出现又消失
+        //    退出时 state.hint 已经变 null，所以留住最后一句文案，否则淡出没内容可放
+        //    （在副作用里写，绝不在组合期写状态）
+        var lastHint by remember { mutableStateOf("") }
+        LaunchedEffect(state.hint) { state.hint?.let { lastHint = it } }
+        AnimatedVisibility(
+            visible = state.hint != null,
+            enter = fadeIn(Motion.base()) + slideInVertically(Motion.base()) { it / 2 },
+            exit = fadeOut(Motion.quick()),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = m.dp(if (state.controlsVisible) 170f else 60f)),
+        ) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = m.dp(if (state.controlsVisible) 170f else 60f))
                     .clip(RoundedCornerShape(m.dp(10f)))
                     .background(Ink.copy(alpha = 0.86f))
                     .border(
@@ -249,7 +282,7 @@ fun PlayerScreen(
                     .padding(horizontal = m.dp(22f), vertical = m.dp(12f)),
             ) {
                 Text(
-                    text = hint,
+                    text = lastHint,
                     color = TextBody,
                     fontSize = m.sp(16f),
                 )
@@ -266,10 +299,16 @@ fun PlayerScreen(
             EpisodePanel(state = state, onLine = vm::selectLine, onEpisode = vm::selectEpisode)
         }
 
-        // ⑦ 错误（说人话 + 告诉用户下一步按什么）
-        state.error?.let { err ->
+        // ⑦ 错误（说人话 + 告诉用户下一步按什么）：淡入 + 轻微放大，不是"拍"在用户脸上
+        var lastError by remember { mutableStateOf("") }
+        LaunchedEffect(state.error) { state.error?.let { lastError = it } }
+        AnimatedVisibility(
+            visible = state.error != null,
+            enter = fadeIn(Motion.base()) + scaleIn(initialScale = 0.96f, animationSpec = Motion.base()),
+            exit = fadeOut(Motion.quick()),
+        ) {
             ErrorOverlay(
-                message = err,
+                message = lastError,
                 canSwitchLine = state.lines.size > 1,
                 onRetry = vm::retry,
                 onSwitchLine = {
@@ -278,8 +317,12 @@ fun PlayerScreen(
             )
         }
 
-        // ⑧ 加载中（取详情这几百毫秒）
-        if (state.loading) {
+        // ⑧ 加载中（取详情这几百毫秒）：淡入，别让用户盯着一块突然变黑的屏
+        AnimatedVisibility(
+            visible = state.loading,
+            enter = fadeIn(Motion.base()),
+            exit = fadeOut(Motion.quick()),
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -300,11 +343,18 @@ fun PlayerScreen(
 @Composable
 private fun ProgressBar(state: PlayerUiState) {
     val m = rememberTvMetrics()
-    val fraction = if (state.durationMs > 0) {
+    val target = if (state.durationMs > 0) {
         (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
     } else {
         0f
     }
+    // 位置 500ms 才上报一次，直接跟着跳会"一抽一抽"；
+    // 用等长线性插值补上中间的过程，看着才像真的在走。
+    val fraction by animateFloatAsState(
+        targetValue = target,
+        animationSpec = Motion.linear(460),
+        label = "progressFraction",
+    )
 
     Column(
         modifier = Modifier
@@ -458,12 +508,17 @@ private fun EpisodePanel(
 private fun LineChip(text: String, selected: Boolean, onClick: () -> Unit) {
     val m = rememberTvMetrics()
     val radius = m.dp(10f)
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier
-            .tvFocus(radius)
+            .tvFocus(radius, interactionSource = interaction)
             .clip(RoundedCornerShape(radius))
             .background(if (selected) Gold.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.06f))
-            .clickable(onClick = onClick)
+            // 电视上没有水波纹（那是手机的语言）：关掉 indication，改由 tvFocus 给按压反馈
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+            ) { onClick() }
             .padding(horizontal = m.dp(20f), vertical = m.dp(12f)),
     ) {
         Text(
@@ -484,14 +539,18 @@ private fun EpisodeCell(
 ) {
     val m = rememberTvMetrics()
     val radius = m.dp(10f)
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
-            .tvFocus(radius, borderColor = Gold)
+            .tvFocus(radius, borderColor = Gold, interactionSource = interaction)
             .clip(RoundedCornerShape(radius))
             .background(
                 if (isCurrent) Gold.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.07f),
             )
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+            ) { onClick() }
             .padding(horizontal = m.dp(12f), vertical = m.dp(14f)),
         contentAlignment = Alignment.Center,
     ) {
@@ -561,12 +620,20 @@ private fun ErrorOverlay(
 private fun ActionButton(text: String, primary: Boolean, onClick: () -> Unit) {
     val m = rememberTvMetrics()
     val radius = m.dp(12f)
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier
-            .tvFocus(radius)
+            .tvFocus(
+                cornerRadius = radius,
+                borderColor = if (primary) Color.White.copy(alpha = 0.9f) else Gold,
+                interactionSource = interaction,
+            )
             .clip(RoundedCornerShape(radius))
             .background(if (primary) Gold else Color.White.copy(alpha = 0.1f))
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+            ) { onClick() }
             .padding(horizontal = m.dp(30f), vertical = m.dp(14f)),
     ) {
         Text(
