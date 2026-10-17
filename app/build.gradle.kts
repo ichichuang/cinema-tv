@@ -21,8 +21,8 @@ android {
         minSdk = 24
         // 故意压低：老 TV 系统对高 targetSdk 会加限制（如实测被拦）
         targetSdk = 28
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
 
         // 只出 32 位，和 FFALCON 65S78A（armeabi-v7a）匹配
         ndk {

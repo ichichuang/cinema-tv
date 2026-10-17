@@ -54,9 +54,10 @@ if ($code -eq 0) {
         Write-Output ("SIZE: {0} MB" -f [math]::Round($apk.Length / 1MB, 2))
         Write-Output ""
         # 自动跑红线检查：ABI / cleartext / Leanback 入口 / 体积
+        # 注意：用子进程 + Bypass 调，否则在默认执行策略下只会报"禁止运行脚本"
         $check = Join-Path $PSScriptRoot 'check-apk.ps1'
         if (Test-Path $check) {
-            & $check -ApkPath $apk.FullName
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $check -ApkPath $apk.FullName
         }
     }
 }
