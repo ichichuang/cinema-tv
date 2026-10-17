@@ -95,4 +95,17 @@ dependencies {
     // 所以必须显式引 koin-android —— 否则 androidContext / viewModel{} DSL 找不到。
     implementation("io.insert-koin:koin-android:4.2.2")
     implementation("io.insert-koin:koin-androidx-compose:4.2.2")
+
+    // ── 网络 + JSON（阶段 1：苹果CMS 接口）──────────────────
+    // 只引 OkHttp，不用 Retrofit：接口地址是运行时由用户填的、还要自己处理
+    // GBK 编码和防盗链 UA，Retrofit 的静态 baseUrl + 转换器抽象在这里只会挡路。
+    implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+
+    // ── 海报图（Coil3）──────────────────────────────────────
+    implementation("io.coil-kt.coil3:coil-compose:3.6.3")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.3")
+
+    // ── 设置存储（接口地址）────────────────────────────────
+    implementation("androidx.datastore:datastore-preferences:1.2.1")
 }

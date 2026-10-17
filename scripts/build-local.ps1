@@ -1,8 +1,10 @@
-﻿# 本地构建脚本（Windows）
+﻿# 本地构建脚本（Windows）—— 本项目出包的主路线
 #
-# 这个项目的默认路线是「云端构建」（GitHub Actions），
-# 这个脚本只是给本机快速验证编译用 —— 不用装 Android Studio，
-# 一键就能出 APK：.\scripts\build-local.ps1
+# 一键出 APK 并自动做红线检查：
+#   powershell -ExecutionPolicy Bypass -File .\scripts\build-local.ps1
+#
+# （如果提示"禁止运行脚本"，就是你看到的那句话的意思：
+#   Windows 默认不允许运行 .ps1，用上面那种带 Bypass 的写法即可，不用改系统设置）
 #
 # 依赖：便携工具链已就位
 #   JDK 17  : C:\Users\cc\Tools\jdk17
@@ -50,6 +52,12 @@ if ($code -eq 0) {
     if ($apk) {
         Write-Output ("APK: {0}" -f $apk.FullName)
         Write-Output ("SIZE: {0} MB" -f [math]::Round($apk.Length / 1MB, 2))
+        Write-Output ""
+        # 自动跑红线检查：ABI / cleartext / Leanback 入口 / 体积
+        $check = Join-Path $PSScriptRoot 'check-apk.ps1'
+        if (Test-Path $check) {
+            & $check -ApkPath $apk.FullName
+        }
     }
 }
 

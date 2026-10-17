@@ -10,8 +10,8 @@
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | **0. 骨架** | 首页界面 + 遥控器焦点 + 云端自动构建 | ✅ 完成 |
-| **0.5 地基** | 设计系统 / 焦点系统 / 四层架构 / 导航 / 依赖注入 | ← **你在这里** |
-| 1. 数据 | 接在线影视接口（苹果CMS V10 标准格式）+ 真实海报 | |
+| **0.5 地基** | 设计系统 / 焦点系统 / 四层架构 / 导航 / 依赖注入 | ✅ 完成 |
+| **1. 数据** | 接在线影视接口（苹果CMS V10 标准格式）+ 真实海报 | ← **你在这里** |
 | 2. 播放 | Media3 播放器、线路/剧集解析、换线路、进度记忆 | |
 | 3. 打磨 | 搜索、设置落地、动画精修、错误兜底 | |
 
@@ -21,8 +21,8 @@
 
 ```
 feature/   界面层：首页 / 播放器 / 设置     —— 只认 domain，不认任何实现
-domain/    领域层：Movie 模型 + MovieRepository 接口   —— 纯 Kotlin，零依赖
-data/      数据层：接口适配器（现在是内存演示数据）      —— 实现 domain 的接口
+domain/    领域层：Movie/MovieDetail 模型 + MovieRepository 接口   —— 纯 Kotlin，零依赖
+data/      数据层：苹果CMS 适配器 + 设置存储 + http 层   —— 实现 domain 的接口
 core/      地基：设计系统 / 焦点系统 / 通用组件
 ```
 
@@ -30,7 +30,7 @@ core/      地基：设计系统 / 焦点系统 / 通用组件
 
 | 约定 | 为什么 |
 |---|---|
-| UI 只认 `domain` 的 `Movie` / `MovieRepository` | 阶段 1 换真实在线接口时，UI 一行不用改，只改 DI 里的一行 |
+| UI 只认 `domain` 的 `Movie` / `MovieRepository` | 换片源格式（苹果CMS → 其它）只动 `data/` + DI 两处，UI 一行不用改（阶段 1 实测：首页组件零改动） |
 | 所有动画时长/曲线只从 `core/design/Motion.kt` 取 | 页面手感才会一致；"高级感"来自动效时机，不是库 |
 | 所有可点组件用 `Modifier.tvFocus(shape)` | 一行拿到统一焦点动效（放大 + 金边 + 回弹） |
 | 所有尺寸用 `rememberTvMetrics().dp()/.sp()` | 不同电视 dp 画布从 960x540 到 1920x1080 都有，按屏宽比例缩放才不翻车 |
@@ -51,6 +51,28 @@ core/      地基：设计系统 / 焦点系统 / 通用组件
 
 ---
 
+## 片源接入（阶段 1）：怎么用
+
+**应用不内置任何片源地址**（这是红线）。第一次装好后首页会显示一句引导，去「设置」填自己的接口地址即可。
+
+- 地址格式：`http://你的站点/api.php/provide/vod/`（苹果CMS V10 标准接口；不写 `http://` 会自动补）
+- 想先看界面长什么样：地址栏里填 `demo`，用内置演示数据（不联网）
+- 保存后首页自动重新加载，**不用重启应用**（地址变化是数据流的一部分）
+
+适配器处理掉的现实问题（都写在 `data/remote/`）：
+
+| 问题 | 处理 |
+|---|---|
+| 同一字段有的站返回数字、有的返回字符串 | 全部按 `JsonElement` 读再自己转（`asText/asInt/asDouble`） |
+| 老站点默认返回 XML | 每次请求显式带 `at=json` |
+| GBK 编码（还常谎报 utf-8） | 按字节读 → 严格 UTF-8 解不动就退 GB18030 |
+| 防盗链校验 UA / Referer | 统一伪装成浏览器 UA + 带站点根 Referer |
+| 图片是相对路径 | 按接口域名补成绝对地址 |
+| 简介是 HTML | 剥标签后再显示 |
+| 播放地址 `线路$$$线路` + `集名$地址#` | `parsePlaySources()` 解析成 `PlayLine/Episode`（阶段 2 直接用） |
+
+---
+
 ## 电视适配的关键决定（都是踩过坑的）
 
 | 决定 | 原因 |
@@ -58,7 +80,7 @@ core/      地基：设计系统 / 焦点系统 / 通用组件
 | `minSdk 24` / `targetSdk 28` | 电视能装 sdk23 的包 → 系统 API ≥ 23；navigation 2.10.2 硬性要求 minSdk ≥ 24。targetSdk 故意压低，避免高版本触发系统限制 |
 | `compileSdk 37` | 2026 年 AndroidX 在 AAR 元数据里强制要求 ≥ 37（只影响可用 API，不影响装机） |
 | 只出 `armeabi-v7a`（32 位） | 电视不支持 arm64，64 位包装上会崩 |
-| 零原生库（纯 Kotlin） | 没有 `.so` 就没有 ABI 兼容问题，构建脚本里有自动检查 |
+| 原生库只剩 2 个极小的（都带 v7a） | Compose 的 `libandroidx.graphics.path.so`（7KB）+ DataStore 的 `libdatastore_shared_counter.so`；`abiFilters` 保证只打 v7a，构建后有脚本自动检查 |
 | `usesCleartextTraffic=true` | 在线接口和视频源大量是 `http://`，不开会白屏 |
 | Leanback + 普通双入口 | 有些 TV 桌面只认其中一种，双保险 |
 | `android:required="false"`（leanback feature） | 万一电视不认这个 feature，required=true 会让图标从桌面消失 |
@@ -127,15 +149,22 @@ app/src/main/kotlin/com/ichichuang/cinema/
 ├── core/
 │   ├── design/                  # 色板 / 动效规范 / 电视尺寸适配 / 主题
 │   ├── focus/TvFocus.kt         # ⭐ 统一焦点系统
-│   └── ui/                      # 通用组件：海报卡 / 详情面板 / 播放按钮
+│   └── ui/                      # 通用组件：海报卡 / 海报图(Coil) / 详情面板 / 播放按钮
 ├── domain/
 │   ├── model/Movie.kt           # 干净的影片模型（不含任何接口字段）
-│   └── repository/MovieRepository.kt
-├── data/demo/                   # 阶段0 演示数据（阶段1 换成接口适配器）
+│   ├── model/MovieDetail.kt     # 详情：简介 + 播放线路/剧集
+│   └── repository/MovieRepository.kt   # + CATEGORY_ALL
+├── data/
+│   ├── remote/MaccmsApi.kt      # 苹果CMS V10 适配器（字段解析全在这）
+│   ├── remote/Http.kt           # OkHttp + UA/防盗链/GBK 处理
+│   ├── settings/CinemaSettings.kt  # DataStore：接口地址
+│   ├── MaccmsMovieRepository.kt # 接口 → 领域模型的翻译官
+│   ├── SwitchableMovieRepository.kt # 按设置路由：真实片源 / demo
+│   └── demo/                    # 内置演示数据（填 demo 时使用）
 ├── feature/
 │   ├── home/                    # 首页（含 ViewModel：单一状态源）
 │   ├── player/                  # 播放页（阶段2 接 Media3）
-│   └── settings/                # 设置页
+│   └── settings/                # 设置页（接口地址输入）
 ├── di/AppModule.kt              # 全应用唯一知道"实现是谁"的地方
 └── nav/CinemaNavHost.kt         # 路由 + 转场动效
 scripts/build-local.ps1          # 本地一键构建
@@ -157,5 +186,6 @@ keystore/release.jks             # 签名钥匙（私有仓库）
 | 报 `requires libraries and applications that depend on it to compile against version 37 or later` | 2026 年的 AndroidX（Compose 1.12.1、navigation 2.10.2、core-ktx 1.19.1）在 AAR 元数据里强制要求消费方 compileSdk ≥ 37 | `compileSdk = 37`（只影响可用 API，不影响装机兼容性） |
 | 报 `Your project path contains non-ASCII characters` | 项目目录是 `默认项目`（中文路径），AGP 在 Windows 上默认拒绝构建 | `gradle.properties` 里已开 `android.overridePathCheck=true` |
 | `gradlew` 卡在 `Downloading https://services.gradle.org/...` | 该地址 307 跳 `github.com`，而本机 `github.com:443` 不通 | 本机用独立 Gradle 分发 `C:\Users\cc\Tools\gradle-9.8.1`；仓库配置保持官方地址（CI 不受影响） |
+| 报 `Class was compiled with an incompatible version of Kotlin` / 2026 年的库读不了 | Coil 3.6.3 等库是用 Kotlin 2.4 编译的，而 AGP 9.4.1 内置的 KGP 是 2.2.10（旧编译器读不了新元数据） | 按 AGP 官方通道把 KGP 抬到 2.4.20：根 `build.gradle.kts` 里 `buildscript { dependencies { classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.20") } }`，同时 `kotlin.plugin.compose` 版本必须改成同一个 2.4.20 |
 | Koin 找不到 `androidContext` / `viewModel{}` | Koin 4.2 起 `koin-androidx-compose` 只有 8KB，不再传递依赖 `koin-android` | 两个依赖都显式写进 `build.gradle.kts` |
 | Actions 页面打不开、artifact 下不了 | 同上：本机 `github.com:443` 不通（SSH 推送是通的） | 用本地构建出包，云端只做备份 |
