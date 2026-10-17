@@ -70,23 +70,26 @@ class CinemaSettings(private val context: Context) {
         /**
          * 默认更新清单候选（**依次尝试，哪个能用用哪个**）。
          *
-         * ① GitHub release 附件 —— 发布方用 token 上传的那种，最"正规"。
-         *    走 objects.githubusercontent.com（实测可达）。
-         * ② 发布仓库里的文件，经 gh-proxy 转发 —— raw.githubusercontent.com 国内直连是死的，
-         *    所以走代理。零密钥发布路线用这条。
+         * ① gh-proxy 直通发布仓库里的 version.json —— 无缓存，**刚发完的版本立刻能看到**。
+         * ② 同一份文件走 jsDelivr —— 国内快且稳，但分支地址有 CDN 缓存（最多十几小时），
+         *    所以只当兜底、不当首选。
          *
-         * 两条指向同一个公开发布仓库。**换域名不用改应用** —— 这是把候选写成列表的原因：
+         * 为什么不是 GitHub release 附件：本工程的发布是**零密钥路线**
+         * （只用 git push，不需要任何 token），而 release 附件必须用 token 上传 ——
+         * 写在首选位置等于每次检查都先白撞一次 404。清单放在仓库根目录，git push 即生效。
+         *
+         * 两条指向同一个公开仓库。**换域名不用改应用** —— 这是把候选写成列表的原因：
          * 国内网络对 GitHub 各子域的通断经常变，写死一条迟早要重新发版来救。
          */
         val DEFAULT_UPDATE_URLS = listOf(
-            "https://github.com/ichichuang/cinema-tv-releases/releases/latest/download/version.json",
             "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/main/version.json",
+            "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@main/version.json",
         )
 
         /** 设置页里显示的默认值（第一条） */
         val DEFAULT_UPDATE_URL: String get() = DEFAULT_UPDATE_URLS.first()
 
         /** 设置页里的更新地址示例（用户换成自己的仓库 / 镜像就照这个格式） */
-        const val UPDATE_PLACEHOLDER = "https://github.com/你的账号/你的仓库/releases/latest/download/version.json"
+        const val UPDATE_PLACEHOLDER = "https://gh-proxy.com/https://raw.githubusercontent.com/你的账号/你的仓库/main/version.json"
     }
 }

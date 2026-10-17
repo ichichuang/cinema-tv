@@ -438,3 +438,5 @@ keystore/release.jks             # 签名钥匙（私有仓库）
 | 给 `CircularProgressIndicator` 包 `AnimatedVisibility` 后编译不过（`align` 找不到） | `Modifier.align` 是 `BoxScope` 的，被 `AnimatedVisibility` 隔断后就不在作用域里了 | `align` 挪到 `AnimatedVisibility` 自己的 `modifier` 上（它本身还在 Box 里）；顺便记牢：`slideInVertically` 一个参数时是**位移量**，`{ it / 5 }` 是"五分之一屏" |
 | 报 `Unresolved reference 'animateColorAsState'` | 它在 `androidx.compose.animation`，不在 `androidx.compose.animation.core` | 改 import（`animateFloatAsState` 才在 `.core`） |
 | 提示条/错误面板消失时，淡出动画"没内容可淡" | 可见性由 `state.hint != null` 驱动，等它变 null 时文案也没了 | 留住最后一句（`lastHint`）；**在 `LaunchedEffect` 里写**而不是组合期直接赋值 —— 组合期写状态是反模式 |
+| 刚发的版本，浏览器/电视里查到的还是旧清单 | `raw.githubusercontent.com` 走 Fastly CDN，**分支地址有 1~5 分钟缓存**（gh-proxy 只是转发，不会绕过这层）；jsDelivr 的分支缓存更久（十几小时） | 发布后等 1~5 分钟再验证；因此清单首选 gh-proxy（短缓存），jsDelivr 只当兜底；APK 链接用 **tag** 固定（内容永不改变，缓存反而是优点） |
+| 发布脚本在**空仓库**上第一次跑就失败（推不上 / 提交被拒） | ① 空仓库 clone 下来本地是未出生的 `master`，而应用地址写的是 `main/version.json`；② 主仓库的 `user.name/email` 是 **repo-local** 的，新克隆里没有，提交会因"作者未知"失败 | 先在发布仓库里建 `main`（`git clone … && git switch -c main`），并在该副本里设一次 `user.name` / `user.email`；顺带把主仓库那条 `core.sshcommand`（指定非默认文件名的 SSH key）也复制过去，否则推送认证不过 |
