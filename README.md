@@ -13,7 +13,8 @@
 | **0.5 地基** | 设计系统 / 焦点系统 / 四层架构 / 导航 / 依赖注入 | ✅ 完成 |
 | **1. 数据** | 接在线影视接口（苹果CMS V10 标准格式）+ 真实海报 | ✅ 完成 |
 | **2. 播放** | Media3 播放器、线路/剧集解析、换线路、进度记忆 | ✅ 完成 |
-| **2.5 筛选** | 分类/语言/地区/年份筛选（**默认国语**）+ 交错入场动画 + 空结果兜底 | ← **你在这里** |
+| **2.5 筛选** | 分类/语言/地区/年份筛选（**默认国语**）+ 交错入场动画 + 空结果兜底 | ✅ 完成 |
+| **2.6 在线更新** | 应用内检查新版本 + 下载 + 校验签名 + 一键安装（+ 设置页可换更新地址） | ← **你在这里** |
 | 3. 打磨 | 搜索、设置落地、动画精修、错误兜底 | |
 
 ---
@@ -142,6 +143,64 @@ core/      地基：设计系统 / 焦点系统 / 通用组件
 
 ---
 
+## 在线更新（阶段 2.6）：能"应用内升级"，但不能"静默升级"
+
+先说清楚**能力边界**，免得期望错位：
+
+| 环节 | 能不能做到 | 说明 |
+|---|---|---|
+| 检查新版本 | ✅ 全自动 | 启动时悄悄问一次；查到只在首页右上角亮一个金色小金标，不弹窗 |
+| 下载新包 | ✅ 全自动 | 带进度条；主地址失败了自动换镜像地址重试 |
+| 安装 | ⚠️ 差一下遥控器 | 系统安装界面会弹出来，按一次「安装」。**这不是没做，是安卓不允许** —— 侧载应用没有系统权限，非 root 电视上做不到全静默 |
+
+**为什么要做签名校验**（`GitHubUpdater.verify()`）：
+更新地址是用户可改的，也就意味着它可以被换成一个恶意地址。所以下载完必须过三道关，
+任何一道不过就直接删文件报错：**包名一致 + 版本号一致 + 签名指纹和当前应用一致**。
+少了这三道，所谓"在线更新"就是个自己给自己装木马的通道。
+
+**更新地址是设置项，不是写死的**（和片源地址同一个原则）：
+
+```
+默认：https://github.com/ichichuang/cinema-tv-releases/releases/latest/download/version.json
+```
+
+电视连不上 GitHub 时，在设置页把它换成镜像地址即可（例如 `https://gh-proxy.com/<原地址>`），
+换完立刻能继续收更新，**不用重装应用**。
+
+**清单格式**（`update/version.json`，发布脚本生成）：
+
+```json
+{
+  "versionCode": 6,
+  "versionName": "0.6.0",
+  "apkUrl": "https://github.com/<用户>/<发布仓库>/releases/download/v0.6.0/cinema-tv-0.6.0.apk",
+  "sizeBytes": 14000000,
+  "notes": "1. ...\n2. ...",
+  "mirrorUrl": "https://gh-proxy.com/<上面的 apkUrl>"
+}
+```
+
+字段名宽容：`versionCode / version_code / code`、`apkUrl / apk_url / url / download_url` 都认。
+
+**发布流程**（我这边的动作，一条命令）：
+
+```powershell
+.\scripts\publish-update.ps1 -VersionName 0.6.0 -VersionCode 6
+```
+
+它做三件事：找 APK → 生成 `update/version.json`（更新说明读 `update/notes.txt`）→
+用 GitHub API 建 release 并把 **APK + version.json** 两个文件作为附件上传。
+
+> ⚠️ **为什么必须走 release 附件，而不是仓库里的文件**：
+> 仓库文件的下载域名是 `raw.githubusercontent.com` —— 国内连不上（实测超时）。
+> 而 release 附件的下载域名是 `objects.githubusercontent.com` —— 实测可达。
+> 这是"挂哪个域名"决定成败的地方，不是风格问题。
+>
+> 另外：发布仓库必须是 **public**（私有仓库下载要带 token，把 token 打进应用里等于泄露），
+> 主仓库继续私有（里面有签名钥匙）。这也是为什么另开一个 `cinema-tv-releases` 仓库。
+
+---
+
 ## 电视适配的关键决定（都是踩过坑的）
 
 | 决定 | 原因 |
@@ -175,14 +234,21 @@ core/      地基：设计系统 / 焦点系统 / 通用组件
 cd C:\Users\cc\Documents\默认项目\cinema-tv
 .\scripts\build-local.ps1          # 编译 release APK
 .\scripts\check-apk.ps1            # 红线检查（ABI / minSdk / Leanback 入口 / 体积）
+.\scripts\publish-update.ps1 -VersionName 0.6.0 -VersionCode 6   # 发在线更新（可选）
 ```
 
 编完 APK 路径会打印在最后一行（`app\build\outputs\apk\release\app-release.apk`），
 拷进 U 盘插电视安装即可。
 
-> **网络说明**：这台机器 `github.com:443` 不通（SSH 正常，所以推送没问题）。
-> Gradle 官方分发地址会 307 跳到 github.com，所以本机用的是从镜像下好的独立 Gradle 分发，
-> 仓库里的 `gradle-wrapper.properties` 保持官方地址不变（云端构建不受影响）。
+> **网络说明**（2026-10 实测，纠正过一版错误结论）：
+> - `github.com` / `api.github.com` **能连**，但 Windows 的 curl 会因连不上证书吊销服务器
+>   误报 `CRYPT_E_REVOCATION_OFFLINE` —— 加 `--ssl-no-revoke` 就通了。
+>   安卓的 OkHttp 不做吊销检查，所以电视那边不受影响。
+> - `raw.githubusercontent.com` **真的连不上**（这个是真被墙）→ 所以更新包必须走 release 附件。
+> - `objects.githubusercontent.com`（release 附件下载域名）**能连** ✓
+> - `gh-proxy.com`（GitHub 加速镜像）**能连** ✓，留作镜像方案
+> - Gradle 官方分发地址会 307 跳到 github.com，所以本机用的是从镜像下好的独立 Gradle 分发，
+>   仓库里的 `gradle-wrapper.properties` 保持官方地址不变（云端构建不受影响）。
 
 ### 方式 B：云端构建（备份 / 换电脑也能出包）
 
@@ -223,26 +289,33 @@ app/src/main/kotlin/com/ichichuang/cinema/
 │   ├── model/Movie.kt           # 干净的影片模型（不含任何接口字段）
 │   ├── model/MovieDetail.kt     # 详情：简介 + 播放线路/剧集
 │   ├── model/MovieFilter.kt     # 筛选条件 + 分页结果（含"被放宽"标记）
+│   ├── model/UpdateInfo.kt      # 新版本信息（版本号/下载地址/更新说明/镜像地址）
 │   ├── repository/MovieRepository.kt   # + Categories/Options（分类与筛选项）
-│   └── repository/FilterStore.kt       # 筛选记忆接口（实现放 data）
+│   ├── repository/FilterStore.kt       # 筛选记忆接口（实现放 data）
+│   └── repository/Updater.kt           # 在线更新接口（实现放 data）
 ├── data/
 │   ├── remote/MaccmsApi.kt      # 苹果CMS V10 适配器（字段解析 + lang/area/year 参数）
 │   ├── remote/Http.kt           # OkHttp + UA/防盗链/GBK 处理
-│   ├── settings/CinemaSettings.kt   # DataStore：接口地址
+│   ├── update/GitHubUpdater.kt  # 读 version.json + 下载 APK + 包名/版本/签名三道校验
+│   ├── settings/CinemaSettings.kt   # DataStore：接口地址 + 更新地址
 │   ├── settings/PlaybackProgress.kt # DataStore：观看进度（看到哪了）
 │   ├── settings/DataStoreFilterStore.kt # DataStore：筛选记忆（默认国语）
 │   ├── MaccmsMovieRepository.kt # 接口 → 领域模型 + **三层筛选降级**
 │   ├── SwitchableMovieRepository.kt # 按设置路由：真实片源 / demo
 │   └── demo/                    # 内置演示数据（填 demo 时使用，筛选行为跟真实实现一致）
 ├── feature/
-│   ├── home/                    # 首页（筛选区 + 海报墙 + 常驻详情）
+│   ├── home/                    # 首页（筛选区 + 海报墙 + 常驻详情 + 新版本小金标）
 │   ├── player/                  # 播放页：PlayerViewModel(ExoPlayer) + PlayerScreen + 选集面板
-│   └── settings/                # 设置页（接口地址输入）
+│   ├── settings/                # 设置页（接口地址 / 更新地址 / 检查更新）
+│   └── update/                  # 更新中枢(UpdateCenter) + 更新浮层(下载进度/安装引导)
 ├── di/AppModule.kt              # 全应用唯一知道"实现是谁"的地方
 └── nav/CinemaNavHost.kt         # 路由 + 转场动效
 scripts/build-local.ps1          # 本地一键构建
 scripts/check-apk.ps1            # 本地红线检查（Windows）
 scripts/check-apk.sh             # 构建后红线检查（CI）
+scripts/publish-update.ps1       # 发布在线更新（生成清单 + 上传 release 附件）
+update/notes.txt                 # 本次版本的更新说明（发布时写进清单）
+update/version.json              # 已发布的清单（发布脚本生成，仓库里留档）
 .github/workflows/build.yml      # 云端构建流水线
 keystore/release.jks             # 签名钥匙（私有仓库）
 ```
@@ -263,3 +336,6 @@ keystore/release.jks             # 签名钥匙（私有仓库）
 | 报 `Class was compiled with an incompatible version of Kotlin` / 2026 年的库读不了 | Coil 3.6.3 等库是用 Kotlin 2.4 编译的，而 AGP 9.4.1 内置的 KGP 是 2.2.10（旧编译器读不了新元数据） | 按 AGP 官方通道把 KGP 抬到 2.4.20：根 `build.gradle.kts` 里 `buildscript { dependencies { classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.20") } }`，同时 `kotlin.plugin.compose` 版本必须改成同一个 2.4.20 |
 | Koin 找不到 `androidContext` / `viewModel{}` | Koin 4.2 起 `koin-androidx-compose` 只有 8KB，不再传递依赖 `koin-android` | 两个依赖都显式写进 `build.gradle.kts` |
 | Actions 页面打不开、artifact 下不了 | 同上：本机 `github.com:443` 不通（SSH 推送是通的） | 用本地构建出包，云端只做备份 |
+| curl 报 `schannel: CRYPT_E_REVOCATION_OFFLINE`（连 github.com / api.github.com 时） | Windows 的 curl 走系统证书链，会去连**证书吊销列表服务器**，那个服务器在这边连不上 → 误报"证书不可用"。**不是墙**（TCP 探测是通的） | 加 `--ssl-no-revoke` 即可。安卓的 OkHttp 不做吊销检查，所以**电视端的更新检查不受这个影响** —— 差点因为这条误判放弃在线更新 |
+| 更新包挂在仓库里（`raw` 路径）却下载失败 | `raw.githubusercontent.com` 在国内是真的连不上 | 走 release 附件（`objects.githubusercontent.com`，实测可通）；清单里再留一条 `mirrorUrl` 兜底 |
+| 侧载应用想做"静默自动升级" | 安卓不允许非系统应用静默安装（`PackageInstaller` 的 `setRequireUserAction(false)` 对侧载应用无效） | 老实做"应用内下载 + 系统安装界面 + 遥控器确认一次"，并把这一步如实写进界面文案 |

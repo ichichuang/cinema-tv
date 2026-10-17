@@ -21,8 +21,10 @@ android {
         minSdk = 24
         // 故意压低：老 TV 系统对高 targetSdk 会加限制（如实测被拦）
         targetSdk = 28
-        versionCode = 4
-        versionName = "0.4.0"
+        // ⚠️ 每次发布会话都要 +1 且 versionName 跟着升 —— 在线更新靠 versionCode 判新旧，
+        //    忘了加就会出现"下载了新版却提示已是最新"的怪事。
+        versionCode = 5
+        versionName = "0.5.0"
 
         // 只出 32 位，和 FFALCON 65S78A（armeabi-v7a）匹配
         ndk {

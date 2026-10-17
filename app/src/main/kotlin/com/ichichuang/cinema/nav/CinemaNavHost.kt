@@ -15,6 +15,7 @@ import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.feature.home.HomeScreen
 import com.ichichuang.cinema.feature.player.PlayerScreen
 import com.ichichuang.cinema.feature.settings.SettingsScreen
+import com.ichichuang.cinema.feature.update.UpdateCenter
 
 /**
  * 全部路由。只有 3 个页面 —— 这是刻意的：
@@ -33,9 +34,12 @@ private object Routes {
 /**
  * 导航图。转场用统一的动效规范：
  * 进入 = 淡入 + 轻微右移推入（Apple TV 式的"翻页感"），退出 = 快速淡出。
+ *
+ * [updateCenter] 从 Activity 传进来（而不是在页面里各自去 Koin 取）：
+ * 首页和设置页必须共享同一份更新状态，显式传参最不容易出错。
  */
 @Composable
-fun CinemaNavHost() {
+fun CinemaNavHost(updateCenter: UpdateCenter) {
     val nav = rememberNavController()
 
     NavHost(
@@ -50,11 +54,15 @@ fun CinemaNavHost() {
             HomeScreen(
                 onPlay = { movie -> nav.navigate(Routes.player(movie)) },
                 onOpenSettings = { nav.navigate(Routes.SETTINGS) },
+                updateCenter = updateCenter,
             )
         }
 
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = { nav.popBackStack() })
+            SettingsScreen(
+                onBack = { nav.popBackStack() },
+                updateCenter = updateCenter,
+            )
         }
 
         composable(

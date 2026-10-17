@@ -97,6 +97,18 @@ if ($aapt2 -and (Test-Path $aapt2)) {
     } else {
         Write-Output '! 没读到横幅图：部分 TV 桌面会显示成灰块'
     }
+
+    # 在线更新：安装权限 + FileProvider（少了任何一个，应用内升级都装不上）
+    # FileProvider 的 paths 资源也要在包里，否则运行时才炸（属于"上线后才发现"那类错）
+    $hasInstallPerm = ($out | Select-String 'REQUEST_INSTALL_PACKAGES' -List)
+    $manifestTree = & $aapt2 dump xmltree --file AndroidManifest.xml $ApkPath 2>&1
+    $hasProvider = ($manifestTree | Select-String 'androidx.core.content.FileProvider' -List)
+    if ($hasInstallPerm -and $hasProvider) {
+        Write-Output '✓ 在线更新已就位（REQUEST_INSTALL_PACKAGES + FileProvider）'
+    } else {
+        if (-not $hasInstallPerm) { Write-Output '! 没有 REQUEST_INSTALL_PACKAGES：在线更新装不上'; $fail = 1 }
+        if (-not $hasProvider)    { Write-Output '! 没有 FileProvider：安装界面打不开'; $fail = 1 }
+    }
 } else {
     Write-Output '（build-tools 未安装，跳过清单检查）'
 }

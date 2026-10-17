@@ -8,11 +8,14 @@ import com.ichichuang.cinema.data.remote.buildHttpClient
 import com.ichichuang.cinema.data.settings.CinemaSettings
 import com.ichichuang.cinema.data.settings.DataStoreFilterStore
 import com.ichichuang.cinema.data.settings.PlaybackProgress
+import com.ichichuang.cinema.data.update.GitHubUpdater
 import com.ichichuang.cinema.domain.repository.FilterStore
 import com.ichichuang.cinema.domain.repository.MovieRepository
+import com.ichichuang.cinema.domain.repository.Updater
 import com.ichichuang.cinema.feature.home.HomeViewModel
 import com.ichichuang.cinema.feature.player.PlayerViewModel
 import com.ichichuang.cinema.feature.settings.SettingsViewModel
+import com.ichichuang.cinema.feature.update.UpdateCenter
 import kotlinx.serialization.json.Json
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
@@ -46,6 +49,14 @@ val appModule = module {
     single<MovieRepository> {
         SwitchableMovieRepository(settings = get(), remote = get(), demo = get())
     }
+
+    // ── 在线更新 ─────────────────────────────────────────────
+    single<Updater> { GitHubUpdater(context = androidContext(), http = get(), json = get(), settings = get()) }
+    /**
+     * 单例而不是 viewModel：首页（金标 + 浮层）和设置页（检查更新）必须共享同一份状态。
+     * 各建一个 ViewModel 会出现"首页说没新版、设置页说有新版"的鬼故事。
+     */
+    single { UpdateCenter(context = androidContext(), updater = get()) }
 
     // ── 页面 ─────────────────────────────────────────────────
     viewModel { HomeViewModel(repository = get(), progress = get(), filterStore = get()) }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider 能对外暴露的路径白名单。
+  只开一个 update/ 目录：下载好的新版本 APK 就放在这里，别的一律不给。
+  cacheDir 是主用的（应用缓存，系统空间紧张时会被回收 —— 更新包无所谓，重下即可）。
+-->
+<paths>
+    <cache-path
+        name="update_cache"
+        path="update/" />
+    <external-cache-path
+        name="update_external_cache"
+        path="update/" />
+</paths>

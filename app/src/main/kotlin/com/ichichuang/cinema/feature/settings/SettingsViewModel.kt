@@ -18,6 +18,11 @@ data class SettingsUiState(
     val draft: String = "",
     /** 刚保存成功（显示 2 秒的"已保存"） */
     val justSaved: Boolean = false,
+
+    /** 更新地址：同上三个字段，各管各的 */
+    val updateSaved: String = "",
+    val updateDraft: String = "",
+    val justSavedUpdate: Boolean = false,
 )
 
 class SettingsViewModel(private val settings: CinemaSettings) : ViewModel() {
@@ -30,6 +35,14 @@ class SettingsViewModel(private val settings: CinemaSettings) : ViewModel() {
             settings.apiBase.collect { addr ->
                 // 输入框为空时才同步已保存的值，避免打断正在输入的用户
                 _state.update { if (it.draft.isBlank()) it.copy(saved = addr, draft = addr) else it.copy(saved = addr) }
+            }
+        }
+        viewModelScope.launch {
+            settings.updateUrl.collect { url ->
+                _state.update {
+                    if (it.updateDraft.isBlank()) it.copy(updateSaved = url, updateDraft = url)
+                    else it.copy(updateSaved = url)
+                }
             }
         }
     }
@@ -50,6 +63,28 @@ class SettingsViewModel(private val settings: CinemaSettings) : ViewModel() {
         viewModelScope.launch {
             settings.setApiBase("")
             _state.update { it.copy(draft = "", saved = "") }
+        }
+    }
+
+    fun onUpdateDraftChange(value: String) = _state.update { it.copy(updateDraft = value) }
+
+    fun saveUpdate() {
+        val value = _state.value.updateDraft
+        viewModelScope.launch {
+            settings.setUpdateUrl(value)
+            _state.update { it.copy(justSavedUpdate = true) }
+            delay(2000)
+            _state.update { it.copy(justSavedUpdate = false) }
+        }
+    }
+
+    /** 恢复默认更新地址（等于"我从没改过"，存空串） */
+    fun resetUpdate() {
+        viewModelScope.launch {
+            settings.setUpdateUrl(CinemaSettings.DEFAULT_UPDATE_URL)
+            _state.update {
+                it.copy(updateDraft = CinemaSettings.DEFAULT_UPDATE_URL, updateSaved = CinemaSettings.DEFAULT_UPDATE_URL)
+            }
         }
     }
 }

@@ -3,6 +3,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- 在线更新要下载新版本 APK 并交给系统安装。
+         Android 8 以上必须在清单里声明这个权限，否则连"安装未知应用"的授权页都进不去。
+         注意：**声明了也做不到静默安装** —— 安装界面那一次遥控器确认是系统强制的。 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <!-- 声明 TV 支持：required 故意设 false。原因：
          如果电视系统不认这个 feature，required=true 会让应用在桌面直接消失。
          required=false 仍会被 TV 桌面识别为电视应用（因为有 LEANBACK_LAUNCHER 类别）。 -->
@@ -39,6 +44,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 在线更新：把下载好的 APK 交给系统安装，必须走 content:// 临时授权。
+             直接给系统 file:// 路径，Android 7 以上会抛 FileUriExposedException。 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

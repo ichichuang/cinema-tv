@@ -1,11 +1,16 @@
 package com.ichichuang.cinema.feature.home
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -45,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
@@ -68,6 +74,8 @@ import com.ichichuang.cinema.domain.model.MovieFilter
 import com.ichichuang.cinema.domain.repository.AREA_OPTIONS
 import com.ichichuang.cinema.domain.repository.FILTER_ALL
 import com.ichichuang.cinema.domain.repository.LANG_OPTIONS
+import com.ichichuang.cinema.feature.update.UpdateCenter
+import com.ichichuang.cinema.feature.update.UpdateOverlay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.koin.androidx.compose.koinViewModel
@@ -85,9 +93,11 @@ import org.koin.androidx.compose.koinViewModel
 fun HomeScreen(
     onPlay: (Movie) -> Unit,
     onOpenSettings: () -> Unit,
+    updateCenter: UpdateCenter,
     viewModel: HomeViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val updateState by updateCenter.state.collectAsState()
     val m = rememberTvMetrics()
     val screenW = LocalConfiguration.current.screenWidthDp
     val panelWidth: Dp = (screenW * 0.30f).dp
@@ -95,22 +105,33 @@ fun HomeScreen(
     // 从播放器回到首页时刷一次进度：按钮会变成"继续观看 12:34"
     LaunchedEffect(Unit) { viewModel.refreshSelectedProgress() }
 
+    // 起来先悄悄问一句有没有新版本（查不到就当没这回事，绝不打扰）
+    LaunchedEffect(Unit) { updateCenter.checkSilently() }
+
     Box(
         Modifier
             .fillMaxSize()
             .background(Ink)
     ) {
-        Column(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                // 更新浮层打开时，把底下整屏的焦点都关掉 ——
+                // 否则遥控器按方向键会"透过"浮层跑到海报墙上，用户会以为遥控器坏了
+                .then(if (updateState.panelOpen) Modifier.focusProperties { canFocus = false } else Modifier)
+        ) {
             Header(
                 categories = state.categories,
                 filter = state.filter,
                 total = state.total,
                 relaxedNote = state.relaxedNote,
                 yearOptions = state.yearOptions,
+                updateVersion = updateState.info?.versionName,
                 onCategory = viewModel::selectCategory,
                 onLang = viewModel::selectLang,
                 onArea = viewModel::selectArea,
                 onYear = viewModel::selectYear,
+                onOpenUpdate = updateCenter::openPanel,
                 onOpenSettings = onOpenSettings,
             )
             PosterGrid(
@@ -146,6 +167,16 @@ fun HomeScreen(
                     .width(panelWidth),
             )
         }
+
+        // 更新浮层盖在整屏之上（打开时压暗背景，注意力收在卡片上）
+        UpdateOverlay(
+            state = updateState,
+            currentVersionName = updateCenter.currentVersionName,
+            onDownload = updateCenter::download,
+            onDismiss = updateCenter::closePanel,
+            onInstallLaunched = updateCenter::onInstallLaunched,
+            onInstallFailed = updateCenter::onInstallFailed,
+        )
     }
 }
 
@@ -158,10 +189,12 @@ private fun Header(
     total: Int,
     relaxedNote: String?,
     yearOptions: List<String>,
+    updateVersion: String?,
     onCategory: (String) -> Unit,
     onLang: (String) -> Unit,
     onArea: (String) -> Unit,
     onYear: (String) -> Unit,
+    onOpenUpdate: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val m = rememberTvMetrics()
@@ -197,6 +230,22 @@ private fun Header(
             }
 
             Spacer(Modifier.width(m.dp(16f)))
+            // 发现新版本时的小金标：不弹窗、不遮内容，用户好奇才点
+            // 用"横向展开 + 淡入"而不是缩放：旁边还有"设置"药丸，展开动画才不会让它跳位
+            AnimatedVisibility(
+                visible = updateVersion != null,
+                enter = expandHorizontally(expandFrom = Alignment.Start, animationSpec = Motion.base()) + fadeIn(Motion.base()),
+                exit = shrinkHorizontally(shrinkTowards = Alignment.Start, animationSpec = Motion.quick()) + fadeOut(Motion.quick()),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(
+                        label = "新版本 ${updateVersion.orEmpty()}",
+                        selected = true,
+                        onClick = onOpenUpdate,
+                    )
+                    Spacer(Modifier.width(m.dp(12f)))
+                }
+            }
             FilterChip(label = "设置", selected = false, onClick = onOpenSettings)
         }
 

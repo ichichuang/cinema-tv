@@ -15,3 +15,7 @@ captures/
 # JVM / Gradle 崩溃日志（出现过一次，别让它进仓库）
 hs_err_pid*.log
 replay_pid*.log
+
+# GitHub 发布 token（绝不能进仓库；放 %USERPROFILE%\.github_token）
+.github_token
+github_token.txt
