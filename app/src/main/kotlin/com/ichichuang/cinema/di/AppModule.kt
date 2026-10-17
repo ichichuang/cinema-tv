@@ -6,7 +6,9 @@ import com.ichichuang.cinema.data.demo.DemoMovieRepository
 import com.ichichuang.cinema.data.remote.MaccmsApi
 import com.ichichuang.cinema.data.remote.buildHttpClient
 import com.ichichuang.cinema.data.settings.CinemaSettings
+import com.ichichuang.cinema.data.settings.DataStoreFilterStore
 import com.ichichuang.cinema.data.settings.PlaybackProgress
+import com.ichichuang.cinema.domain.repository.FilterStore
 import com.ichichuang.cinema.domain.repository.MovieRepository
 import com.ichichuang.cinema.feature.home.HomeViewModel
 import com.ichichuang.cinema.feature.player.PlayerViewModel
@@ -25,6 +27,8 @@ val appModule = module {
     // ── 基础设施 ─────────────────────────────────────────────
     single { CinemaSettings(androidContext()) }
     single { PlaybackProgress(androidContext()) }
+    /** 筛选记忆：默认国语，用户改过就记住他改的 */
+    single<FilterStore> { DataStoreFilterStore(androidContext()) }
     single { buildHttpClient() }
     single {
         Json {
@@ -44,7 +48,7 @@ val appModule = module {
     }
 
     // ── 页面 ─────────────────────────────────────────────────
-    viewModel { HomeViewModel(get(), get()) }
+    viewModel { HomeViewModel(repository = get(), progress = get(), filterStore = get()) }
     viewModel { SettingsViewModel(get()) }
     // 播放器要 Context 建 ExoPlayer —— 用 application context，不会漏 Activity
     viewModel { PlayerViewModel(repository = get(), progress = get(), context = androidContext()) }

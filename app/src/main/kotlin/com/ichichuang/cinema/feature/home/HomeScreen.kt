@@ -2,6 +2,7 @@ package com.ichichuang.cinema.feature.home
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -35,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,7 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -53,14 +55,19 @@ import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.Motion
 import com.ichichuang.cinema.core.design.Panel
-import com.ichichuang.cinema.core.design.PanelHi
 import com.ichichuang.cinema.core.design.TextMain
 import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.design.rememberTvMetrics
 import com.ichichuang.cinema.core.focus.tvFocus
 import com.ichichuang.cinema.core.ui.DetailPanel
+import com.ichichuang.cinema.core.ui.FilterChip
+import com.ichichuang.cinema.core.ui.FilterGroup
 import com.ichichuang.cinema.core.ui.PosterCard
 import com.ichichuang.cinema.domain.model.Movie
+import com.ichichuang.cinema.domain.model.MovieFilter
+import com.ichichuang.cinema.domain.repository.AREA_OPTIONS
+import com.ichichuang.cinema.domain.repository.FILTER_ALL
+import com.ichichuang.cinema.domain.repository.LANG_OPTIONS
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.koin.androidx.compose.koinViewModel
@@ -68,8 +75,11 @@ import org.koin.androidx.compose.koinViewModel
 /**
  * 首页 —— 一屏搞定一切。
  *
- * 布局：顶部筛选条 + 左侧海报墙 + 右侧常驻详情。
- * 遥控器：左右切换分类，上下进海报墙，OK 直接播放。
+ * 布局：筛选区（两行）+ 左侧海报墙 + 右侧常驻详情。
+ * 遥控器：左右切筛选/分类（焦点自动跟随滚动），上下进海报墙，OK 直接播放。
+ *
+ * 筛选设计：分类（接口自动生成）+ 语言 + 地区 + 年份 三个可选维度，
+ * 默认只看国语（用户改过就记住他改的）。
  */
 @Composable
 fun HomeScreen(
@@ -92,15 +102,22 @@ fun HomeScreen(
     ) {
         Column(Modifier.fillMaxSize()) {
             Header(
-                category = state.category,
                 categories = state.categories,
+                filter = state.filter,
+                total = state.total,
+                relaxedNote = state.relaxedNote,
+                yearOptions = state.yearOptions,
                 onCategory = viewModel::selectCategory,
+                onLang = viewModel::selectLang,
+                onArea = viewModel::selectArea,
+                onYear = viewModel::selectYear,
                 onOpenSettings = onOpenSettings,
             )
             PosterGrid(
                 movies = state.movies,
                 loading = state.loading,
                 endReached = state.endReached,
+                generation = state.gridGeneration,
                 endPadding = panelWidth + m.dp(28f),
                 needsSetup = state.needsSetup,
                 error = state.error,
@@ -109,6 +126,7 @@ fun HomeScreen(
                 onNearEnd = viewModel::onVisibleIndexChanged,
                 onOpenSettings = onOpenSettings,
                 onRetry = viewModel::retry,
+                onResetFilters = viewModel::resetFilters,
             )
         }
 
@@ -131,93 +149,135 @@ fun HomeScreen(
     }
 }
 
-// ── 顶栏 ─────────────────────────────────────────────────────
+// ── 顶部：品牌 + 分类（接口自动生成）+ 三个筛选维度 ─────────────
 
 @Composable
 private fun Header(
-    category: String,
     categories: List<String>,
+    filter: MovieFilter,
+    total: Int,
+    relaxedNote: String?,
+    yearOptions: List<String>,
     onCategory: (String) -> Unit,
+    onLang: (String) -> Unit,
+    onArea: (String) -> Unit,
+    onYear: (String) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val m = rememberTvMetrics()
-    Row(
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = m.dp(48f), end = m.dp(48f), top = m.dp(30f), bottom = m.dp(16f)),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(start = m.dp(48f), end = m.dp(48f), top = m.dp(26f), bottom = m.dp(8f)),
     ) {
-        Text(
-            text = "极简影院",
-            color = TextMain,
-            fontSize = m.sp(30f),
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.width(m.dp(32f)))
+        // 第一行：品牌 + 分类 + 设置
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "极简影院",
+                color = TextMain,
+                fontSize = m.sp(28f),
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.width(m.dp(26f)))
 
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .horizontalScroll(rememberScrollState()),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            categories.forEach { c ->
-                Chip(
-                    label = c,
-                    selected = c == category,
-                    onSelect = { onCategory(c) },
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FilterGroup(
+                    title = "",
+                    options = categories,
+                    selected = filter.category,
+                    onSelect = onCategory,
+                    big = true,
                 )
             }
+
+            Spacer(Modifier.width(m.dp(16f)))
+            FilterChip(label = "设置", selected = false, onClick = onOpenSettings)
         }
 
-        Chip(label = "设置", selected = false, onSelect = onOpenSettings)
+        Spacer(Modifier.height(m.dp(12f)))
+
+        // 第二行：语言 / 地区 / 年份（左，可滚动）+ 当前筛选摘要（右，固定）
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FilterGroup(
+                    title = "语言",
+                    options = LANG_OPTIONS,
+                    selected = filter.lang.ifBlank { FILTER_ALL },
+                    onSelect = onLang,
+                )
+                FilterGroup(
+                    title = "地区",
+                    options = AREA_OPTIONS,
+                    selected = filter.area.ifBlank { FILTER_ALL },
+                    onSelect = onArea,
+                    dividerBefore = true,
+                )
+                FilterGroup(
+                    title = "年份",
+                    options = yearOptions,
+                    selected = filter.year.ifBlank { FILTER_ALL },
+                    onSelect = onYear,
+                    dividerBefore = true,
+                )
+            }
+
+            Spacer(Modifier.width(m.dp(20f)))
+            FilterSummary(filter = filter, total = total)
+        }
+
+        // 筛条件被放宽时的说明（只在真发生时出现，平时不占地方）
+        relaxedNote?.let { note ->
+            Spacer(Modifier.height(m.dp(10f)))
+            Text(
+                text = note,
+                color = Gold.copy(alpha = 0.85f),
+                fontSize = m.sp(14f),
+                maxLines = 1,
+            )
+        }
     }
 }
 
+/** 当前筛选摘要："国语 · 大陆 · 共 128 部"（没有可说的就不显示，不摆废字） */
 @Composable
-private fun Chip(label: String, selected: Boolean, onSelect: () -> Unit) {
+private fun FilterSummary(filter: MovieFilter, total: Int) {
     val m = rememberTvMetrics()
-    var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(50)
-    val bg = when {
-        selected -> Gold
-        focused -> PanelHi
-        else -> Panel
+    val parts = buildList {
+        addAll(filter.activeParts)
+        if (total > 0) add("共 $total 部")
     }
-    val fg = when {
-        selected -> Ink
-        focused -> TextMain
-        else -> TextSub
-    }
-
-    Box(
-        modifier = Modifier
-            .padding(start = m.dp(12f))
-            .clip(shape)
-            .background(bg)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-            ) { onSelect() }
-            .onFocusChanged { focused = it.isFocused }
-            .padding(horizontal = m.dp(24f), vertical = m.dp(12f)),
-    ) {
-        Text(
-            text = label,
-            color = fg,
-            fontSize = m.sp(19f),
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-        )
-    }
+    if (parts.isEmpty()) return
+    Text(
+        text = parts.joinToString("  ·  "),
+        color = TextSub,
+        fontSize = m.sp(15f),
+        maxLines = 1,
+    )
 }
 
 // ── 海报墙 ───────────────────────────────────────────────────
+
+/** 交错入场：每张延 30ms；只给前 12 张做（32 位电视不值当为第 20 张算动画） */
+private const val ANIM_STAGGER_MS = 30L
+private const val ANIM_MAX_ITEMS = 12
 
 @Composable
 private fun PosterGrid(
     movies: List<Movie>,
     loading: Boolean,
     endReached: Boolean,
+    generation: Int,
     endPadding: Dp,
     needsSetup: Boolean,
     error: String?,
@@ -226,12 +286,18 @@ private fun PosterGrid(
     onNearEnd: (Int) -> Unit,
     onOpenSettings: () -> Unit,
     onRetry: () -> Unit,
+    onResetFilters: () -> Unit,
 ) {
     val m = rememberTvMetrics()
     val screenW = LocalConfiguration.current.screenWidthDp
     val columns = if (screenW >= 1400) 4 else 3
     val gridState = rememberLazyGridState()
     val firstFocus = remember { FocusRequester() }
+    var autoFocused by remember { mutableStateOf(false) }
+
+    // 这一批"已入场"的海报。key 是 generation：换筛选/换分类就重来，
+    // 所以每次筛选变化都会看到一次整齐的交错入场。
+    val entered = remember(generation) { mutableStateMapOf<String, Boolean>() }
 
     val contentPadding = PaddingValues(
         start = m.dp(48f),
@@ -245,6 +311,11 @@ private fun PosterGrid(
         snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
             .distinctUntilChanged()
             .collect { last -> if (last >= 0) onNearEnd(last) }
+    }
+
+    // 换筛选后回到顶部：否则会停在上一次的滚动位置，看起来像"没反应"
+    LaunchedEffect(generation) {
+        if (generation > 0) runCatching { gridState.scrollToItem(0) }
     }
 
     when {
@@ -284,9 +355,13 @@ private fun PosterGrid(
         }
 
         movies.isEmpty() -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("这个分类暂时没有内容", color = TextSub, fontSize = m.sp(22f))
-            }
+            CenterHint(
+                title = "这个筛选下暂时没有片子",
+                body = "换个分类，或者把语言 / 地区 / 年份放宽一点。" +
+                    "（也可以直接重置成默认：全部分类 + 国语）",
+                actionText = "重置筛选",
+                onAction = onResetFilters,
+            )
         }
 
         else -> {
@@ -299,12 +374,42 @@ private fun PosterGrid(
                 verticalArrangement = Arrangement.spacedBy(m.dp(26f)),
             ) {
                 itemsIndexed(movies, key = { _, movie -> movie.id }) { index, movie ->
-                    PosterCard(
-                        movie = movie,
-                        modifier = if (index == 0) Modifier.focusRequester(firstFocus) else Modifier,
-                        onClick = { onClickMovie(movie) },
-                        onFocused = { onFocusMovie(movie) },
+                    // 第一次出现在这个筛选下的海报：淡入 + 轻微放大，按顺序一张张出来
+                    if (entered[movie.id] != true) {
+                        LaunchedEffect(movie.id) {
+                            delay(index.coerceAtMost(ANIM_MAX_ITEMS) * ANIM_STAGGER_MS)
+                            entered[movie.id] = true
+                        }
+                    }
+                    val shownIn = entered[movie.id] == true
+                    val alpha by animateFloatAsState(
+                        targetValue = if (shownIn) 1f else 0f,
+                        animationSpec = Motion.base(),
+                        label = "posterAlpha",
                     )
+                    val scale by animateFloatAsState(
+                        targetValue = if (shownIn) 1f else 0.92f,
+                        animationSpec = Motion.base(),
+                        label = "posterScale",
+                    )
+
+                    Box(
+                        Modifier
+                            // 列表增删/换筛选时，Compose 自己负责移动动画
+                            .animateItem()
+                            .graphicsLayer {
+                                this.alpha = alpha
+                                scaleX = scale
+                                scaleY = scale
+                            },
+                    ) {
+                        PosterCard(
+                            movie = movie,
+                            modifier = if (index == 0) Modifier.focusRequester(firstFocus) else Modifier,
+                            onClick = { onClickMovie(movie) },
+                            onFocused = { onFocusMovie(movie) },
+                        )
+                    }
                 }
                 if (endReached) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
@@ -322,16 +427,18 @@ private fun PosterGrid(
         }
     }
 
-    // 数据到位后自动把焦点放到第一张海报：开机 → 直接按 OK 就能看
+    // 第一次拿到数据 → 焦点自动落到第一张海报：开机按 OK 就能看。
+    // 只做一次：之后用户可能正在筛选条上调条件，绝不能把焦点抢走。
     LaunchedEffect(movies.isNotEmpty()) {
-        if (movies.isEmpty()) return@LaunchedEffect
-        delay(150)
+        if (movies.isEmpty() || autoFocused) return@LaunchedEffect
+        delay(180)
+        autoFocused = true
         runCatching { firstFocus.requestFocus() }
     }
 }
 
 /**
- * 居中提示卡（未配置片源 / 接口出错时用）。
+ * 居中提示卡（未配置片源 / 接口出错 / 筛选无结果时用）。
  *
  * 它们都带一个**可聚焦**的主按钮，并且出现时自动拿焦点 ——
  * 遥控器用户不需要"摸索着找按钮在哪"，按 OK 就是最该做的那件事。

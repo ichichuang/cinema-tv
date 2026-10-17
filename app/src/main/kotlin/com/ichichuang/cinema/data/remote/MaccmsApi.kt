@@ -76,16 +76,28 @@ class MaccmsApi(
         }.filter { it.pid == null || it.pid == "0" || it.pid == it.typeId }
     }
 
-    /** 影片列表：按分类（typeId 为 null = 不分类，取全库）或按关键词 */
+    /**
+     * 影片列表：按分类（typeId 为 null = 不分类，取全库）或按关键词。
+     *
+     * 语言/地区/年份是苹果CMS videolist 的**服务器端**筛选参数：
+     * 带了它们，站点直接返回筛好的结果（最省流量）。不支持的站会忽略它们
+     * （返回空 或 原样返回全部）—— 两种情况都由调用方（MaccmsMovieRepository）兜底。
+     */
     suspend fun list(
         base: HttpUrl,
         typeId: String?,
         page: Int,
         keyword: String? = null,
+        lang: String? = null,
+        area: String? = null,
+        year: String? = null,
     ): RemotePage {
         val params = mutableListOf("ac" to "videolist", "pg" to page.toString())
         typeId?.let { params += "t" to it }
         keyword?.takeIf { it.isNotBlank() }?.let { params += "wd" to it }
+        lang?.takeIf { it.isNotBlank() }?.let { params += "lang" to it }
+        area?.takeIf { it.isNotBlank() }?.let { params += "area" to it }
+        year?.takeIf { it.isNotBlank() }?.let { params += "year" to it }
 
         val root = request(base, *params.toTypedArray())
         val arr = root["list"] as? JsonArray ?: JsonArray(emptyList())

@@ -4,6 +4,8 @@ import com.ichichuang.cinema.data.demo.DemoMovieRepository
 import com.ichichuang.cinema.data.settings.CinemaSettings
 import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.domain.model.MovieDetail
+import com.ichichuang.cinema.domain.model.MovieFilter
+import com.ichichuang.cinema.domain.model.MoviePage
 import com.ichichuang.cinema.domain.repository.MovieRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -28,8 +30,8 @@ class SwitchableMovieRepository(
 
     override suspend fun categories(): List<String> = target().categories()
 
-    override suspend fun movies(category: String, page: Int, pageSize: Int): List<Movie> =
-        target().movies(category, page, pageSize)
+    override suspend fun movies(filter: MovieFilter, page: Int, pageSize: Int): MoviePage =
+        target().movies(filter, page, pageSize)
 
     override suspend fun search(keyword: String, page: Int, pageSize: Int): List<Movie> =
         target().search(keyword, page, pageSize)

@@ -19,4 +19,8 @@ data class Movie(
     val posterUrl: String? = null,
     /** 备注标签，如"更新至12集""HD国语" */
     val remarks: String? = null,
+    /** 语言（"国语"/"粤语"/…）。有些站不提供，所以默认空串 */
+    val lang: String = "",
+    /** 地区（"大陆"/"香港"/…）。同上 */
+    val area: String = "",
 )
