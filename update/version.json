@@ -1,8 +1,8 @@
 {
-    "versionCode":  6,
-    "versionName":  "0.6.0",
-    "apkUrl":  "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.6.0/cinema-tv-0.6.0.apk",
-    "sizeBytes":  13700239,
-    "notes":  "1. 新增搜索：首页按「搜索」输入片名，支持拼音和语音输入；搜过的词留在「最近」一键重搜\n2. 返回后原样回显：从播放器/设置回来，焦点、右侧详情、滚动位置全不变；应用被杀后重开也回到上次浏览的那部片\n3. 换线路不再清零进度；往下翻时筛选条自动让位，海报墙多出一整行\n4. 详情按钮不再被挤出屏幕；翻页有「正在加载/失败重试」反馈；设置页可一键清空图片缓存\n5. 手感全面打磨：按遥控器有即时回弹反馈、焦点自带光晕、换片不再是硬切、播放进度条走得更顺",
-    "mirrorUrl":  "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.6.0/cinema-tv-0.6.0.apk"
+    "versionCode":  7,
+    "versionName":  "0.6.1",
+    "apkUrl":  "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.6.1/cinema-tv-0.6.1.apk",
+    "sizeBytes":  13716623,
+    "notes":  "1. 新增搜索：首页按「搜索」输入片名，支持拼音和语音输入；搜过的词留在「最近」一键重搜\n2. 返回后原样回显：焦点、右侧详情、滚动位置全不变；换线路不清零进度；应用被杀后重开也回到上次浏览的那部片\n3. 手感全面打磨：按遥控器有即时回弹反馈、焦点自带光晕、换片不再是硬切、播放进度条走得更顺\n4. 设置页新增「系统信息」：Android 版本 / CPU 架构 / 屏幕 / 内存 一眼可见（电视自带的设置里经常找不到）\n5. 修了一批小毛病：详情按钮不再被挤出屏幕、翻页有加载/失败重试反馈、下翻时筛选条自动让位",
+    "mirrorUrl":  "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.6.1/cinema-tv-0.6.1.apk"
 }

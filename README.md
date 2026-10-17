@@ -255,12 +255,12 @@ core/      地基：设计系统 / 焦点系统 / 通用组件
 
 ```json
 {
-    "versionCode": 6,
-    "versionName": "0.6.0",
-    "apkUrl": "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.6.0/cinema-tv-0.6.0.apk",
-    "sizeBytes": 13700239,
+    "versionCode": 7,
+    "versionName": "0.6.1",
+    "apkUrl": "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.6.1/cinema-tv-0.6.1.apk",
+    "sizeBytes": 13716623,
     "notes": "1. ...\n2. ...",
-    "mirrorUrl": "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.6.0/cinema-tv-0.6.0.apk"
+    "mirrorUrl": "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.6.1/cinema-tv-0.6.1.apk"
 }
 ```
 

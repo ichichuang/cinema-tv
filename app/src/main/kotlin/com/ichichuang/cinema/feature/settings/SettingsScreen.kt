@@ -1,5 +1,8 @@
 package com.ichichuang.cinema.feature.settings
 
+import android.app.ActivityManager
+import android.content.Context
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -28,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import com.ichichuang.cinema.core.design.Gold
@@ -205,6 +209,26 @@ fun SettingsScreen(
                 DarkButton(text = "清空缓存", onClick = vm::clearImageCache)
             }
 
+            Spacer(Modifier.height(m.dp(22f)))
+
+            // ── 系统信息：国产电视的「关于本机」经常压根不显示 Android 版本
+            //    （只有型号/序列号），所以 App 里给一份固定可查的 ——
+            //    反馈兼容问题时截这一屏就够，不用来回猜"你那台是什么系统"。
+            Text("系统信息", color = TextMain, fontSize = m.sp(20f))
+            Spacer(Modifier.height(m.dp(6f)))
+            Text(
+                text = "电视的设置里找不到 Android 版本时，看这里。反馈问题时截这一屏即可。",
+                color = TextSub,
+                fontSize = m.sp(15f),
+            )
+            Spacer(Modifier.height(m.dp(10f)))
+            Text(
+                text = rememberSystemInfo(),
+                color = TextMain.copy(alpha = 0.85f),
+                fontSize = m.sp(16f),
+                lineHeight = m.sp(26f),
+            )
+
             Spacer(Modifier.height(m.dp(26f)))
             Text(
                 text = "「当前版本 v${updateCenter.currentVersionName}」 · 按遥控器「返回」键回到首页",
@@ -222,6 +246,39 @@ fun SettingsScreen(
             onInstallLaunched = updateCenter::onInstallLaunched,
             onInstallFailed = updateCenter::onInstallFailed,
         )
+    }
+}
+
+/**
+ * 系统信息拼一屏。
+ *
+ * 为什么要做进 App：国产电视（雷鸟/TCL 这类）的「关于本机」经常只显示型号和序列号，
+ * Android 版本压根不给 —— 装第三方"设备信息" App 又要多折腾一次。
+ * 而我们的 App 本来就在电视上，顺手看一眼最省事（反馈问题时截图即可）。
+ *
+ * 全是系统常量，不需要任何权限、不联网。
+ */
+@Composable
+private fun rememberSystemInfo(): String {
+    val context = LocalContext.current
+    return remember {
+        val dm = context.resources.displayMetrics
+        val mem = (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)
+            ?.let { am -> ActivityManager.MemoryInfo().also(am::getMemoryInfo) }
+        val pkg = context.packageManager.getPackageInfo(context.packageName, 0)
+        buildString {
+            append("Android 版本：").append(Build.VERSION.RELEASE)
+            append("（API ").append(Build.VERSION.SDK_INT).append("）\n")
+            append("处理器架构：").append(Build.SUPPORTED_ABIS.joinToString(" / ")).append('\n')
+            append("屏幕：").append(dm.widthPixels).append(" × ").append(dm.heightPixels).append('\n')
+            if (mem != null) {
+                append("运行内存：")
+                    .append(String.format("%.1f", mem.totalMem / 1024.0 / 1024 / 1024))
+                    .append(" GB\n")
+            }
+            append("设备：").append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append('\n')
+            append("应用版本：").append(pkg.versionName).append("（").append(pkg.versionCode).append("）")
+        }
     }
 }
 
