@@ -7,7 +7,11 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
-kotlin/
+.kotlin/
 *.apk
 *.aab
 !keystore/*.jks
+
+# JVM / Gradle 崩溃日志（出现过一次，别让它进仓库）
+hs_err_pid*.log
+replay_pid*.log
