@@ -243,22 +243,24 @@ core/      地基：设计系统 / 焦点系统 / 通用组件
 **更新地址是设置项，不是写死的**（和片源地址同一个原则）：
 
 ```
-默认：https://github.com/ichichuang/cinema-tv-releases/releases/latest/download/version.json
+默认（依次尝试，哪个能用用哪个）：
+① https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/main/version.json
+② https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@main/version.json
 ```
 
-电视连不上 GitHub 时，在设置页把它换成镜像地址即可（例如 `https://gh-proxy.com/<原地址>`），
+电视连不上某条时，在设置页换成别的镜像即可（**清空输入框 = 回到默认这两条**），
 换完立刻能继续收更新，**不用重装应用**。
 
-**清单格式**（`update/version.json`，发布脚本生成）：
+**清单格式**（`version.json`，发布脚本生成，下面是线上真实内容）：
 
 ```json
 {
-  "versionCode": 6,
-  "versionName": "0.6.0",
-  "apkUrl": "https://github.com/<用户>/<发布仓库>/releases/download/v0.6.0/cinema-tv-0.6.0.apk",
-  "sizeBytes": 14000000,
-  "notes": "1. ...\n2. ...",
-  "mirrorUrl": "https://gh-proxy.com/<上面的 apkUrl>"
+    "versionCode": 6,
+    "versionName": "0.6.0",
+    "apkUrl": "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.6.0/cinema-tv-0.6.0.apk",
+    "sizeBytes": 13700239,
+    "notes": "1. ...\n2. ...",
+    "mirrorUrl": "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.6.0/cinema-tv-0.6.0.apk"
 }
 ```
 
@@ -267,19 +269,24 @@ core/      地基：设计系统 / 焦点系统 / 通用组件
 **发布流程**（我这边的动作，一条命令）：
 
 ```powershell
-.\scripts\publish-update.ps1 -VersionName 0.6.0 -VersionCode 6
+.\scripts\publish-to-repo.ps1 -VersionName 0.6.0 -VersionCode 6
 ```
 
-它做三件事：找 APK → 生成 `update/version.json`（更新说明读 `update/notes.txt`）→
-用 GitHub API 建 release 并把 **APK + version.json** 两个文件作为附件上传。
+它做四件事：找 APK → 生成 `version.json`（更新说明读 `update/notes.txt`）→
+把 **APK + version.json** 提交进公开发布仓库 → 打 tag（`v0.6.0`）并推送。
 
-> ⚠️ **为什么必须走 release 附件，而不是仓库里的文件**：
-> 仓库文件的下载域名是 `raw.githubusercontent.com` —— 国内连不上（实测超时）。
-> 而 release 附件的下载域名是 `objects.githubusercontent.com` —— 实测可达。
-> 这是"挂哪个域名"决定成败的地方，不是风格问题。
+> ⚠️ **为什么是"提交进仓库"而不是 release 附件**：release 附件必须用 **token** 上传，
+> 而本工程刻意走**零密钥路线**（只用 `git push`，SSH 免密），不碰任何长期凭证 ——
+> 电脑丢了也不会有 token 泄露。代价只有一个：清单走 `raw` 有 CDN 缓存，
+> **发布后约二三十分钟电视才可能查到新版**（APK 用 **tag** 固定地址，不受缓存影响；
+> 电视端每次启动都会静默查一次，所以对用户是无感的）。
 >
 > 另外：发布仓库必须是 **public**（私有仓库下载要带 token，把 token 打进应用里等于泄露），
 > 主仓库继续私有（里面有签名钥匙）。这也是为什么另开一个 `cinema-tv-releases` 仓库。
+>
+> 📌 下一步（阶段 3）：把候选地址从"第一个成功就用"改成"**取所有候选里版本号最高的一条**" ——
+> 这样即使某条 CDN 还在发旧缓存，另一条也能立刻把新版报出来（顺带给清单加一条 GitHub API 候选，
+> API 不走 CDN、秒级生效）。
 
 ---
 
@@ -438,5 +445,5 @@ keystore/release.jks             # 签名钥匙（私有仓库）
 | 给 `CircularProgressIndicator` 包 `AnimatedVisibility` 后编译不过（`align` 找不到） | `Modifier.align` 是 `BoxScope` 的，被 `AnimatedVisibility` 隔断后就不在作用域里了 | `align` 挪到 `AnimatedVisibility` 自己的 `modifier` 上（它本身还在 Box 里）；顺便记牢：`slideInVertically` 一个参数时是**位移量**，`{ it / 5 }` 是"五分之一屏" |
 | 报 `Unresolved reference 'animateColorAsState'` | 它在 `androidx.compose.animation`，不在 `androidx.compose.animation.core` | 改 import（`animateFloatAsState` 才在 `.core`） |
 | 提示条/错误面板消失时，淡出动画"没内容可淡" | 可见性由 `state.hint != null` 驱动，等它变 null 时文案也没了 | 留住最后一句（`lastHint`）；**在 `LaunchedEffect` 里写**而不是组合期直接赋值 —— 组合期写状态是反模式 |
-| 刚发的版本，浏览器/电视里查到的还是旧清单 | `raw.githubusercontent.com` 走 Fastly CDN，**分支地址有 1~5 分钟缓存**（gh-proxy 只是转发，不会绕过这层）；jsDelivr 的分支缓存更久（十几小时） | 发布后等 1~5 分钟再验证；因此清单首选 gh-proxy（短缓存），jsDelivr 只当兜底；APK 链接用 **tag** 固定（内容永不改变，缓存反而是优点） |
+| 刚发的版本，浏览器/电视里查到的还是旧清单 | 实测：gh-proxy 自己只缓存 60 秒（`max-age=60` + `x-cache: MISS`），**卡点是 `raw.githubusercontent.com` 的 Fastly 分支缓存 —— 本次 0.5.0→0.6.0 用了约 25 分钟才转过来**；jsDelivr 的分支缓存更久（十几小时） | ① 发布后**等二三十分钟**再验证，别按完发布就立刻测（电视端每次启动都静默查一次，用户侧无感）；② **APK 一律用 tag 固定地址**（内容永不改变，缓存反而是优点），只有清单这一个文件受缓存影响；③ 急着验证时用 **commit 固定地址**（`…/<repo>/<commit>/version.json`）：全新 URL 必然穿缓存 |
 | 发布脚本在**空仓库**上第一次跑就失败（推不上 / 提交被拒） | ① 空仓库 clone 下来本地是未出生的 `master`，而应用地址写的是 `main/version.json`；② 主仓库的 `user.name/email` 是 **repo-local** 的，新克隆里没有，提交会因"作者未知"失败 | 先在发布仓库里建 `main`（`git clone … && git switch -c main`），并在该副本里设一次 `user.name` / `user.email`；顺带把主仓库那条 `core.sshcommand`（指定非默认文件名的 SSH key）也复制过去，否则推送认证不过 |
