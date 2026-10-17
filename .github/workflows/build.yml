@@ -30,8 +30,8 @@ jobs:
 
       - name: Ensure Android SDK platform
         run: |
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" > /dev/null 2>&1 \
-            || echo "sdkmanager 调用失败，交给 AGP 自动下载"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" > /dev/null 2>&1 \
+            || echo "sdkmanager 调用失败，交给 AGP 自动下载（已接受许可）"
 
       - name: Fix gradlew permission
         run: chmod +x ./gradlew

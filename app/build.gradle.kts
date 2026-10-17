@@ -1,17 +1,24 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    // AGP 9 内置 Kotlin（不要再加 kotlin.android 插件）
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
     namespace = "com.ichichuang.cinema"
-    compileSdk = 36
+    // 必须是 37：2026 年的 AndroidX（Compose 1.12.1 / navigation 2.10.2 / core-ktx 1.19.1）
+    // 在 AAR 元数据里强制要求消费方 compileSdk >= 37，否则 checkAarMetadata 直接失败。
+    // 注意：compileSdk 只影响"能用哪些新 API"，不影响装机兼容性（那是 minSdk 的事）。
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.ichichuang.cinema"
-        // 电视实测：能安装 sdk23 的包，留余量取 23
-        minSdk = 23
+        // 24（不是 23）：2026 年的 androidx.navigation 要求 minSdk >= 24。
+        // 实测电视能装 sdk23 的包 → 说明系统 API >= 23；2026 款雷鸟灵控系统实际是 Android 9+，
+        // 所以 24 是安全的。万一电视拒装（说明系统真的是 API 23），退路有两条：
+        //   1) 去掉 navigation 依赖，用手写导航状态机（其余库都支持 23）
+        //   2) tools:overrideLibrary 强压（不推荐，可能在 API 23 上运行期崩）
+        minSdk = 24
         // 故意压低：老 TV 系统对高 targetSdk 会加限制（如实测被拦）
         targetSdk = 28
         versionCode = 1
@@ -52,6 +59,13 @@ android {
         compose = true
     }
 
+    lint {
+        // ExpiredTargetSdkVersion 是 Google Play 的上架规则（要求 targetSdk >= 33），
+        // 与"侧载到电视"无关。本项目刻意压低 targetSdk（老 TV 固件对高 targetSdk 会加限制），
+        // 所以只关这一条；其它 lint 错误仍然会让 release 构建失败，不放过真问题。
+        disable += "ExpiredTargetSdkVersion"
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -59,18 +73,26 @@ android {
     }
 }
 
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-    }
-}
-
 dependencies {
+    // ── Compose（BOM 统一版本）──────────────────────────────
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
+
+    // 官方 TV 设计系统（阶段 2 用它的焦点感知卡片/列表）
     implementation("androidx.tv:tv-material:1.1.0")
-    implementation("androidx.activity:activity-compose:1.13.0")
+
+    // ── 基础 ────────────────────────────────────────────────
     implementation("androidx.core:core-ktx:1.19.1")
+    implementation("androidx.activity:activity-compose:1.13.0")
+
+    // ── 架构：导航 + DI ─────────────────────────────────────
+    // navigation-compose 会带入 lifecycle-viewmodel-compose（koinViewModel 需要）
+    implementation("androidx.navigation:navigation-compose:2.10.2")
+
+    // Koin 4.2 起 koin-androidx-compose 只是个 8KB 的垫片，不再带 android 部分，
+    // 所以必须显式引 koin-android —— 否则 androidContext / viewModel{} DSL 找不到。
+    implementation("io.insert-koin:koin-android:4.2.2")
+    implementation("io.insert-koin:koin-androidx-compose:4.2.2")
 }
