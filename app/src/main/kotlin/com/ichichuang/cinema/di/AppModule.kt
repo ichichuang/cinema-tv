@@ -6,8 +6,10 @@ import com.ichichuang.cinema.data.demo.DemoMovieRepository
 import com.ichichuang.cinema.data.remote.MaccmsApi
 import com.ichichuang.cinema.data.remote.buildHttpClient
 import com.ichichuang.cinema.data.settings.CinemaSettings
+import com.ichichuang.cinema.data.settings.PlaybackProgress
 import com.ichichuang.cinema.domain.repository.MovieRepository
 import com.ichichuang.cinema.feature.home.HomeViewModel
+import com.ichichuang.cinema.feature.player.PlayerViewModel
 import com.ichichuang.cinema.feature.settings.SettingsViewModel
 import kotlinx.serialization.json.Json
 import org.koin.android.ext.koin.androidContext
@@ -22,6 +24,7 @@ val appModule = module {
 
     // ── 基础设施 ─────────────────────────────────────────────
     single { CinemaSettings(androidContext()) }
+    single { PlaybackProgress(androidContext()) }
     single { buildHttpClient() }
     single {
         Json {
@@ -41,6 +44,8 @@ val appModule = module {
     }
 
     // ── 页面 ─────────────────────────────────────────────────
-    viewModel { HomeViewModel(get()) }
+    viewModel { HomeViewModel(get(), get()) }
     viewModel { SettingsViewModel(get()) }
+    // 播放器要 Context 建 ExoPlayer —— 用 application context，不会漏 Activity
+    viewModel { PlayerViewModel(repository = get(), progress = get(), context = androidContext()) }
 }

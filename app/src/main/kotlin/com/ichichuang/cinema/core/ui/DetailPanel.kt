@@ -26,6 +26,7 @@ import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.TextBody
 import com.ichichuang.cinema.core.design.TextMain
 import com.ichichuang.cinema.core.design.TextSub
+import com.ichichuang.cinema.core.design.formatTime
 import com.ichichuang.cinema.core.design.rememberTvMetrics
 import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.domain.model.MovieDetail
@@ -47,6 +48,7 @@ fun DetailPanel(
     modifier: Modifier = Modifier,
     detail: MovieDetail? = null,
     detailLoading: Boolean = false,
+    resumeMs: Long = 0L,
 ) {
     val m = rememberTvMetrics()
     val shape = RoundedCornerShape(m.dp(16f))
@@ -138,7 +140,11 @@ fun DetailPanel(
             }
 
             Spacer(Modifier.height(m.dp(32f)))
-            PlayButton(onClick = onPlay)
+            // 看过一半的片子，按钮直接变成"继续观看 12:34" —— 少一次思考
+            PlayButton(
+                onClick = onPlay,
+                text = if (resumeMs > 0) "继续观看 ${formatTime(resumeMs)}" else "播放",
+            )
         }
     }
 }

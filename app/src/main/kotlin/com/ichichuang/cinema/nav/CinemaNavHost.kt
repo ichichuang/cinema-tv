@@ -68,6 +68,7 @@ fun CinemaNavHost() {
             ),
         ) { entry ->
             PlayerScreen(
+                movieId = entry.arguments?.getString("movieId").orEmpty(),
                 title = entry.arguments?.getString("title").orEmpty(),
                 onBack = { nav.popBackStack() },
             )

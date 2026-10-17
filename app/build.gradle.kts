@@ -21,8 +21,8 @@ android {
         minSdk = 24
         // 故意压低：老 TV 系统对高 targetSdk 会加限制（如实测被拦）
         targetSdk = 28
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
 
         // 只出 32 位，和 FFALCON 65S78A（armeabi-v7a）匹配
         ndk {
@@ -108,4 +108,13 @@ dependencies {
 
     // ── 设置存储（接口地址）────────────────────────────────
     implementation("androidx.datastore:datastore-preferences:1.2.1")
+
+    // ── 播放器（阶段 2）────────────────────────────────────
+    // media3 = ExoPlayer 的现名。纯 Java/Kotlin，解码走系统 MediaCodec，
+    // 不引入任何原生库 → 对 32 位电视没有 ABI 风险。
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
+    // HLS(m3u8) 在单独模块里 —— 国内片源绝大多数是 m3u8，必须显式加
+    implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
+    // 官方 Compose 播放画面（PlayerSurface）+ 状态 Composable
+    implementation("androidx.media3:media3-ui-compose:1.11.1")
 }

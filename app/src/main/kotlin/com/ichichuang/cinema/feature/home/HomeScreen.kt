@@ -82,6 +82,9 @@ fun HomeScreen(
     val screenW = LocalConfiguration.current.screenWidthDp
     val panelWidth: Dp = (screenW * 0.30f).dp
 
+    // 从播放器回到首页时刷一次进度：按钮会变成"继续观看 12:34"
+    LaunchedEffect(Unit) { viewModel.refreshSelectedProgress() }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -117,6 +120,7 @@ fun HomeScreen(
                 movie = state.detail?.movie ?: shown,
                 detail = state.detail,
                 detailLoading = state.detailLoading,
+                resumeMs = state.resumeMs,
                 onPlay = { onPlay(shown) },
                 modifier = Modifier
                     .align(Alignment.CenterEnd)

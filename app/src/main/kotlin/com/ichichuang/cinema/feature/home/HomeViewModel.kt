@@ -2,6 +2,7 @@ package com.ichichuang.cinema.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ichichuang.cinema.data.settings.PlaybackProgress
 import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.domain.model.MovieDetail
 import com.ichichuang.cinema.domain.repository.CATEGORY_ALL
@@ -33,6 +34,8 @@ data class HomeUiState(
     /** 还没配置影视接口地址 → UI 显示引导，而不是报错 */
     val needsSetup: Boolean = false,
     val error: String? = null,
+    /** 上次看到哪了（毫秒）。>0 时播放按钮变成"继续观看 12:34" */
+    val resumeMs: Long = 0L,
 )
 
 /**
@@ -40,7 +43,10 @@ data class HomeUiState(
  *
  * 它只依赖 MovieRepository 接口 —— 换片源格式、换实现，这个类一行都不用改。
  */
-class HomeViewModel(private val repository: MovieRepository) : ViewModel() {
+class HomeViewModel(
+    private val repository: MovieRepository,
+    private val progress: PlaybackProgress,
+) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
@@ -76,9 +82,19 @@ class HomeViewModel(private val repository: MovieRepository) : ViewModel() {
                 selected = movie,
                 detail = detailCache[movie.id],
                 detailLoading = detailCache[movie.id] == null,
+                resumeMs = 0L,   // 先不显示上次的进度，等读到真的再说（避免显示上一部片的）
             )
         }
+        loadProgress(movie.id)
         loadDetail(movie)
+    }
+
+    /**
+     * 首页重新可见时刷新一次（从播放器返回时靠它把按钮变成"继续观看 12:34"）。
+     * 首页在导航栈底部：去播放器时它离开组合，回来时重新进入 → 正好触发一次。
+     */
+    fun refreshSelectedProgress() {
+        _state.value.selected?.let { loadProgress(it.id) }
     }
 
     /**
@@ -128,6 +144,7 @@ class HomeViewModel(private val repository: MovieRepository) : ViewModel() {
                 detailLoading = false,
                 endReached = false,
                 error = null,
+                resumeMs = 0L,
             )
         }
         if (_state.value.needsSetup) {
@@ -173,6 +190,20 @@ class HomeViewModel(private val repository: MovieRepository) : ViewModel() {
                 .onFailure {
                     _state.update { it.copy(loadingMore = false) }
                 }
+        }
+    }
+
+    /** 读观看进度：快看完了（离结尾不到 1 分钟）就不显示"继续观看"，当成看完 */
+    private fun loadProgress(movieId: String) {
+        viewModelScope.launch {
+            val point = runCatching { progress.get(movieId) }.getOrNull()
+            val resume = point?.let {
+                val nearEnd = it.durationMs > 0 && it.positionMs > it.durationMs - 60_000
+                if (nearEnd) 0L else it.positionMs
+            } ?: 0L
+            if (_state.value.selected?.id == movieId) {
+                _state.update { it.copy(resumeMs = resume) }
+            }
         }
     }
 
