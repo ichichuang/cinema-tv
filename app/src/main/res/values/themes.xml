@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 启动背景直接是纯黑：避免冷启动时闪一下白屏（电视上特别明显，很廉价） -->
+    <style name="Theme.Cinema" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF0A0A0C</item>
+        <item name="android:colorBackground">#FF0A0A0C</item>
+        <item name="android:statusBarColor">#FF0A0A0C</item>
+        <item name="android:navigationBarColor">#FF0A0A0C</item>
+    </style>
+</resources>

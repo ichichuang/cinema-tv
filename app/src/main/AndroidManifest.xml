@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 声明 TV 支持：required 故意设 false。原因：
+         如果电视系统不认这个 feature，required=true 会让应用在桌面直接消失。
+         required=false 仍会被 TV 桌面识别为电视应用（因为有 LEANBACK_LAUNCHER 类别）。 -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+
+    <application
+        android:allowBackup="false"
+        android:banner="@drawable/app_banner"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="false"
+        android:theme="@style/Theme.Cinema"
+        android:usesCleartextTraffic="true">
+
+        <!-- usesCleartextTraffic 必须为 true：在线影视接口和视频源大量是 http://
+             （阶段 0 还没有联网，但提前打开，阶段 1 接接口时就不会白屏） -->
+
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:exported="true"
+            android:launchMode="singleTask">
+
+            <!-- 双入口：LEANBACK_LAUNCHER 让 TV 桌面认它，普通 LAUNCHER 做兜底 -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
