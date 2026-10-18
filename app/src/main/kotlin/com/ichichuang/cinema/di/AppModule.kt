@@ -3,6 +3,7 @@ package com.ichichuang.cinema.di
 import com.ichichuang.cinema.data.MaccmsMovieRepository
 import com.ichichuang.cinema.data.SourceCatalog
 import com.ichichuang.cinema.data.SwitchableMovieRepository
+import com.ichichuang.cinema.data.TvboxImport
 import com.ichichuang.cinema.data.demo.DemoMovieRepository
 import com.ichichuang.cinema.data.remote.MaccmsApi
 import com.ichichuang.cinema.data.remote.buildHttpClient
@@ -51,6 +52,8 @@ val appModule = module {
     single { DemoMovieRepository() }
     /** 推荐源清单（一键导入用）：拉取 + 本地缓存，应用本体依然不内置任何片源 */
     single { SourceCatalog(http = get(), json = get(), settings = get()) }
+    /** TVBox 单仓/多仓 JSON 导入器（扫码配置页里的「导入」用的就是它） */
+    single { TvboxImport(http = get()) }
 
     // UI 拿到的永远是"能根据设置自动切换"的那一个
     single<MovieRepository> {
@@ -74,13 +77,20 @@ val appModule = module {
      * （它是 ViewModel 子类，viewModelScope 照样能用；生命周期与应用一致，正是我们要的）
      */
     single {
-        HomeViewModel(repository = get(), progress = get(), filterStore = get(), browseStore = get())
+        HomeViewModel(
+            repository = get(),
+            progress = get(),
+            filterStore = get(),
+            browseStore = get(),
+            settings = get(),
+        )
     }
     viewModel {
         SettingsViewModel(
             settings = get(),
             repository = get(),
             catalog = get(),
+            importer = get(),
             context = androidContext(),
         )
     }

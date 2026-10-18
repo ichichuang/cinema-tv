@@ -61,6 +61,7 @@ import com.ichichuang.cinema.core.design.TextMain
 import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.design.rememberTvMetrics
 import com.ichichuang.cinema.core.focus.tvFocus
+import com.ichichuang.cinema.core.ui.FilterChip
 import com.ichichuang.cinema.data.CatalogSource
 import com.ichichuang.cinema.data.settings.CinemaSettings
 import com.ichichuang.cinema.data.settings.SavedSource
@@ -198,7 +199,8 @@ fun SettingsScreen(
                         text = if (state.sources.isEmpty()) {
                             "点「选择片源」导入推荐源；想用自己的地址就扫码"
                         } else {
-                            "已保存 " + state.sources.size + " 个源 · 点「选择片源」随时切换"
+                            "已保存 " + state.sources.size + " 个源 · 已启用 " +
+                                state.enabledUrls.size + " 个（首页聚合）· 随时可勾选"
                         },
                         color = TextSub,
                         fontSize = m.sp(14f),
@@ -232,11 +234,36 @@ fun SettingsScreen(
                 Spacer(Modifier.height(m.dp(12f)))
                 StatusLine(
                     text = when (val t = state.test) {
-                        SourceTest.Idle -> "从推荐里挑一个、或扫码填自己的；切换后自动测一次"
+                        SourceTest.Idle -> "从推荐里挑一个、或扫码填自己的；勾选后自动测一次"
                         else -> t.text
                     },
                     highlight = state.test.passed,
                 )
+            }
+
+            Spacer(Modifier.height(m.dp(22f)))
+
+            // ── 首页列表展示：每行海报数（用户点名要的 4–8 档）────
+            SectionCard {
+                Text("首页列表展示", color = TextMain, fontSize = m.sp(20f))
+                Spacer(Modifier.height(m.dp(8f)))
+                Text(
+                    text = "每行显示多少个海报（4–8）· 改完回首页立刻生效",
+                    color = TextSub,
+                    fontSize = m.sp(15f),
+                    maxLines = 1,
+                )
+                Spacer(Modifier.height(m.dp(14f)))
+                Row(horizontalArrangement = Arrangement.spacedBy(m.dp(12f))) {
+                    (CinemaSettings.MIN_HOME_COLUMNS..CinemaSettings.MAX_HOME_COLUMNS).forEach { n ->
+                        FilterChip(
+                            label = n.toString(),
+                            selected = state.homeColumns == n,
+                            big = true,
+                            onClick = { vm.setHomeColumns(n) },
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(m.dp(22f)))
@@ -331,12 +358,12 @@ fun SettingsScreen(
         // 「选择片源」浮层（一键导入 + 已保存的源）
         SourcePicker(
             visible = state.pickerOpen,
-            activeUrl = state.apiBase,
+            enabled = state.enabledUrls,
             saved = state.sources,
             catalog = state.catalog,
             loading = state.catalogLoading,
             error = state.catalogError,
-            onSelect = vm::selectSource,
+            onToggle = vm::toggleSource,
             onRefresh = vm::refreshCatalog,
             onClose = vm::closePicker,
         )
@@ -365,19 +392,20 @@ fun SettingsScreen(
 /**
  * 「选择片源」浮层 —— 一键导入就在这里。
  *
- * 上下两块：**推荐源**（从发布仓库拉的实测排行，点一条 = 切换 + 保存 + 自动测试）
- * 和**已保存的源**（换回来用）。卡片整体尺寸固定，列表内部滚动、
+ * 上下两块：**推荐源**（从发布仓库拉的实测排行）和**已保存的源**。
+ * v0.9.0 起是**勾选制**：点一条 = 启用 / 取消（可多选 → 首页聚合），
+ * 勾选瞬间自动测一次。卡片整体尺寸固定，列表内部滚动、
  * 焦点走进列表时自动滚到看得见的位置 —— 排版不会因为清单长短变形。
  */
 @Composable
 private fun SourcePicker(
     visible: Boolean,
-    activeUrl: String,
+    enabled: List<String>,
     saved: List<SavedSource>,
     catalog: List<CatalogSource>,
     loading: Boolean,
     error: String?,
-    onSelect: (String, String) -> Unit,
+    onToggle: (String, String) -> Unit,
     onRefresh: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -442,12 +470,19 @@ private fun SourcePicker(
                     )
                     Spacer(Modifier.width(m.dp(14f)))
                     Text(
-                        text = "点一下立即切换并自动测试",
+                        text = "点一下启用 / 取消，可多选（首页聚合）",
                         color = TextSub,
                         fontSize = m.sp(14f),
                         maxLines = 1,
                     )
                     Spacer(Modifier.weight(1f))
+                    Text(
+                        text = "已启用 " + enabled.size + " / " + CinemaSettings.MAX_ENABLED_SOURCES,
+                        color = if (enabled.isEmpty()) TextSub else Gold,
+                        fontSize = m.sp(14f),
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                    )
                 }
 
                 Spacer(Modifier.height(m.dp(8f)))
@@ -466,9 +501,9 @@ private fun SourcePicker(
                             SourceRow(
                                 title = source.name,
                                 subtitle = source.info.ifBlank { source.url },
-                                active = source.url == activeUrl,
+                                active = source.url in enabled,
                                 modifier = if (index == 0) Modifier.focusRequester(firstRow) else Modifier,
-                                onClick = { onSelect(source.name, source.url) },
+                                onClick = { onToggle(source.name, source.url) },
                             )
                         }
                     } else {
@@ -504,13 +539,13 @@ private fun SourcePicker(
                             SourceRow(
                                 title = source.name,
                                 subtitle = source.url,
-                                active = source.url == activeUrl,
+                                active = source.url in enabled,
                                 modifier = if (catalog.isEmpty() && index == 0) {
                                     Modifier.focusRequester(firstRow)
                                 } else {
                                     Modifier
                                 },
-                                onClick = { onSelect(source.name, source.url) },
+                                onClick = { onToggle(source.name, source.url) },
                             )
                         }
                     }
@@ -602,12 +637,12 @@ private fun SourceRow(
         Spacer(Modifier.width(m.dp(12f)))
         // 固定的状态槽位：只换字，不顶动标题
         Box(
-            Modifier.width(m.dp(64f)),
+            Modifier.width(m.dp(88f)),
             contentAlignment = Alignment.CenterEnd,
         ) {
             if (active) {
                 Text(
-                    text = "使用中",
+                    text = "✓ 已启用",
                     color = Gold,
                     fontSize = m.sp(14f),
                     fontWeight = FontWeight.SemiBold,

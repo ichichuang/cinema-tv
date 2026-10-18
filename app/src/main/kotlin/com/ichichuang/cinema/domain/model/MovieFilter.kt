@@ -16,13 +16,19 @@ data class MovieFilter(
     val area: String = "",
     /** 年份，如 "2025"（苹果CMS 的 year 参数） */
     val year: String = "",
+    /**
+     * 类型/题材，如 喜剧/恐怖（苹果CMS 的 class 参数）。
+     * 支持的站不多 —— 数据层会先抽查服务器到底筛没筛，没筛就用 vod_class 字段本地兜底。
+     */
+    val movieClass: String = "",
 ) {
-    /** 三个可选维度都是空的 → 服务器端不需要任何过滤参数 */
-    val noServerFilter: Boolean get() = lang.isBlank() && area.isBlank() && year.isBlank()
+    /** 四个可选维度都是空的 → 服务器端不需要任何过滤参数 */
+    val noServerFilter: Boolean
+        get() = lang.isBlank() && area.isBlank() && year.isBlank() && movieClass.isBlank()
 
     /** 生效中的可选维度（摘要里显示用） */
     val activeParts: List<String>
-        get() = listOf(lang, area, year).filter { it.isNotBlank() }
+        get() = listOf(lang, area, year, movieClass).filter { it.isNotBlank() }
 }
 
 /**

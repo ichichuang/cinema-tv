@@ -22,7 +22,8 @@ class SwitchableMovieRepository(
     private val demo: DemoMovieRepository,
 ) : MovieRepository {
 
-    override val config: Flow<String> = settings.apiBase
+    // 配置签名：启用集合/主源/demo 任一变化 → 首页整墙重载
+    override val config: Flow<String> = settings.sourceSignature
 
     private suspend fun target(): MovieRepository =
         if (settings.apiBase.first().trim() == CinemaSettings.DEMO) demo else remote
@@ -32,5 +33,5 @@ class SwitchableMovieRepository(
     override suspend fun movies(filter: MovieFilter, page: Int, pageSize: Int): MoviePage =
         target().movies(filter, page, pageSize)
 
-    override suspend fun detail(id: String): MovieDetail? = target().detail(id)
+    override suspend fun detail(id: String, origin: String): MovieDetail? = target().detail(id, origin)
 }

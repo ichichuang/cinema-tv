@@ -29,7 +29,7 @@ private object Routes {
     const val HOME = "home"
     const val DETAIL = "detail/{movieId}?title={title}&poster={poster}"
     const val SETTINGS = "settings"
-    const val PLAYER = "player/{movieId}?title={title}"
+    const val PLAYER = "player/{movieId}?title={title}&origin={origin}"
 
     /**
      * 详情路由带上标题和海报：
@@ -40,8 +40,14 @@ private object Routes {
         "?title=${Uri.encode(movie.title)}" +
         "&poster=${Uri.encode(movie.posterUrl.orEmpty())}"
 
+    /**
+     * 播放路由带上 origin（影片来自哪个片源）：
+     * 多源聚合时同一个 id 可能属于不同的站，播放页必须知道该找谁要地址。
+     */
     fun player(movie: Movie) =
-        "player/${Uri.encode(movie.id)}?title=${Uri.encode(movie.title)}"
+        "player/${Uri.encode(movie.id)}" +
+            "?title=${Uri.encode(movie.title)}" +
+            "&origin=${Uri.encode(movie.origin)}"
 }
 
 /**
@@ -125,6 +131,10 @@ fun CinemaNavHost(
                     type = NavType.StringType
                     defaultValue = ""
                 },
+                navArgument("origin") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
             ),
             // 播放页：纯淡入淡出（像影院熄灯那种感觉），不做滑动 —— 滑进来的画面会分神
             enterTransition = { fadeIn(Motion.enter()) },
@@ -133,6 +143,7 @@ fun CinemaNavHost(
             PlayerScreen(
                 movieId = entry.arguments?.getString("movieId").orEmpty(),
                 title = entry.arguments?.getString("title").orEmpty(),
+                origin = entry.arguments?.getString("origin").orEmpty(),
                 onBack = { nav.popBackStack() },
             )
         }

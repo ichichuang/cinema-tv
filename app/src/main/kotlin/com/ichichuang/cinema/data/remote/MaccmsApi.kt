@@ -46,6 +46,8 @@ data class RemoteVod(
     val lang: String?,
     val score: String?,
     val typeName: String?,
+    /** 题材/剧情分类（vod_class，如 "喜剧 动作"）；本地兜底筛"类型"用它 */
+    val classes: String?,
     /** 详情接口才有的剧情简介（原始 HTML） */
     val content: String?,
     val playSources: List<RemotePlaySource>,
@@ -79,9 +81,9 @@ class MaccmsApi(
     /**
      * 影片列表：按分类（typeId 为 null = 不分类，取全库）或按关键词。
      *
-     * 语言/地区/年份是苹果CMS videolist 的**服务器端**筛选参数：
+     * 语言/地区/年份/题材是苹果CMS videolist 的**服务器端**筛选参数：
      * 带了它们，站点直接返回筛好的结果（最省流量）。不支持的站会忽略它们
-     * （返回空 或 原样返回全部）—— 两种情况都由调用方（MaccmsMovieRepository）兜底。
+     * （返回空 或 原样返回全部）—— 两种情况都由调用方（MaccmsSource）兜底。
      */
     suspend fun list(
         base: HttpUrl,
@@ -91,6 +93,7 @@ class MaccmsApi(
         lang: String? = null,
         area: String? = null,
         year: String? = null,
+        movieClass: String? = null,
     ): RemotePage {
         val params = mutableListOf("ac" to "videolist", "pg" to page.toString())
         typeId?.let { params += "t" to it }
@@ -98,6 +101,7 @@ class MaccmsApi(
         lang?.takeIf { it.isNotBlank() }?.let { params += "lang" to it }
         area?.takeIf { it.isNotBlank() }?.let { params += "area" to it }
         year?.takeIf { it.isNotBlank() }?.let { params += "year" to it }
+        movieClass?.takeIf { it.isNotBlank() }?.let { params += "class" to it }
 
         val root = request(base, *params.toTypedArray())
         val arr = root["list"] as? JsonArray ?: JsonArray(emptyList())
@@ -158,6 +162,7 @@ class MaccmsApi(
             lang = this["vod_lang"].asText()?.trim()?.takeIf { it.isNotEmpty() },
             score = this["vod_score"].asText()?.trim()?.takeIf { it.isNotEmpty() },
             typeName = this["type_name"].asText()?.trim()?.takeIf { it.isNotEmpty() },
+            classes = this["vod_class"].asText()?.trim()?.takeIf { it.isNotEmpty() },
             content = this["vod_content"].asText()?.trim()?.takeIf { it.isNotEmpty() },
             playSources = parsePlaySources(
                 from = this["vod_play_from"].asText(),

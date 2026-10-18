@@ -2,16 +2,12 @@ package com.ichichuang.cinema.feature.home
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -21,9 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,39 +28,34 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.Motion
-import com.ichichuang.cinema.core.design.Panel
-import com.ichichuang.cinema.core.design.PanelHi
 import com.ichichuang.cinema.core.design.TextMain
 import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.design.rememberTvMetrics
-import com.ichichuang.cinema.core.focus.tvFocus
 import com.ichichuang.cinema.core.ui.FilterChip
-import com.ichichuang.cinema.domain.model.DefaultMovieFilter
 import com.ichichuang.cinema.domain.model.MovieFilter
 import com.ichichuang.cinema.domain.repository.AREA_OPTIONS
+import com.ichichuang.cinema.domain.repository.CATEGORY_ALL
+import com.ichichuang.cinema.domain.repository.CLASS_OPTIONS
 import com.ichichuang.cinema.domain.repository.FILTER_ALL
 import com.ichichuang.cinema.domain.repository.LANG_OPTIONS
 import kotlinx.coroutines.delay
 
 /**
- * 筛选浮层 —— 从页面下方**整屏滑上来**，选完点「完成」再滑下去。
+ * 筛选浮层 —— 从页面下方**整屏滑上来**。
  *
  * 为什么要整屏：Compose 的一行横向滚动条在电视上永远难用（一行太长、
  * 遥控器要按几十下、还容易抖动）。与其把 20 多个选项塞进一行，
  * 不如给它们一整屏，让它们**自己换行**——遥控器就只剩上下左右。
  *
- * 交互约定：
- * - 改动先落在草稿（draft）上，点「完成」才生效 —— 电视上不该点一下就重载一次列表
- * - 「重置」= 回到默认（全部分类 + 国语）
- * - 按遥控器「返回」= 放弃改动（和「取消」等价）
+ * 交互约定（按用户真机反馈改过）：
+ * - **没有「保存 / 完成」那一行** —— 选好后直接按遥控器「返回」，
+ *   回到首页立刻按新条件重筛（这次选择也会被记住）
+ * - 想重置：每个分区点「全部」；语言点「国语」（默认值）
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -76,7 +65,6 @@ fun FilterSheet(
     categories: List<String>,
     yearOptions: List<String>,
     onApply: (MovieFilter) -> Unit,
-    onClose: () -> Unit,
 ) {
     val m = rememberTvMetrics()
     var draft by remember { mutableStateOf(filter) }
@@ -84,7 +72,7 @@ fun FilterSheet(
 
     LaunchedEffect(visible) {
         if (!visible) return@LaunchedEffect
-        // 每次打开都从"当前生效的筛选"开始编辑（而不是上次没点完成的草稿）
+        // 每次打开都从"当前生效的筛选"开始编辑（而不是上次没用上的草稿）
         draft = filter
         // 等滑入动画把内容挂上再要焦点，否则请求会落空
         delay(200)
@@ -97,7 +85,8 @@ fun FilterSheet(
         exit = slideOutVertically(animationSpec = Motion.enter()) { it } + fadeOut(Motion.quick()),
         modifier = Modifier.fillMaxSize(),
     ) {
-        if (visible) BackHandler(onBack = onClose)
+        // 返回 = 应用并关闭（没有"保存"按钮，返回就是唯一出口）
+        if (visible) BackHandler { onApply(draft) }
 
         Column(
             Modifier
@@ -105,7 +94,7 @@ fun FilterSheet(
                 .background(Ink)
                 .padding(start = m.dp(56f), end = m.dp(56f), top = m.dp(28f), bottom = m.dp(22f)),
         ) {
-            // ── 标题行（固定高度）──
+            // ── 标题行（固定高度）：左边标题，右边当前选择的摘要 ──
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -120,16 +109,19 @@ fun FilterSheet(
                     letterSpacing = m.sp(1f),
                 )
                 Spacer(Modifier.weight(1f))
-                SheetAction(text = "重置", primary = false) { draft = DefaultMovieFilter }
-                Spacer(Modifier.width(m.dp(14f)))
-                SheetAction(text = "完成", primary = true) { onApply(draft) }
+                Text(
+                    text = draft.summaryText(),
+                    color = TextSub,
+                    fontSize = m.sp(17f),
+                    maxLines = 1,
+                )
             }
 
-            Spacer(Modifier.height(m.dp(8f)))
+            Spacer(Modifier.height(m.dp(4f)))
 
-            // ── 四组筛选（换行网格，一行放不下就自己换行）──
-            // 外面套了一层纵向滚动，纯粹是给"电视字号被系统调大"留的后路；
-            // 正常字号下所有选项一屏内放得下，用户感觉不到它
+            // ── 五组筛选（换行网格，一行放不下就自己换行）──
+            // 外面套了一层纵向滚动：字号被系统调大时也不怕放不下；
+            // 焦点移动时 Compose 会自动把选中的药丸滚进视野，遥控器只管上下左右
             Column(
                 Modifier
                     .weight(1f)
@@ -143,6 +135,12 @@ fun FilterSheet(
                     isSelected = { it == draft.category },
                     onSelect = { draft = draft.copy(category = it) },
                     firstFocus = firstChip,
+                )
+                FilterSection(
+                    title = "类型 · 喜剧 / 恐怖 / 动作…",
+                    options = CLASS_OPTIONS,
+                    isSelected = { it == draft.movieClass.ifBlank { FILTER_ALL } },
+                    onSelect = { draft = draft.copy(movieClass = it.toFilterValue()) },
                 )
                 FilterSection(
                     title = "语言",
@@ -166,7 +164,7 @@ fun FilterSheet(
 
             // ── 底部说明（固定一行）──
             Text(
-                text = "选好后点「完成」生效；下次打开电视也会记住这次选择",
+                text = "选好后按「返回」，回到首页立刻生效；这次选择会被记住",
                 color = TextSub,
                 fontSize = m.sp(15f),
                 maxLines = 1,
@@ -176,6 +174,15 @@ fun FilterSheet(
 }
 
 private fun String.toFilterValue(): String = if (this == FILTER_ALL) "" else this
+
+/** 右上角摘要："电影 · 国语 · 喜剧"，什么都没选就是"全部影片" */
+private fun MovieFilter.summaryText(): String {
+    val parts = buildList {
+        if (category != CATEGORY_ALL) add(category)
+        addAll(activeParts)
+    }
+    return if (parts.isEmpty()) "全部影片" else parts.joinToString(" · ")
+}
 
 /** 一组筛选：小标题 + 换行药丸。第一个药丸可以被指定为"打开时先给焦点"的那一个 */
 @OptIn(ExperimentalLayoutApi::class)
@@ -193,7 +200,7 @@ private fun FilterSection(
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(top = m.dp(18f)),
+            .padding(top = m.dp(14f)),
     ) {
         Text(
             text = title,
@@ -201,7 +208,7 @@ private fun FilterSection(
             fontSize = m.sp(16f),
             letterSpacing = m.sp(0.5f),
         )
-        Spacer(Modifier.height(m.dp(12f)))
+        Spacer(Modifier.height(m.dp(10f)))
 
         if (options.isEmpty()) {
             Text(
@@ -235,58 +242,5 @@ private fun FilterSection(
                 )
             }
         }
-    }
-}
-
-/** 浮层里的动作按钮：[完成] 用金色实底（主），[重置] 用深底（次） */
-@Composable
-private fun SheetAction(text: String, primary: Boolean, onClick: () -> Unit) {
-    val m = rememberTvMetrics()
-    val interaction = remember { MutableInteractionSource() }
-    var focused by remember { mutableStateOf(false) }
-
-    val bg by animateColorAsState(
-        targetValue = when {
-            primary && focused -> Gold
-            primary -> Gold.copy(alpha = 0.92f)
-            focused -> PanelHi
-            else -> Panel
-        },
-        animationSpec = Motion.quick(),
-        label = "sheetActionBg",
-    )
-    val fg by animateColorAsState(
-        targetValue = when {
-            primary -> Ink
-            focused -> TextMain
-            else -> TextSub
-        },
-        animationSpec = Motion.quick(),
-        label = "sheetActionFg",
-    )
-    // 按下时的回缩只用一条弹簧（和全应用其他按钮同源）
-    Box(
-        modifier = Modifier
-            .tvFocus(
-                cornerRadius = m.dp(24f),
-                borderColor = if (primary) Color.White.copy(alpha = 0.9f) else Gold,
-                interactionSource = interaction,
-                onFocusChanged = { focused = it },
-            )
-            .clip(RoundedCornerShape(50))
-            .background(bg)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-            ) { onClick() }
-            .padding(horizontal = m.dp(30f), vertical = m.dp(14f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = text,
-            color = fg,
-            fontSize = m.sp(19f),
-            fontWeight = FontWeight.Bold,
-        )
     }
 }

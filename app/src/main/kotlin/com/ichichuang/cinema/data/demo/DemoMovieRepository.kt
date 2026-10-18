@@ -44,7 +44,7 @@ class DemoMovieRepository : MovieRepository {
         return MoviePage(movies = items, total = all.size, relaxed = hitRelaxed)
     }
 
-    override suspend fun detail(id: String): MovieDetail? {
+    override suspend fun detail(id: String, origin: String): MovieDetail? {
         val movie = DEMO_MOVIES.firstOrNull { it.id == id } ?: return null
         return MovieDetail(
             movie = movie,
@@ -65,6 +65,7 @@ class DemoMovieRepository : MovieRepository {
         if (f.lang.isNotBlank() && !lang.contains(f.lang)) return false
         if (f.area.isNotBlank() && !area.contains(f.area)) return false
         if (f.year.isNotBlank() && year.toString() != f.year) return false
+        if (f.movieClass.isNotBlank() && !genre.contains(f.movieClass)) return false
         return true
     }
 }

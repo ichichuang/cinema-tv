@@ -35,6 +35,11 @@ interface MovieRepository {
      */
     suspend fun movies(filter: MovieFilter, page: Int, pageSize: Int = 24): MoviePage
 
-    /** 影片详情（简介 + 播放线路）；取不到返回 null */
-    suspend fun detail(id: String): MovieDetail?
+    /**
+     * 影片详情（简介 + 播放线路）；取不到返回 null。
+     *
+     * [origin] = 影片来自哪个片源（Movie.origin）。多源聚合时用它把请求
+     * 打到正确的站；单源/演示场景传空串即可。
+     */
+    suspend fun detail(id: String, origin: String = ""): MovieDetail?
 }

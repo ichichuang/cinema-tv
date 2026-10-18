@@ -23,9 +23,9 @@ data class PhoneSaveResult(val ok: Boolean, val message: String)
  * 为什么要有它：**电视上打字是灾难**（遥控器一格一格挪，输入框一聚焦就弹键盘）。
  * 所以 TV 端的设置页不再有任何输入框 —— 点「扫码配置」后电视在局域网上起一个
  * 小网页，手机上就能改：
- *  - **推荐源**：点一下 → 电视立刻切换 + 自动测试（一键导入就在这里）
- *  - **已保存的源**：点一下切换
- *  - **自定义地址**：留给用户自己的苹果CMS接口
+ *  - **推荐源 / 已保存的源**：点一下 → 勾选/取消（可多选，首页聚合），电视自动测试
+ *  - **导入 TVBox 配置**：粘贴单仓/多仓 JSON 或订阅地址（v0.9.0 新增）
+ *  - **自定义地址**：留给用户自己的苹果CMS接口（只启用这一个）
  *
  * 设计上的几条克制：
  * - **只在配置浮层打开时运行**，关掉即停（平时不监听任何端口）
@@ -35,7 +35,8 @@ data class PhoneSaveResult(val ok: Boolean, val message: String)
  */
 class ConfigServer(
     private val onSave: suspend (apiBase: String, updateUrl: String) -> PhoneSaveResult,
-    private val onSelect: suspend (url: String) -> PhoneSaveResult,
+    private val onToggle: suspend (url: String) -> PhoneSaveResult,
+    private val onImport: suspend (text: String) -> PhoneSaveResult,
     private val onSourcesPayload: suspend () -> String,
     private val onRefreshCatalog: suspend () -> PhoneSaveResult,
     private val port: Int = PORT_START,
@@ -133,8 +134,11 @@ class ConfigServer(
                 respond(client, 200, TYPE_JSON, payload.toByteArray(Charsets.UTF_8))
             }
 
-            // 手机上点一条源 → 电视切换 + 测试（同步返回结果）
-            method == "POST" && path == "/api/select" -> handleSelect(client, body)
+            // 手机上点一条源 → 电视勾选/取消（多选聚合），同步返回测试结果
+            method == "POST" && path == "/api/toggle" -> handleToggle(client, body)
+
+            // 手机上「导入 TVBox 配置」→ 粘贴 JSON 或订阅地址，电视解析并入库
+            method == "POST" && path == "/api/import" -> handleImport(client, body)
 
             // 手机上点「获取推荐源」→ 电视去拉清单（拉完两边都能看到）
             method == "POST" && path == "/api/catalog/refresh" -> {
@@ -177,15 +181,28 @@ class ConfigServer(
         respondJson(client, result)
     }
 
-    private fun handleSelect(client: Socket, body: ByteArray) {
+    private fun handleToggle(client: Socket, body: ByteArray) {
         val url = readStringField(body, "url").orEmpty()
         if (url.isEmpty()) {
-            respondJson(client, PhoneSaveResult(false, "没收到要切换的地址"))
+            respondJson(client, PhoneSaveResult(false, "没收到要启用的地址"))
             return
         }
         val result = runBlocking {
-            runCatching { onSelect(url) }
+            runCatching { onToggle(url) }
                 .getOrElse { PhoneSaveResult(false, "切换失败：" + (it.message ?: "未知原因")) }
+        }
+        respondJson(client, result)
+    }
+
+    private fun handleImport(client: Socket, body: ByteArray) {
+        val text = readStringField(body, "text").orEmpty()
+        if (text.isEmpty()) {
+            respondJson(client, PhoneSaveResult(false, "没收到要导入的内容（粘贴 JSON 或订阅地址）"))
+            return
+        }
+        val result = runBlocking {
+            runCatching { onImport(text) }
+                .getOrElse { PhoneSaveResult(false, "导入失败：" + (it.message ?: "未知原因")) }
         }
         respondJson(client, result)
     }
@@ -326,7 +343,8 @@ class ConfigServer(
         const val PORT_START = 8899
         const val PORT_TRIES = 12
         const val MAX_HEADER = 16 * 1024
-        const val MAX_BODY = 64 * 1024
+        /** 导入 TVBox 配置时请求体可能是几十上百 KB 的 JSON，留够（电视内存一次 0.5MB 无压力） */
+        const val MAX_BODY = 512 * 1024
         const val TYPE_HTML = "text/html; charset=utf-8"
         const val TYPE_JSON = "application/json; charset=utf-8"
         const val TYPE_TEXT = "text/plain; charset=utf-8"
@@ -376,8 +394,15 @@ class ConfigServer(
   .item .i{color:#6f6f76;font-size:12px;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .item .m{flex:0 0 auto;color:var(--gold);font-size:13px;font-weight:600}
   .item.active{border-color:var(--gold);background:#1d1a14}
+  .item.on{border-color:var(--gold);background:#1d1a14}
   .item:disabled{opacity:1;cursor:default}
   .empty{color:#5c5c63;font-size:13px;padding:10px 2px}
+  .sum{color:var(--gold);font-size:14px;line-height:1.7;margin:0 0 18px;padding:12px 14px;
+    background:var(--panel);border:1px solid #2c2c34;border-radius:12px}
+  textarea{width:100%;min-height:110px;padding:15px 16px;font-size:15px;color:var(--tmain);
+    background:var(--panel);border:1px solid #2c2c34;border-radius:12px;outline:none;
+    -webkit-appearance:none;font-family:inherit;resize:vertical}
+  textarea:focus{border-color:var(--gold)}
   button.ghost{background:var(--panel);color:var(--tmain);border:1px solid #2c2c34;margin-top:12px;
     font-size:15px;font-weight:600;padding:14px}
 </style>
@@ -385,16 +410,22 @@ class ConfigServer(
 <body>
 <div class="wrap">
   <h1>极简影院 · 配置</h1>
-  <p class="sub">点一下就用：推荐源 / 已保存的源，点任意一条 → 电视立即切换并自动测试。电视上不用打一个字。</p>
+  <p class="sub">勾选制：点一下就把源加入「已启用」（再点一下取消）→ 电视立即生效并自动测试。可以同时启用多个源，首页会把它们的电影合在一起。</p>
+  <div id="sum" class="sum">正在读取电视状态…</div>
 
-  <label>推荐源 · 实测排行（点一下立即使用）</label>
+  <label>推荐源 · 实测排行（点一下启用 / 取消）</label>
   <div id="catalog" class="list"><div class="empty">正在获取推荐源…</div></div>
   <button id="fetchBtn" class="ghost" style="display:none">获取推荐源</button>
 
-  <label>已保存的源（点一下切换）</label>
+  <label>已保存的源（点一下启用 / 取消）</label>
   <div id="saved" class="list"><div class="empty">还没有保存过别的源</div></div>
 
-  <label for="api">自定义接口地址（高级）</label>
+  <label for="imp">导入 TVBox 配置（单仓 / 多仓都行）</label>
+  <textarea id="imp" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="{ &quot;sites&quot;: [ ... ] }  或  https://…/推荐的.json"></textarea>
+  <p class="hint">把 TVBox 的 <b>单仓 / 多仓 JSON</b> 全文粘进来，或直接贴一个 <b>订阅地址</b>。相对路径的引用（如 <code>./xxx.json</code>）电视上抓不到会被跳过；只收苹果CMS 接口。</p>
+  <button id="impBtn" class="ghost">导入</button>
+
+  <label for="api">自定义接口地址（高级 · 只启用这一个）</label>
   <input id="api" value="__API__" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://你的站点/api.php/provide/vod/">
   <p class="hint">苹果CMS V10 接口地址，形如 <code>http://站点/api.php/provide/vod/</code>。应用不内置任何片源。想先看界面长什么样，填 <b>demo</b> 即可。</p>
 
@@ -405,7 +436,7 @@ class ConfigServer(
     <p class="hint">留空就用默认地址。只有电视连不上 GitHub 时，才需要换成镜像。</p>
   </details>
 
-  <button id="save">保存自定义地址并测试</button>
+  <button id="save">保存这个地址并测试（替换当前的启用集合）</button>
   <div id="result" class="result"></div>
 
   <p class="foot">保存后电视会自动测试：能取到影片才算配置成功。<br>测完还能再改；电视上关掉「扫码配置」页面后，这个网址就会失效。</p>
@@ -419,24 +450,28 @@ class ConfigServer(
   var catEl = document.getElementById('catalog');
   var savedEl = document.getElementById('saved');
   var fetchBtn = document.getElementById('fetchBtn');
+  var impEl = document.getElementById('imp');
+  var impBtn = document.getElementById('impBtn');
+  var sumEl = document.getElementById('sum');
   var busy = false;
+  var enabled = [];
+
+  function isOn(u) { return enabled.indexOf(u) >= 0; }
 
   function show(ok, msg) {
     box.className = 'result show ' + (ok ? 'ok' : 'bad');
     box.textContent = msg;
   }
 
-  function makeRow(name, info, active, url) {
+  function makeRow(name, info, on, url) {
     var row = document.createElement('button');
     row.type = 'button';
-    row.className = 'item' + (active ? ' active' : '');
+    row.className = 'item' + (on ? ' on' : '');
     var n = document.createElement('span'); n.className = 'n'; n.textContent = name;
     var i = document.createElement('span'); i.className = 'i'; i.textContent = info || '';
-    var m = document.createElement('span'); m.className = 'm'; m.textContent = active ? '使用中' : '用这个';
+    var m = document.createElement('span'); m.className = 'm'; m.textContent = on ? '✓ 已启用' : '启用';
     row.appendChild(n); row.appendChild(i); row.appendChild(m);
-    if (active) { row.disabled = true; } else {
-      row.addEventListener('click', function () { selectSource(url); });
-    }
+    row.addEventListener('click', function () { toggleSource(url); });
     return row;
   }
 
@@ -453,12 +488,17 @@ class ConfigServer(
   function load() {
     fetch('/api/sources').then(function (r) { return r.json(); }).then(function (d) {
       if (!d || d.ok !== true) { show(false, '电视那边状态不对，重开一下配置页'); return; }
+      enabled = (d.enabled || '').split('\n').filter(function (s) { return s.trim().length > 0; });
+      var maxN = d.maxEnabled || 8;
+      sumEl.textContent = enabled.length
+        ? ('已启用 ' + enabled.length + ' / ' + maxN + ' 个片源：首页会把它们的电影合在一起')
+        : '还没有启用任何片源：从下面勾一个吧';
       var saved = (d.saved || []).map(function (s) {
-        return makeRow(s.name, s.url, s.url === d.active, s.url);
+        return makeRow(s.name, s.url, isOn(s.url), s.url);
       });
       paint(savedEl, saved, '还没有保存过别的源');
       var cat = (d.catalog || []).map(function (s) {
-        return makeRow(s.name, s.info || s.url, s.url === d.active, s.url);
+        return makeRow(s.name, s.info || s.url, isOn(s.url), s.url);
       });
       var hasCat = !!(d.catalog && d.catalog.length);
       paint(catEl, cat, '还没获取过推荐源，点下面的按钮去获取');
@@ -469,11 +509,11 @@ class ConfigServer(
     });
   }
 
-  function selectSource(url) {
+  function toggleSource(url) {
     if (busy) return;
     busy = true;
     show(true, '正在让电视切换并测试，稍等几秒…');
-    fetch('/api/select', {
+    fetch('/api/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: url })
@@ -502,6 +542,33 @@ class ConfigServer(
       });
   });
 
+  impBtn.addEventListener('click', function () {
+    var text = impEl.value.trim();
+    if (!text) { show(false, '先粘贴 JSON 内容或订阅地址'); return; }
+    if (busy) return;
+    busy = true;
+    impBtn.disabled = true;
+    impBtn.textContent = '正在导入…';
+    show(true, '正在让电视导入，订阅地址多的话要等几秒…');
+    fetch('/api/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        busy = false; impBtn.disabled = false; impBtn.textContent = '导入';
+        show(!!d.ok, d.message || '完成');
+        if (d.ok) { impEl.value = ''; }
+        load();
+      })
+      .catch(function () {
+        busy = false; impBtn.disabled = false; impBtn.textContent = '导入';
+        show(false, '电视没响应：确认配置页还开着，然后重试');
+        load();
+      });
+  });
+
   btn.addEventListener('click', function () {
     var api = apiEl.value.trim();
     var upd = updEl.value.trim();
@@ -520,13 +587,13 @@ class ConfigServer(
       .then(function (r) { return r.json(); })
       .then(function (d) {
         btn.disabled = false;
-        btn.textContent = '保存自定义地址并测试';
+        btn.textContent = '保存这个地址并测试（替换当前的启用集合）';
         show(!!d.ok, d.message || '完成');
         load();
       })
       .catch(function () {
         btn.disabled = false;
-        btn.textContent = '保存自定义地址并测试';
+        btn.textContent = '保存这个地址并测试（替换当前的启用集合）';
         show(false, '手机和电视没连上：确认在同一个 WiFi，且电视上的「扫码配置」页面还开着');
       });
   });

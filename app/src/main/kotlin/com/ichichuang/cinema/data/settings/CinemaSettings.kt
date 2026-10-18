@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
@@ -23,6 +24,9 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 /** 一个保存下来的片源：名字（展示用）+ 接口地址 */
 data class SavedSource(val name: String, val url: String)
+
+/** 一次导入的收成：新增了几个、顺手启用了几个 */
+data class ImportOutcome(val added: Int, val enabled: Int)
 
 /**
  * 应用设置的唯一存储点。
@@ -42,8 +46,10 @@ class CinemaSettings(private val context: Context) {
     private val keyApiBase = stringPreferencesKey("api_base")
     private val keyApiName = stringPreferencesKey("api_name")
     private val keySources = stringPreferencesKey("saved_sources")
+    private val keyEnabled = stringPreferencesKey("enabled_sources")
     private val keyUpdateUrl = stringPreferencesKey("update_url")
     private val keySeekStep = longPreferencesKey("seek_step_ms")
+    private val keyHomeCols = longPreferencesKey("home_columns")
     private val keyCatalog = stringPreferencesKey("source_catalog")
 
     private val json = Json {
@@ -59,6 +65,32 @@ class CinemaSettings(private val context: Context) {
 
     /** 保存过的源清单（新加的排前面） */
     val sources: Flow<List<SavedSource>> = context.dataStore.data.map { decodeSources(it[keySources]) }
+
+    /**
+     * 启用中的片源地址（**多选**）。首页会把所有启用源的结果聚在一起。
+     *
+     * 兼容老版本（只有 apiBase 单源）：enabled 为空时把 apiBase 视作唯一启用源；
+     * 演示模式（demo）不算片源。
+     */
+    val activeUrls: Flow<List<String>> = context.dataStore.data.map { deriveActive(it) }
+
+    /** 首页每行海报数（4..8，默认 5） */
+    val homeColumns: Flow<Int> = context.dataStore.data.map {
+        (it[keyHomeCols] ?: DEFAULT_HOME_COLUMNS.toLong()).toInt()
+            .coerceIn(MIN_HOME_COLUMNS, MAX_HOME_COLUMNS)
+    }
+
+    /**
+     * "来源组合签名"：启用集合或主源一变化它就变。
+     * 首页拿它当"配置变了 → 整墙重载"的信号（见 MovieRepository.config）。
+     */
+    val sourceSignature: Flow<String> = combine(apiBase, activeUrls) { base, urls ->
+        when {
+            urls.isNotEmpty() -> urls.joinToString("|")
+            base == DEMO -> DEMO
+            else -> base
+        }
+    }
 
     /** 播放器快进/快退步长（毫秒） */
     val seekStepMs: Flow<Long> = context.dataStore.data.map { it[keySeekStep] ?: DEFAULT_SEEK_STEP_MS }
@@ -83,10 +115,11 @@ class CinemaSettings(private val context: Context) {
     }
 
     /**
-     * 激活一个片源（切换 + 记忆 + 并入保存清单）。
+     * 激活一个片源（**只留这一个**：切换 + 记忆 + 并入保存清单）。
      *
      * 一个动作干三件事，是为了让两个入口（电视上的「选择片源」、手机上的一键切换）
      * 共用同一条逻辑 —— 不存在"从手机换的源电视上找不到"这种事。
+     * 想同时用好几个源（首页聚合），用 toggleSource 逐个加。
      */
     suspend fun activateSource(name: String, url: String) {
         val cleanUrl = url.trim()
@@ -94,17 +127,124 @@ class CinemaSettings(private val context: Context) {
             if (cleanUrl.isEmpty()) {
                 prefs.remove(keyApiBase)
                 prefs.remove(keyApiName)
+                prefs.remove(keyEnabled)
                 return@edit
             }
             val cleanName = name.trim().takeIf { it.isNotEmpty() } ?: DEFAULT_SOURCE_NAME
             prefs[keyApiBase] = cleanUrl
             prefs[keyApiName] = cleanName
 
+            // 启用集合跟着走：演示模式 = 不启用任何真实源；真实地址 = 只启用它
+            if (cleanUrl == DEMO) {
+                prefs.remove(keyEnabled)
+            } else {
+                prefs[keyEnabled] = encodeUrls(listOf(cleanUrl))
+            }
+
             // 顺手并入保存清单：同一个地址只留一条，最新的排最前，超出上限就丢最旧的
             val rest = decodeSources(prefs[keySources]).filterNot { it.url == cleanUrl }
             val merged = listOf(SavedSource(cleanName, cleanUrl)) + rest
             prefs[keySources] = encodeSources(merged.take(MAX_SAVED_SOURCES))
         }
+    }
+
+    /**
+     * 打开/关闭一个片源的「启用」状态（首页会聚合所有启用源）。
+     *
+     * 与 activateSource 的分工：activate = 只留这一个；toggle = 多选加减。
+     * @return false = 到了启用上限（电视扛不住太多并发源），本次没生效
+     */
+    suspend fun toggleSource(url: String): Boolean {
+        val clean = url.trim()
+        if (clean.isEmpty() || clean == DEMO) return false
+        var accepted = true
+        context.dataStore.edit { prefs ->
+            val current = deriveActive(prefs)
+            val next = if (clean in current) current - clean else current + clean
+            if (clean !in current && next.size > MAX_ENABLED_SOURCES) {
+                accepted = false
+                return@edit
+            }
+            prefs[keyEnabled] = encodeUrls(next)
+            // 主源口径跟着第一个启用源走（老逻辑 / 设置页状态行都看它）
+            if (next.isEmpty()) {
+                prefs.remove(keyApiBase)
+                prefs.remove(keyApiName)
+            } else {
+                prefs[keyApiBase] = next.first()
+                val saved = decodeSources(prefs[keySources])
+                prefs[keyApiName] = saved.firstOrNull { it.url == next.first() }?.name
+                    ?: DEFAULT_SOURCE_NAME
+            }
+        }
+        return accepted
+    }
+
+    /** 一次性读取启用中的片源（数据层的取数路径用） */
+    suspend fun activeUrlsNow(): List<String> = deriveActive(context.dataStore.data.first())
+
+    private fun deriveActive(prefs: Preferences): List<String> {
+        val stored = decodeUrls(prefs[keyEnabled]).filter { it != DEMO }
+        if (stored.isNotEmpty()) return stored
+        val legacy = prefs[keyApiBase]?.trim().orEmpty()
+        return if (legacy.isEmpty() || legacy == DEMO) emptyList() else listOf(legacy)
+    }
+
+    /** 首页每行海报数（4..8） */
+    suspend fun setHomeColumns(columns: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[keyHomeCols] = columns.coerceIn(MIN_HOME_COLUMNS, MAX_HOME_COLUMNS).toLong()
+        }
+    }
+
+    /**
+     * 批量并入保存清单（TVBox 导入用）：同地址去重、新的排前面。
+     * @return 实际新增的数量
+     */
+    suspend fun mergeSavedSources(incoming: List<SavedSource>): Int {
+        if (incoming.isEmpty()) return 0
+        var added = 0
+        context.dataStore.edit { prefs ->
+            val existing = decodeSources(prefs[keySources])
+            val seen = existing.mapTo(HashSet()) { it.url }
+            val fresh = incoming.filter { seen.add(it.url) }
+            added = fresh.size
+            if (added > 0) {
+                prefs[keySources] = encodeSources((fresh + existing).take(MAX_SAVED_SOURCES))
+            }
+        }
+        return added
+    }
+
+    /**
+     * 只并入保存清单（不动启用集合）—— 推荐源被勾选时顺手记住它，
+     * 不然下次想找回来就得重新拉清单。
+     */
+    suspend fun rememberSource(name: String, url: String) {
+        val clean = url.trim()
+        if (clean.isEmpty()) return
+        mergeSavedSources(
+            listOf(SavedSource(name.trim().takeIf { it.isNotEmpty() } ?: DEFAULT_SOURCE_NAME, clean)),
+        )
+    }
+
+    /**
+     * 导入一批片源：先并入保存清单，再把还没启用的自动补几个上来（不超过启用上限）。
+     * 这样导入完首页立刻就有内容，不用一个个手动勾。
+     */
+    suspend fun importSources(incoming: List<SavedSource>): ImportOutcome {
+        val added = mergeSavedSources(incoming)
+        var enabledCount = activeUrlsNow().size
+        var turnedOn = 0
+        for (source in incoming) {
+            if (enabledCount >= MAX_ENABLED_SOURCES) break
+            if (source.url in activeUrlsNow()) continue
+            if (toggleSource(source.url)) {
+                enabledCount += 1
+                turnedOn += 1
+            }
+        }
+        return ImportOutcome(added = added, enabled = turnedOn)
     }
 
     /** 保存更新清单地址（空串 = 恢复默认候选） */
@@ -159,6 +299,18 @@ class CinemaSettings(private val context: Context) {
         }.getOrDefault(emptyList())
     }
 
+    // 启用集合全是地址字符串（地址里不可能有换行符）→ 直接用换行分隔存，
+    // 比 JSON 再套一层更皮实，也不会踩序列化库的边角注释
+
+    private fun encodeUrls(list: List<String>): String =
+        list.joinToString("\n")
+
+    private fun decodeUrls(raw: String?): List<String> =
+        raw.orEmpty()
+            .split('\n')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+
     companion object {
         /**
          * 魔法值：接口地址填这个，就用内置演示数据（不联网）。
@@ -169,8 +321,16 @@ class CinemaSettings(private val context: Context) {
         /** 用户自己填的地址的默认名字 */
         const val DEFAULT_SOURCE_NAME = "自定义"
 
-        /** 保存清单上限（32 个推荐 + 若干自定义，够用了） */
-        private const val MAX_SAVED_SOURCES = 48
+        /** 保存清单上限（多仓导入可能一下进来很多，留足空间） */
+        private const val MAX_SAVED_SOURCES = 256
+
+        /** 同时启用（首页聚合）的片源上限：再多并发会让电视加载一页等太久 */
+        const val MAX_ENABLED_SOURCES = 8
+
+        /** 首页每行海报数：可选档与默认值 */
+        const val MIN_HOME_COLUMNS = 4
+        const val MAX_HOME_COLUMNS = 8
+        const val DEFAULT_HOME_COLUMNS = 5
 
         /** 播放器快进步长的默认档：15 秒 */
         const val DEFAULT_SEEK_STEP_MS = 15_000L

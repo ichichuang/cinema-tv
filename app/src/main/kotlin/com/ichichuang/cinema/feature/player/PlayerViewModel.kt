@@ -90,6 +90,8 @@ class PlayerViewModel(
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
 
     private var movieId: String = ""
+    /** 影片来自哪个片源（多源聚合时用）；空 = 单源/演示 */
+    private var movieOrigin: String = ""
     private var started = false
     /** 已经自动换过几次线路（防止在多条挂掉的线路之间无限循环） */
     private var autoSwitched = 0
@@ -138,14 +140,15 @@ class PlayerViewModel(
     }
 
     /** 页面上屏时调一次（movieId 变了才重新开始） */
-    fun start(movieId: String, fallbackTitle: String) {
-        if (started && this.movieId == movieId) return
+    fun start(movieId: String, fallbackTitle: String, origin: String) {
+        if (started && this.movieId == movieId && movieOrigin == origin.trim()) return
         started = true
         this.movieId = movieId
+        movieOrigin = origin.trim()
         _state.update { it.copy(title = fallbackTitle, loading = true, error = null) }
 
         viewModelScope.launch {
-            val detail = runCatching { repository.detail(movieId) }.getOrNull()
+            val detail = runCatching { repository.detail(movieId, movieOrigin) }.getOrNull()
             if (detail == null || detail.lines.isEmpty()) {
                 _state.update {
                     it.copy(
@@ -157,7 +160,13 @@ class PlayerViewModel(
                 return@launch
             }
 
-            val saved = runCatching { progress.get(movieId) }.getOrNull()
+            // 新键（带片源）优先；老版本存的"纯 id"键兜底读一次，历史进度不丢
+            val saved = runCatching { progress.get(progressKey()) }.getOrNull()
+                ?: if (movieOrigin.isNotEmpty()) {
+                    runCatching { progress.get(movieId) }.getOrNull()
+                } else {
+                    null
+                }
             val lines = detail.lines
             // 默认就用一条线路：优先上次看过的那条，否则第一条
             val lineIndex = (saved?.lineIndex ?: 0).coerceIn(0, lines.lastIndex)
@@ -341,6 +350,10 @@ class PlayerViewModel(
 
     // ── 内部 ───────────────────────────────────────────────────
 
+    /** 进度的键：和首页 Movie.uniqueKey 同一套写法（带来源，防不同站 id 撞车） */
+    private fun progressKey(): String =
+        if (movieOrigin.isEmpty()) movieId else "$movieOrigin#$movieId"
+
     private fun playEpisode(episode: Episode?, resumeMs: Long) {
         if (episode == null) {
             _state.update { it.copy(error = "这一集没有播放地址", buffering = false) }
@@ -419,7 +432,7 @@ class PlayerViewModel(
         } else {
             // 最后一集放完 = 全片看完：进度归零（下次从头看），只留一句人话
             viewModelScope.launch {
-                runCatching { progress.save(movieId, WatchPoint(s.lineIndex, 0, 0L, s.durationMs)) }
+                runCatching { progress.save(progressKey(), WatchPoint(s.lineIndex, 0, 0L, s.durationMs)) }
             }
             lastSavedMs = 0L
             _state.update {
@@ -440,7 +453,7 @@ class PlayerViewModel(
         val dur = runCatching { player.duration }.getOrDefault(0L).coerceAtLeast(0L)
         viewModelScope.launch {
             runCatching {
-                progress.save(movieId, WatchPoint(s.lineIndex, s.episodeIndex, pos, dur))
+                progress.save(progressKey(), WatchPoint(s.lineIndex, s.episodeIndex, pos, dur))
             }
         }
     }

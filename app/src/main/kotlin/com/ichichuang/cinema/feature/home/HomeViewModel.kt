@@ -2,6 +2,7 @@ package com.ichichuang.cinema.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ichichuang.cinema.data.settings.CinemaSettings
 import com.ichichuang.cinema.data.settings.PlaybackProgress
 import com.ichichuang.cinema.domain.model.DefaultMovieFilter
 import com.ichichuang.cinema.domain.model.Movie
@@ -63,6 +64,8 @@ data class HomeUiState(
     val resumeMs: Long = 0L,
     /** 年份选项（按当前年份生成，接口只支持具体年份） */
     val yearOptions: List<String> = emptyList(),
+    /** 首页每行海报数（设置里可选 4..8，默认 5） */
+    val columns: Int = 5,
 )
 
 /**
@@ -75,6 +78,7 @@ class HomeViewModel(
     private val progress: PlaybackProgress,
     private val filterStore: FilterStore,
     private val browseStore: BrowseStore,
+    private val settings: CinemaSettings,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
@@ -94,6 +98,10 @@ class HomeViewModel(
     init {
         _state.update {
             it.copy(yearOptions = yearOptions(Calendar.getInstance().get(Calendar.YEAR)))
+        }
+        viewModelScope.launch {
+            // 每行海报数：设置里一改，海报墙立刻按新列数重排
+            settings.homeColumns.collect { cols -> _state.update { it.copy(columns = cols) } }
         }
         viewModelScope.launch {
             // 先恢复上次的筛选（第一次运行 = 默认国语）和上次看到哪了，再开始跟接口地址的变化。
@@ -141,18 +149,18 @@ class HomeViewModel(
 
     /** 焦点落到某部片上：立刻切换右侧详情，并（防抖后）拉详情 */
     fun onMovieFocused(movie: Movie) {
-        if (_state.value.selected?.id == movie.id) return
+        if (_state.value.selected?.uniqueKey == movie.uniqueKey) return
         _state.update {
             it.copy(
                 selected = movie,
-                detail = detailCache[movie.id],
-                detailLoading = detailCache[movie.id] == null,
+                detail = detailCache[movie.uniqueKey],
+                detailLoading = detailCache[movie.uniqueKey] == null,
                 resumeMs = 0L,   // 先不显示上次的进度，等读到真的再说（避免显示上一部片的）
             )
         }
-        loadProgress(movie.id)
+        loadProgress(movie)
         loadDetail(movie)
-        scheduleBrowseSave(movie.id)
+        scheduleBrowseSave(movie)
     }
 
     /**
@@ -163,8 +171,8 @@ class HomeViewModel(
      * 列表还被自动滚回顶部，用户会觉得"我刚才翻的全没了"。
      */
     fun onHomeVisible() {
-        val id = _state.value.selected?.id ?: return
-        _state.update { it.copy(focusTarget = id) }
+        val key = _state.value.selected?.uniqueKey ?: return
+        _state.update { it.copy(focusTarget = key) }
     }
 
     /**
@@ -188,17 +196,17 @@ class HomeViewModel(
             synopsis = "",
             posterUrl = fallbackPoster,
         )
-        if (_state.value.selected?.id != movieId) {
+        if (_state.value.selected?.uniqueKey != movie.uniqueKey) {
             _state.update {
                 it.copy(
                     selected = movie,
-                    detail = detailCache[movieId],
-                    detailLoading = detailCache[movieId] == null,
+                    detail = detailCache[movie.uniqueKey],
+                    detailLoading = detailCache[movie.uniqueKey] == null,
                     resumeMs = 0L,
                 )
             }
         }
-        loadProgress(movieId)
+        loadProgress(movie)
         loadDetail(movie)
     }
 
@@ -213,7 +221,7 @@ class HomeViewModel(
      * 首页在导航栈底部：去播放器时它离开组合，回来时重新进入 → 正好触发一次。
      */
     fun refreshSelectedProgress() {
-        _state.value.selected?.let { loadProgress(it.id) }
+        _state.value.selected?.let { loadProgress(it) }
     }
 
     /**
@@ -246,17 +254,21 @@ class HomeViewModel(
     private fun takeRestoreTarget(movies: List<Movie>): Movie? {
         val memory = pendingRestore ?: return null
         pendingRestore = null
-        return memory.movieId?.let { id -> movies.firstOrNull { it.id == id } }
-            ?: movies.getOrNull(memory.index)
+        return memory.movieId?.let { key ->
+            // 新格式存的是 uniqueKey（片源#id）；老版本存的纯 id 也认得
+            movies.firstOrNull { it.uniqueKey == key } ?: movies.firstOrNull { it.id == key }
+        } ?: movies.getOrNull(memory.index)
     }
 
     /** 焦点停住 700ms 才落盘：遥控器划得快，不必每动一下就写一次磁盘 */
-    private fun scheduleBrowseSave(movieId: String) {
+    private fun scheduleBrowseSave(movie: Movie) {
         browseSaveJob?.cancel()
         browseSaveJob = viewModelScope.launch {
             delay(700)
-            val index = _state.value.movies.indexOfFirst { it.id == movieId }.coerceAtLeast(0)
-            runCatching { browseStore.save(BrowseMemory(movieId = movieId, index = index)) }
+            val index = _state.value.movies.indexOfFirst { it.uniqueKey == movie.uniqueKey }
+                .coerceAtLeast(0)
+            // 存 uniqueKey（带片源）：多源下不同站的 vod_id 可能撞车，纯 id 会认错片
+            runCatching { browseStore.save(BrowseMemory(movieId = movie.uniqueKey, index = index)) }
         }
     }
 
@@ -321,12 +333,12 @@ class HomeViewModel(
                         it.copy(
                             loading = false,
                             filter = fixedFilter,
-                            movies = result.movies,
+                            movies = result.movies.distinctBy { movie -> movie.uniqueKey },
                             total = result.total,
                             relaxedNote = if (result.relaxed) relaxedText(fixedFilter) else null,
                             selected = focusMovie,
                             // 只在"该抢焦点"的场合发这个一次性请求（换筛选时不发）
-                            focusTarget = if (restoreFocus) focusMovie?.id else null,
+                            focusTarget = if (restoreFocus) focusMovie?.uniqueKey else null,
                             endReached = result.movies.isEmpty(),
                         )
                     }
@@ -349,7 +361,9 @@ class HomeViewModel(
                     _state.update {
                         it.copy(
                             loadingMore = false,
-                            movies = it.movies + result.movies,
+                            // distinctBy：翻页接口有时会返回和上一页重复的片（尤其是聚合多源时），
+                            // 列表 key 撞车会直接闪退 —— 在这里兜住
+                            movies = (it.movies + result.movies).distinctBy { movie -> movie.uniqueKey },
                             endReached = result.movies.isEmpty(),
                             pageError = null,
                         )
@@ -371,14 +385,20 @@ class HomeViewModel(
     }
 
     /** 读观看进度：快看完了（离结尾不到 1 分钟）就不显示"继续观看"，当成看完 */
-    private fun loadProgress(movieId: String) {
+    private fun loadProgress(movie: Movie) {
         viewModelScope.launch {
-            val point = runCatching { progress.get(movieId) }.getOrNull()
+            // 新键（带片源）优先；老版本存的"纯 id"键兜底读一次，历史进度不丢
+            val point = runCatching { progress.get(movie.uniqueKey) }.getOrNull()
+                ?: if (movie.origin.isNotEmpty()) {
+                    runCatching { progress.get(movie.id) }.getOrNull()
+                } else {
+                    null
+                }
             val resume = point?.let {
                 val nearEnd = it.durationMs > 0 && it.positionMs > it.durationMs - 60_000
                 if (nearEnd) 0L else it.positionMs
             } ?: 0L
-            if (_state.value.selected?.id == movieId) {
+            if (_state.value.selected?.uniqueKey == movie.uniqueKey) {
                 _state.update { it.copy(resumeMs = resume) }
             }
         }
@@ -386,20 +406,20 @@ class HomeViewModel(
 
     /** 拉详情：焦点停住 250ms 才发请求，避免快速划过时打一串无用请求 */
     private fun loadDetail(movie: Movie) {
-        detailCache[movie.id]?.let { return }
+        detailCache[movie.uniqueKey]?.let { return }
         detailJob?.cancel()
         detailJob = viewModelScope.launch {
             delay(250)
-            runCatching { repository.detail(movie.id) }
+            runCatching { repository.detail(movie.id, movie.origin) }
                 .onSuccess { detail ->
                     if (detail == null) {
                         _state.update { it.copy(detailLoading = false) }
                         return@onSuccess
                     }
                     if (detailCache.size > MAX_DETAIL_CACHE) detailCache.clear()
-                    detailCache[movie.id] = detail
+                    detailCache[movie.uniqueKey] = detail
                     // 焦点可能已经移走了，只在还停在它身上时才更新 UI
-                    if (_state.value.selected?.id == movie.id) {
+                    if (_state.value.selected?.uniqueKey == movie.uniqueKey) {
                         _state.update { it.copy(detail = detail, detailLoading = false) }
                     }
                 }

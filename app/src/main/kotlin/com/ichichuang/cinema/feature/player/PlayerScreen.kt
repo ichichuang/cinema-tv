@@ -18,6 +18,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -95,6 +96,7 @@ import org.koin.androidx.compose.koinViewModel
 fun PlayerScreen(
     movieId: String,
     title: String,
+    origin: String,
     onBack: () -> Unit,
     vm: PlayerViewModel = koinViewModel(),
 ) {
@@ -103,7 +105,7 @@ fun PlayerScreen(
     val rootFocus = remember { FocusRequester() }
 
     // 上屏就开播；movieId 不变不会重复开始
-    LaunchedEffect(movieId) { vm.start(movieId, title) }
+    LaunchedEffect(movieId, origin) { vm.start(movieId, title, origin) }
 
     // 播放时不许熄屏（电视上最烦的就是看一半黑屏）
     val activity = LocalContext.current as? Activity
@@ -505,10 +507,12 @@ private fun PlayPanel(
         }
     }
 
+    // 高度按内容形态算死（打开期间任何操作都不变）。间距里留足了"焦点放大 + 光晕"
+    // 的呼吸空间：总计最高 540 < 画布 562，不会被屏幕上下裁掉。
     val panelHeight = m.dp(
-        178f +
-            (if (showLines) 96f else 0f) +
-            (if (showEpisodes) 246f else 0f),
+        182f +
+            (if (showLines) 108f else 0f) +
+            (if (showEpisodes) 250f else 0f),
     )
 
     Column(
@@ -517,7 +521,7 @@ private fun PlayPanel(
             .height(panelHeight)
             .clip(RoundedCornerShape(topStart = m.dp(22f), topEnd = m.dp(22f)))
             .background(Panel.copy(alpha = 0.97f))
-            .padding(horizontal = m.dp(56f), vertical = m.dp(24f)),
+            .padding(horizontal = m.dp(56f), vertical = m.dp(26f)),
     ) {
         Row(
             modifier = Modifier
@@ -539,12 +543,12 @@ private fun PlayPanel(
             )
         }
 
-        Spacer(Modifier.height(m.dp(12f)))
+        Spacer(Modifier.height(m.dp(14f)))
 
         // ── 快进 / 快退的幅度 ──
         PanelLabel("快退 / 快进一次走多远")
-        Spacer(Modifier.height(m.dp(8f)))
-        Row(horizontalArrangement = Arrangement.spacedBy(m.dp(12f))) {
+        Spacer(Modifier.height(m.dp(10f)))
+        Row(horizontalArrangement = Arrangement.spacedBy(m.dp(14f))) {
             CinemaSettings.SEEK_STEP_OPTIONS.forEach { step ->
                 val selected = step == state.seekStepMs
                 PanelChip(
@@ -558,10 +562,15 @@ private fun PlayPanel(
 
         // ── 线路（多于一条才有意义）──
         if (showLines) {
-            Spacer(Modifier.height(m.dp(14f)))
+            Spacer(Modifier.height(m.dp(16f)))
             PanelLabel("线路")
-            Spacer(Modifier.height(m.dp(8f)))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(m.dp(12f))) {
+            Spacer(Modifier.height(m.dp(10f)))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(m.dp(14f)),
+                // 6px 内边距：高亮药丸会微微放大加描边，LazyRow 会在自己的边界处把
+                // 放大出来的部分裁掉 —— 留出这块空间，聚焦时才不会"被切一条边"
+                contentPadding = PaddingValues(vertical = m.dp(6f)),
+            ) {
                 itemsIndexed(state.lines) { index, line ->
                     PanelChip(
                         text = line.name,
@@ -574,17 +583,19 @@ private fun PlayPanel(
 
         // ── 选集 ──
         if (showEpisodes) {
-            Spacer(Modifier.height(m.dp(14f)))
+            Spacer(Modifier.height(m.dp(16f)))
             PanelLabel("选集")
-            Spacer(Modifier.height(m.dp(8f)))
+            Spacer(Modifier.height(m.dp(10f)))
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = m.dp(88f)),
                 state = gridState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(m.dp(10f)),
-                verticalArrangement = Arrangement.spacedBy(m.dp(10f)),
+                // 同上：给聚焦放大的格子留呼吸空间，边缘的高亮不会被裁
+                contentPadding = PaddingValues(m.dp(4f)),
+                horizontalArrangement = Arrangement.spacedBy(m.dp(12f)),
+                verticalArrangement = Arrangement.spacedBy(m.dp(12f)),
             ) {
                 itemsIndexed(state.episodes) { index, ep ->
                     val isCurrent = index == state.episodeIndex

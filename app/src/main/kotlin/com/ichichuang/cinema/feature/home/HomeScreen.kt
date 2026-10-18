@@ -57,7 +57,6 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
@@ -183,6 +182,7 @@ fun HomeScreen(
                     endReached = state.endReached,
                     generation = state.gridGeneration,
                     focusTarget = state.focusTarget,
+                    columns = state.columns,
                     needsSetup = state.needsSetup,
                     error = state.error,
                     pageError = state.pageError,
@@ -198,7 +198,7 @@ fun HomeScreen(
             }
         }
 
-        // 筛选浮层：整屏从下往上滑入，点「完成」滑出去
+        // 筛选浮层：整屏从下往上滑入；选好按「返回」→ 自动生效并滑出
         FilterSheet(
             visible = sheetOpen,
             filter = state.filter,
@@ -208,7 +208,6 @@ fun HomeScreen(
                 sheetOpen = false
                 viewModel.applyFilter(next)
             },
-            onClose = { sheetOpen = false },
         )
 
         // 更新浮层盖在整屏之上（打开时压暗背景，注意力收在卡片上）
@@ -505,6 +504,7 @@ private fun PosterGrid(
     endReached: Boolean,
     generation: Int,
     focusTarget: String?,
+    columns: Int,
     needsSetup: Boolean,
     error: String?,
     pageError: String?,
@@ -518,8 +518,6 @@ private fun PosterGrid(
     onFocusConsumed: () -> Unit,
 ) {
     val m = rememberTvMetrics()
-    val screenW = LocalConfiguration.current.screenWidthDp
-    val columns = if (screenW >= 1400) 4 else 3
     val gridState = rememberLazyGridState()
 
     // 每部片一个焦点请求器：恢复焦点时按 id 找它，而不是靠索引（索引会变，id 不会）
@@ -546,11 +544,14 @@ private fun PosterGrid(
         ),
     ) { mutableStateMapOf<String, Boolean>() }
 
+    // 每行留白的讲究：焦点高亮会把海报微微放大（1.06 倍）+ 一圈描边，
+    // 间距必须大于"放大溢出的部分"，否则聚焦的海报会被切掉一条边。
+    // （之前 3 列 + 20 间距时溢出比间距还大，就是你看到的"被截掉"。）
     val contentPadding = PaddingValues(
         start = m.dp(48f),
         end = m.dp(48f),
-        top = m.dp(10f),
-        bottom = m.dp(60f),
+        top = m.dp(16f),
+        bottom = m.dp(64f),
     )
 
     // 滚到接近底部 → 交给 ViewModel 决定要不要加载下一页
@@ -597,8 +598,8 @@ private fun PosterGrid(
                 columns = GridCells.Fixed(columns),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = contentPadding,
-                horizontalArrangement = Arrangement.spacedBy(m.dp(20f)),
-                verticalArrangement = Arrangement.spacedBy(m.dp(26f)),
+                horizontalArrangement = Arrangement.spacedBy(m.dp(24f)),
+                verticalArrangement = Arrangement.spacedBy(m.dp(30f)),
                 userScrollEnabled = false,
             ) {
                 items(12) { PosterSkeleton() }
@@ -608,8 +609,8 @@ private fun PosterGrid(
         movies.isEmpty() -> Box(Modifier.fillMaxSize()) {
             CenterHint(
                 title = "这个筛选下暂时没有片子",
-                body = "换个分类，或者把语言 / 地区 / 年份放宽一点。" +
-                    "（也可以直接重置成默认：全部分类 + 国语）",
+                body = "换个分类或类型，把语言 / 地区 / 年份放宽一点，" +
+                    "也可以回到「筛选」里把条件点成「全部」。",
                 actionText = "重置筛选",
                 onAction = onResetFilters,
             )
@@ -621,18 +622,18 @@ private fun PosterGrid(
                 state = gridState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = contentPadding,
-                horizontalArrangement = Arrangement.spacedBy(m.dp(20f)),
-                verticalArrangement = Arrangement.spacedBy(m.dp(26f)),
+                horizontalArrangement = Arrangement.spacedBy(m.dp(24f)),
+                verticalArrangement = Arrangement.spacedBy(m.dp(30f)),
             ) {
-                itemsIndexed(movies, key = { _, movie -> movie.id }) { index, movie ->
+                itemsIndexed(movies, key = { _, movie -> movie.uniqueKey }) { index, movie ->
                     // 第一次出现在这个筛选下的海报：淡入 + 轻微放大，按顺序一张张出来
-                    if (entered[movie.id] != true) {
-                        LaunchedEffect(movie.id) {
+                    if (entered[movie.uniqueKey] != true) {
+                        LaunchedEffect(movie.uniqueKey) {
                             delay(index.coerceAtMost(ANIM_MAX_ITEMS) * ANIM_STAGGER_MS)
-                            entered[movie.id] = true
+                            entered[movie.uniqueKey] = true
                         }
                     }
-                    val shownIn = entered[movie.id] == true
+                    val shownIn = entered[movie.uniqueKey] == true
                     val alpha by animateFloatAsState(
                         targetValue = if (shownIn) 1f else 0f,
                         animationSpec = Motion.base(),
@@ -657,7 +658,7 @@ private fun PosterGrid(
                         PosterCard(
                             movie = movie,
                             modifier = Modifier.focusRequester(
-                                requesters.getOrPut(movie.id) { FocusRequester() },
+                                requesters.getOrPut(movie.uniqueKey) { FocusRequester() },
                             ),
                             onClick = { onClickMovie(movie) },
                             onFocused = { onFocusMovie(movie) },
@@ -733,7 +734,7 @@ private fun PosterGrid(
         if (movies.isEmpty() || handledTarget == target) return@LaunchedEffect
         handledTarget = target
 
-        val index = movies.indexOfFirst { it.id == target }
+        val index = movies.indexOfFirst { it.uniqueKey == target }
         // 等一帧：让恢复出来的滚动位置先落地，再判断目标是不是已经可见
         delay(50)
         if (index >= 0) {

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ichichuang.cinema.data.CatalogSource
 import com.ichichuang.cinema.data.SourceCatalog
+import com.ichichuang.cinema.data.TvboxImport
 import com.ichichuang.cinema.data.settings.CinemaSettings
 import com.ichichuang.cinema.data.settings.ImageCache
 import com.ichichuang.cinema.data.settings.SavedSource
@@ -56,6 +57,10 @@ data class SettingsUiState(
     val test: SourceTest = SourceTest.Idle,
     /** 保存过的源清单（一键导入 / 手机添加，都会进这里） */
     val sources: List<SavedSource> = emptyList(),
+    /** 启用中的源（多选）：首页会把它们的结果聚在一起 */
+    val enabledUrls: List<String> = emptyList(),
+    /** 首页每行海报数（4..8，默认 5） */
+    val homeColumns: Int = CinemaSettings.DEFAULT_HOME_COLUMNS,
     /** 推荐源清单（拉过一次就缓存，离线也能看） */
     val catalog: List<CatalogSource> = emptyList(),
     val catalogLoading: Boolean = false,
@@ -87,6 +92,7 @@ class SettingsViewModel(
     private val settings: CinemaSettings,
     private val repository: MovieRepository,
     private val catalog: SourceCatalog,
+    private val importer: TvboxImport,
     private val context: Context,
 ) : ViewModel() {
 
@@ -95,7 +101,8 @@ class SettingsViewModel(
 
     private val server = ConfigServer(
         onSave = { apiBase, updateUrl -> applyFromPhone(apiBase, updateUrl) },
-        onSelect = { url -> selectFromPhone(url) },
+        onToggle = { url -> toggleFromPhone(url) },
+        onImport = { text -> importFromPhone(text) },
         onSourcesPayload = { sourcesPayload() },
         onRefreshCatalog = { refreshCatalogFromPhone() },
     )
@@ -112,6 +119,12 @@ class SettingsViewModel(
         }
         viewModelScope.launch {
             settings.sources.collect { list -> _state.update { it.copy(sources = list) } }
+        }
+        viewModelScope.launch {
+            settings.activeUrls.collect { list -> _state.update { it.copy(enabledUrls = list) } }
+        }
+        viewModelScope.launch {
+            settings.homeColumns.collect { cols -> _state.update { it.copy(homeColumns = cols) } }
         }
         // 缓存住的推荐清单先顶上：没网也能翻列表
         viewModelScope.launch {
@@ -144,10 +157,37 @@ class SettingsViewModel(
         }
     }
 
-    /** 电视上点了一条源：切换 + 关面板 + 自动测试（结果出现在设置页状态行） */
-    fun selectSource(name: String, url: String) {
-        _state.update { it.copy(pickerOpen = false) }
-        viewModelScope.launch { activateAndTest(name, url) }
+    /**
+     * 电视上点了一条源（推荐源 / 已保存的源）：**勾选 / 取消**（多选 → 首页聚合）。
+     *
+     * 和以前的"点一下切换"不一样：现在可以同时勾好几个，首页把它们的片单合起来。
+     * 勾选后自动测一次，状态行会给结果；面板不关，方便接着勾下一个。
+     */
+    fun toggleSource(name: String, url: String) {
+        viewModelScope.launch {
+            val target = url.trim()
+            if (target.isEmpty()) return@launch
+            // 推荐源也要落进"已保存"，不然下次找不回来
+            runCatching { settings.rememberSource(name, target) }
+            val accepted = runCatching { settings.toggleSource(target) }.getOrDefault(false)
+            if (!accepted) {
+                _state.update {
+                    it.copy(
+                        catalogError = "最多同时启用 " + CinemaSettings.MAX_ENABLED_SOURCES +
+                            " 个片源：先取消一个，再勾新的",
+                    )
+                }
+                return@launch
+            }
+            _state.update { it.copy(catalogError = null) }
+            // 立刻测一下"现在的启用集合"能不能出片
+            _state.update { it.copy(test = runTest()) }
+        }
+    }
+
+    /** 设置页的「首页每行海报数」：4..8 立即生效（首页会马上重排） */
+    fun setHomeColumns(columns: Int) {
+        viewModelScope.launch { runCatching { settings.setHomeColumns(columns) } }
     }
 
     // ── 接口连通性 ─────────────────────────────────────────────
@@ -164,8 +204,12 @@ class SettingsViewModel(
         viewModelScope.launch { _state.update { it.copy(test = runTest()) } }
     }
 
-    private suspend fun runTest(apiBase: String = _state.value.apiBase): SourceTest {
-        if (apiBase.isBlank()) {
+    private suspend fun runTest(): SourceTest {
+        val demoMode = runCatching {
+            settings.apiBase.first().trim() == CinemaSettings.DEMO
+        }.getOrDefault(false)
+        val enabled = runCatching { settings.activeUrlsNow() }.getOrDefault(emptyList())
+        if (!demoMode && enabled.isEmpty()) {
             return SourceTest.Failed("还没配置接口地址：先「选择片源」或扫码配置")
         }
         return try {
@@ -174,7 +218,11 @@ class SettingsViewModel(
             if (page.movies.isEmpty()) {
                 SourceTest.Failed("接口能连上，但一条数据都没有：检查地址是否写全（结尾的 / 别丢）")
             } else {
-                SourceTest.Ok("已连通：取到 $count 部影片" + if (page.relaxed) "（本站筛选标注不全，已自动放宽）" else "")
+                val multi = if (enabled.size > 1) "，已汇总 " + enabled.size + " 个源" else ""
+                SourceTest.Ok(
+                    "已连通：取到 $count 部影片$multi" +
+                        if (page.relaxed) "（本站筛选标注不全，已自动放宽）" else "",
+                )
             }
         } catch (e: CancellationException) {
             throw e
@@ -183,11 +231,11 @@ class SettingsViewModel(
         }
     }
 
-    /** 切换 + 融合进保存清单 + 测一次，一条龙（电视和手机共用） */
+    /** 切换 + 融合进保存清单 + 测一次，一条龙（手机"自定义地址"用） */
     private suspend fun activateAndTest(name: String, url: String): SourceTest {
         _state.update { it.copy(test = SourceTest.Testing) }
         runCatching { settings.activateSource(name, url) }
-        val result = runTest(url)
+        val result = runTest()
         _state.update { it.copy(test = result) }
         return result
     }
@@ -241,20 +289,64 @@ class SettingsViewModel(
         return PhoneSaveResult(ok = result.passed, message = result.text)
     }
 
-    /** 手机上点了一条源（推荐源或已保存的源）→ 电视切换 + 测试 */
-    private suspend fun selectFromPhone(url: String): PhoneSaveResult {
+    /** 手机上勾选/取消一条源 → 电视更新启用集合并测一次（结果原路返回） */
+    private suspend fun toggleFromPhone(url: String): PhoneSaveResult {
         val target = url.trim()
-        if (target.isEmpty()) return PhoneSaveResult(false, "没收到要切换的地址")
-        if (!target.startsWith("http://") && !target.startsWith("https://") && target != CinemaSettings.DEMO) {
+        if (target.isEmpty()) return PhoneSaveResult(false, "没收到要启用的地址")
+        if (target == CinemaSettings.DEMO) {
+            val result = activateAndTest(CinemaSettings.DEMO, CinemaSettings.DEMO)
+            _state.update { it.copy(serverMessage = result.text) }
+            return PhoneSaveResult(result.passed, result.text)
+        }
+        if (!target.startsWith("http://") && !target.startsWith("https://")) {
             return PhoneSaveResult(false, "地址要以 http:// 或 https:// 开头")
         }
         val name = settings.sources.first().firstOrNull { it.url == target }?.name
             ?: _state.value.catalog.firstOrNull { it.url == target }?.name
             ?: CinemaSettings.DEFAULT_SOURCE_NAME
-        _state.update { it.copy(serverMessage = "已收到手机的切换请求，正在测试…") }
-        val result = activateAndTest(name, target)
-        _state.update { it.copy(serverMessage = result.text) }
-        return PhoneSaveResult(ok = result.passed, message = result.text)
+        runCatching { settings.rememberSource(name, target) }
+        _state.update { it.copy(serverMessage = "已收到手机的勾选，正在测试…") }
+        val accepted = runCatching { settings.toggleSource(target) }.getOrDefault(false)
+        if (!accepted) {
+            val msg = "最多同时启用 " + CinemaSettings.MAX_ENABLED_SOURCES + " 个片源：先取消一个再勾"
+            _state.update { it.copy(serverMessage = msg) }
+            return PhoneSaveResult(false, msg)
+        }
+        val result = runTest()
+        _state.update { it.copy(test = result, serverMessage = result.text) }
+        return PhoneSaveResult(result.passed, result.text)
+    }
+
+    /**
+     * 手机上导入 TVBox 配置（粘贴 JSON 或订阅地址）→
+     * 解析出苹果CMS 片源 → 批量存入保存清单，并自动启用若干（不超过上限）。
+     */
+    private suspend fun importFromPhone(input: String): PhoneSaveResult {
+        _state.update { it.copy(serverMessage = "正在导入，稍等…（订阅地址多的话要几秒）") }
+        val parsed = runCatching { importer.fromTextOrUrl(input) }.getOrElse { e ->
+            val msg = "导入失败：" + (e.message ?: "网络不通")
+            _state.update { it.copy(serverMessage = msg) }
+            return PhoneSaveResult(false, msg)
+        }
+        if (parsed.sources.isEmpty()) {
+            val why = parsed.notes.joinToString("；").ifBlank { "没找到能用的苹果CMS 接口" }
+            val msg = "一个都没导入：$why"
+            _state.update { it.copy(serverMessage = msg) }
+            return PhoneSaveResult(false, msg)
+        }
+        val outcome = runCatching { settings.importSources(parsed.sources) }.getOrElse { e ->
+            val msg = "导入失败：" + (e.message ?: "保存出错")
+            _state.update { it.copy(serverMessage = msg) }
+            return PhoneSaveResult(false, msg)
+        }
+        val msg = buildString {
+            append("已保存 ").append(outcome.added).append(" 个片源")
+            append("，已启用 ").append(outcome.enabled).append(" 个")
+            append("（上限 ").append(CinemaSettings.MAX_ENABLED_SOURCES).append(" 个）")
+            if (parsed.notes.isNotEmpty()) append("；").append(parsed.notes.joinToString("；"))
+        }
+        _state.update { it.copy(serverMessage = msg) }
+        return PhoneSaveResult(true, msg)
     }
 
     /** 手机上点「获取推荐源」→ 电视去拉（拉完手机刷新列表就能看到） */
@@ -277,10 +369,14 @@ class SettingsViewModel(
     private suspend fun sourcesPayload(): String {
         val saved = settings.sources.first()
         val active = settings.apiBase.first()
+        // 启用集合用换行分隔（全是地址，地址里不会有换行符）——手机页 split 一下就行
+        val enabled = settings.activeUrlsNow()
         val list = _state.value.catalog.ifEmpty { catalog.cached() }
         return buildJsonObject {
             put("ok", true)
             put("active", active)
+            put("enabled", enabled.joinToString("\n"))
+            put("maxEnabled", CinemaSettings.MAX_ENABLED_SOURCES)
             putJsonArray("saved") {
                 saved.forEach { source ->
                     addJsonObject {
