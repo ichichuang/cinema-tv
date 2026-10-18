@@ -2,7 +2,6 @@ package com.ichichuang.cinema.data
 
 import com.ichichuang.cinema.data.demo.DemoMovieRepository
 import com.ichichuang.cinema.data.settings.CinemaSettings
-import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.domain.model.MovieDetail
 import com.ichichuang.cinema.domain.model.MovieFilter
 import com.ichichuang.cinema.domain.model.MoviePage
@@ -32,9 +31,6 @@ class SwitchableMovieRepository(
 
     override suspend fun movies(filter: MovieFilter, page: Int, pageSize: Int): MoviePage =
         target().movies(filter, page, pageSize)
-
-    override suspend fun search(keyword: String, page: Int, pageSize: Int): List<Movie> =
-        target().search(keyword, page, pageSize)
 
     override suspend fun detail(id: String): MovieDetail? = target().detail(id)
 }

@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -12,22 +13,32 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.ichichuang.cinema.core.design.Motion
 import com.ichichuang.cinema.domain.model.Movie
+import com.ichichuang.cinema.feature.detail.DetailScreen
 import com.ichichuang.cinema.feature.home.HomeScreen
+import com.ichichuang.cinema.feature.home.HomeViewModel
 import com.ichichuang.cinema.feature.player.PlayerScreen
-import com.ichichuang.cinema.feature.search.SearchScreen
 import com.ichichuang.cinema.feature.settings.SettingsScreen
 import com.ichichuang.cinema.feature.update.UpdateCenter
 
 /**
- * 全部路由。只有 4 个页面 —— 这是刻意的：
- * 首页（含常驻详情）→ 搜索 → 播放 → 设置。
- * 极简不是少写代码，是少让用户做选择。
+ * 全部路由 —— 只有 4 个页面，这是刻意的：
+ * 首页 → 详情 → 播放 → 设置。
+ * 极简不是少写代码，是少让用户做选择（搜索已在 v0.7.0 按用户要求整体移除）。
  */
 private object Routes {
     const val HOME = "home"
-    const val SEARCH = "search"
+    const val DETAIL = "detail/{movieId}?title={title}&poster={poster}"
     const val SETTINGS = "settings"
     const val PLAYER = "player/{movieId}?title={title}"
+
+    /**
+     * 详情路由带上标题和海报：
+     * 万一是"进程被杀后直接恢复到详情页"，列表还没回来 ——
+     * 这两个参数能让画面立刻有东西，而不是一片黑等网络。
+     */
+    fun detail(movie: Movie) = "detail/${Uri.encode(movie.id)}" +
+        "?title=${Uri.encode(movie.title)}" +
+        "&poster=${Uri.encode(movie.posterUrl.orEmpty())}"
 
     fun player(movie: Movie) =
         "player/${Uri.encode(movie.id)}?title=${Uri.encode(movie.title)}"
@@ -35,13 +46,20 @@ private object Routes {
 
 /**
  * 导航图。转场用统一的动效规范：
- * 进入 = 淡入 + 轻微右移推入（Apple TV 式的"翻页感"），退出 = 快速淡出。
+ * - 首页 ↔ 设置 / 播放：淡入 + 轻微右移推入（Apple TV 式的"翻页感"）
+ * - **首页 → 详情：从屏幕右侧整屏滑入**（用户点名的效果），返回时原路滑出
  *
- * [updateCenter] 从 Activity 传进来（而不是在页面里各自去 Koin 取）：
- * 首页和设置页必须共享同一份更新状态，显式传参最不容易出错。
+ * [homeViewModel] 是**首页和详情页共享的同一个实例**（从 Activity 传进来）：
+ * 详情的数据（简介 / 线路 / 上次进度）在首页卡片被聚焦时就已经拉好了，
+ * 共享之后点开详情是"瞬间有内容"，返回时首页的焦点和滚动位置也原样还在。
+ *
+ * [updateCenter] 同理 —— 首页（金标 + 浮层）和设置页必须是同一份更新状态。
  */
 @Composable
-fun CinemaNavHost(updateCenter: UpdateCenter) {
+fun CinemaNavHost(
+    updateCenter: UpdateCenter,
+    homeViewModel: HomeViewModel,
+) {
     val nav = rememberNavController()
 
     NavHost(
@@ -54,15 +72,39 @@ fun CinemaNavHost(updateCenter: UpdateCenter) {
     ) {
         composable(Routes.HOME) {
             HomeScreen(
-                onPlay = { movie -> nav.navigate(Routes.player(movie)) },
-                onOpenSettings = { nav.navigate(Routes.SETTINGS) },
-                onOpenSearch = { nav.navigate(Routes.SEARCH) },
+                viewModel = homeViewModel,
                 updateCenter = updateCenter,
+                onOpenDetail = { movie -> nav.navigate(Routes.detail(movie)) },
+                onOpenSettings = { nav.navigate(Routes.SETTINGS) },
             )
         }
 
-        composable(Routes.SEARCH) {
-            SearchScreen(
+        composable(
+            route = Routes.DETAIL,
+            arguments = listOf(
+                navArgument("movieId") { type = NavType.StringType },
+                navArgument("title") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+                navArgument("poster") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+            ),
+            // 整屏从右侧滑入 / 返回时滑回去（其余页面保持默认的淡入淡出）
+            enterTransition = {
+                slideInHorizontally(animationSpec = Motion.enter()) { it } + fadeIn(Motion.quick())
+            },
+            popExitTransition = {
+                slideOutHorizontally(animationSpec = Motion.enter()) { it } + fadeOut(Motion.quick())
+            },
+        ) { entry ->
+            DetailScreen(
+                movieId = entry.arguments?.getString("movieId").orEmpty(),
+                title = entry.arguments?.getString("title").orEmpty(),
+                posterUrl = entry.arguments?.getString("poster")?.takeIf { it.isNotBlank() },
+                viewModel = homeViewModel,
                 onPlay = { movie -> nav.navigate(Routes.player(movie)) },
                 onBack = { nav.popBackStack() },
             )

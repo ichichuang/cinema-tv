@@ -127,7 +127,11 @@ class HomeViewModel(
     /** 一键回到默认：全部分类 + 国语 */
     fun resetFilters() = applyFilter(DefaultMovieFilter)
 
-    private fun applyFilter(next: MovieFilter) {
+    /**
+     * 应用一份筛选（筛选浮层点「完成」时调）。
+     * 直接改成 public：浮层里是攒一批改动一起提交，不适合一个个 setter 地调。
+     */
+    fun applyFilter(next: MovieFilter) {
         if (next == _state.value.filter) return
         _state.update { it.copy(filter = next) }
         viewModelScope.launch { runCatching { filterStore.save(next) } }   // 记住这次选择
@@ -161,6 +165,41 @@ class HomeViewModel(
     fun onHomeVisible() {
         val id = _state.value.selected?.id ?: return
         _state.update { it.copy(focusTarget = id) }
+    }
+
+    /**
+     * 详情页打开时调一次（详情页和首页共用这一个 ViewModel）。
+     *
+     * 两个用处：
+     *  ① 正常流程：卡片被聚焦时详情/进度已经拉过了，这里基本是空跑（缓存命中，不发请求）
+     *  ② 冷启动直接恢复到详情页（进程被杀后重启）：列表还没回来，
+     *     先用路由参数把画面顶住，等列表/详情回来再补上真实数据
+     */
+    fun onDetailOpened(movieId: String, fallbackTitle: String, fallbackPoster: String?) {
+        val known = _state.value.movies.firstOrNull { it.id == movieId }
+            ?: _state.value.selected?.takeIf { it.id == movieId }
+        val movie = known ?: Movie(
+            id = movieId,
+            title = fallbackTitle,
+            year = 0,
+            score = 0.0,
+            genre = "",
+            minutes = 0,
+            synopsis = "",
+            posterUrl = fallbackPoster,
+        )
+        if (_state.value.selected?.id != movieId) {
+            _state.update {
+                it.copy(
+                    selected = movie,
+                    detail = detailCache[movieId],
+                    detailLoading = detailCache[movieId] == null,
+                    resumeMs = 0L,
+                )
+            }
+        }
+        loadProgress(movieId)
+        loadDetail(movie)
     }
 
     /** UI 已经把焦点挪到位了（或发现目标不存在）—— 清掉一次性请求 */

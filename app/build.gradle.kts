@@ -23,8 +23,8 @@ android {
         targetSdk = 28
         // ⚠️ 每次发布会话都要 +1 且 versionName 跟着升 —— 在线更新靠 versionCode 判新旧，
         //    忘了加就会出现"下载了新版却提示已是最新"的怪事。
-        versionCode = 7
-        versionName = "0.6.1"
+        versionCode = 8
+        versionName = "0.7.0"
 
         // 只出 32 位，和 FFALCON 65S78A（armeabi-v7a）匹配
         ndk {
@@ -110,6 +110,11 @@ dependencies {
 
     // ── 设置存储（接口地址）────────────────────────────────
     implementation("androidx.datastore:datastore-preferences:1.2.1")
+
+    // ── 二维码（设置页「扫码配置」）────────────────────────────
+    // zxing core 是纯 Java，无原生库 → 32 位电视零 ABI 风险，体积也只有几十 KB。
+    // 刻意不用 zxing-android-embedded：那是给手机相机扫码用的，我们只需要"画出码"。
+    implementation("com.google.zxing:core:3.5.3")
 
     // ── 播放器（阶段 2）────────────────────────────────────
     // media3 = ExoPlayer 的现名。纯 Java/Kotlin，解码走系统 MediaCodec，

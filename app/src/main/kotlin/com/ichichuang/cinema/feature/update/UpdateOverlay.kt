@@ -36,6 +36,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.Motion
@@ -58,6 +59,10 @@ import kotlinx.coroutines.delay
  * - 每一步只给一个明确的动作，遥控器不用做选择
  * - 下载完自动调起系统安装界面；安卓强制的"确认安装"那一步如实告诉用户（不假装能全自动）
  * - 背景遮罩点不了（电视上误触一次＝重新下载几十兆）
+ *
+ * 排版规矩（v0.7.0 定的）：**卡片是一个固定尺寸的容器**。
+ * 标题区 / 内容区 / 按钮区三段各自高度写死，检查中 → 有新版本 → 下载中 → 安装
+ * 这几次界面切换，卡片既不"长大"也不"缩小"，屏幕不会跟着闪。
  */
 @Composable
 fun UpdateOverlay(
@@ -132,40 +137,159 @@ private fun UpdateCard(
         }
     }
 
+    // 三段式：标题（固定） / 内容（吃掉剩余） / 动作（固定）
+    val title: String
+    val sub: String
+    when (state.phase) {
+        UpdatePhase.DOWNLOADING -> {
+            title = "正在下载新版本"
+            sub = info?.sizeText?.takeIf { it.isNotBlank() }?.let { "别急着关电视 · $it" } ?: "别急着关电视"
+        }
+
+        UpdatePhase.READY -> {
+            title = "下载完成"
+            sub = "系统马上会弹出安装界面，按遥控器选「安装」就行"
+        }
+
+        UpdatePhase.UP_TO_DATE -> {
+            title = "已是最新版本"
+            sub = "当前 v$currentVersionName，有新版本会在这里告诉你"
+        }
+
+        UpdatePhase.ERROR -> {
+            title = "更新没成功"
+            sub = state.message ?: "说不清哪里出了问题，再试一次"
+        }
+
+        else -> {
+            // AVAILABLE / CHECKING / IDLE：一起处理，反正都只差"要不要更新"这一个决定
+            val available = info != null
+            title = if (available) "发现新版本 v${info?.versionName}" else "检查更新"
+            sub = if (available) {
+                buildString {
+                    append("当前 v$currentVersionName")
+                    info?.sizeText?.takeIf { it.isNotBlank() }?.let { append(" · $it") }
+                }
+            } else {
+                "正在问服务器有没有新版本…"
+            }
+        }
+    }
+
     Column(
         Modifier
-            .fillMaxWidth(0.72f)
+            .fillMaxWidth(0.68f)
+            // ★ 固定高度：所有阶段共用同一个卡片大小（内容多少都不改变外框）
+            .height(m.dp(420f))
             .clip(RoundedCornerShape(m.dp(22f)))
             .background(Panel)
-            .padding(horizontal = m.dp(42f), vertical = m.dp(36f)),
+            .padding(horizontal = m.dp(42f), vertical = m.dp(32f)),
     ) {
-        when (state.phase) {
-            UpdatePhase.DOWNLOADING -> {
-                Headline(
-                    title = "正在下载新版本",
-                    sub = info?.sizeText?.takeIf { it.isNotBlank() }?.let { "别急着关电视 · $it" } ?: "别急着关电视",
-                )
-                Spacer(Modifier.height(m.dp(22f)))
-                ProgressLine(state.progress)
-                Spacer(Modifier.height(m.dp(16f)))
-                Text(
-                    text = "${(state.progress * 100).toInt()}%",
-                    color = TextSub,
-                    fontSize = m.sp(16f),
-                )
-            }
+        // ── 标题区：固定高度 ──
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .height(m.dp(92f)),
+        ) {
+            Text(
+                text = title,
+                color = TextMain,
+                fontSize = m.sp(26f),
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(m.dp(8f)))
+            Text(
+                text = sub,
+                color = TextSub,
+                fontSize = m.sp(15f),
+                lineHeight = m.sp(22f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
 
-            UpdatePhase.READY -> {
-                Headline("下载完成", "系统马上会弹出安装界面，按遥控器选「安装」就行")
-                Spacer(Modifier.height(m.dp(10f)))
-                Text(
-                    text = state.message.orEmpty(),
-                    color = Gold.copy(alpha = 0.9f),
-                    fontSize = m.sp(15f),
-                    maxLines = 2,
-                )
-                Spacer(Modifier.height(m.dp(24f)))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+        // ── 内容区：吃掉剩余高度（进度条 / 更新说明 / 结果说明都住在这里）──
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .weight(1f),
+        ) {
+            when (state.phase) {
+                UpdatePhase.DOWNLOADING -> Column {
+                    Spacer(Modifier.height(m.dp(6f)))
+                    ProgressLine(state.progress)
+                    Spacer(Modifier.height(m.dp(14f)))
+                    Text(
+                        text = "${(state.progress * 100).toInt()}%",
+                        color = TextSub,
+                        fontSize = m.sp(16f),
+                    )
+                }
+
+                UpdatePhase.READY -> Column {
+                    Spacer(Modifier.height(m.dp(6f)))
+                    Text(
+                        text = state.message.orEmpty(),
+                        color = Gold.copy(alpha = 0.9f),
+                        fontSize = m.sp(15f),
+                        lineHeight = m.sp(22f),
+                        maxLines = 2,
+                    )
+                }
+
+                UpdatePhase.UP_TO_DATE -> Column {
+                    Spacer(Modifier.height(m.dp(6f)))
+                    Text(
+                        text = "有新版本时首页右上角会亮一个小金标，点它就回到这里。",
+                        color = TextBody,
+                        fontSize = m.sp(16f),
+                        lineHeight = m.sp(24f),
+                        maxLines = 3,
+                    )
+                }
+
+                UpdatePhase.ERROR -> Column {
+                    Spacer(Modifier.height(m.dp(6f)))
+                    Text(
+                        text = "没下载成功通常和网络有关。片源和更新清单是两条独立的路，" +
+                            "接口能用不代表更新地址也能用；再试一次多半就好了。",
+                        color = TextBody,
+                        fontSize = m.sp(16f),
+                        lineHeight = m.sp(24f),
+                        maxLines = 4,
+                    )
+                }
+
+                else -> Column {
+                    Spacer(Modifier.height(m.dp(6f)))
+                    val notes = info?.notes?.takeIf { it.isNotBlank() }
+                    Text(
+                        text = notes ?: "这次更新会直接覆盖安装，观看记录、筛选和接口地址都会保留。",
+                        color = TextBody,
+                        fontSize = m.sp(16f),
+                        lineHeight = m.sp(26f),
+                        maxLines = 5,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+
+        // ── 动作区：固定高度，每个阶段都只有一行按钮 ──
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(m.dp(56f)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            when (state.phase) {
+                UpdatePhase.DOWNLOADING -> PanelAction("后台继续", primary = false, focus = primaryFocus) {
+                    onDismiss()
+                }
+
+                UpdatePhase.READY -> {
                     // 权限还没给：先引导去授权，这一步是安卓的硬要求（每个应用单独授权）
                     if (!canInstall) {
                         PanelAction("去允许安装", primary = true, focus = primaryFocus) {
@@ -184,67 +308,30 @@ private fun UpdateCard(
                     Spacer(Modifier.width(m.dp(14f)))
                     PanelAction("稍后", primary = false) { onDismiss() }
                 }
-            }
 
-            UpdatePhase.UP_TO_DATE -> {
-                Headline("已是最新版本", "当前 v$currentVersionName，有新版本会在这里告诉你")
-                Spacer(Modifier.height(m.dp(24f)))
-                PanelAction("知道了", primary = true, focus = primaryFocus) { onDismiss() }
-            }
+                UpdatePhase.UP_TO_DATE -> PanelAction("知道了", primary = true, focus = primaryFocus) {
+                    onDismiss()
+                }
 
-            UpdatePhase.ERROR -> {
-                Headline("更新没成功", state.message ?: "说不清哪里出了问题，再试一次")
-                Spacer(Modifier.height(m.dp(24f)))
-                Row {
+                UpdatePhase.ERROR -> {
                     if (info != null) {
                         PanelAction("重试下载", primary = true, focus = primaryFocus) { onDownload() }
                         Spacer(Modifier.width(m.dp(14f)))
                     }
-                    PanelAction("关闭", primary = info == null, focus = if (info == null) primaryFocus else null) { onDismiss() }
+                    PanelAction(
+                        text = "关闭",
+                        primary = info == null,
+                        focus = if (info == null) primaryFocus else null,
+                    ) { onDismiss() }
                 }
-            }
 
-            else -> {
-                // AVAILABLE / CHECKING / IDLE：一起处理，反正都只差"要不要更新"这一个决定
-                val available = info != null
-                Headline(
-                    title = if (available) "发现新版本 v${info?.versionName}" else "检查更新",
-                    sub = if (available) {
-                        buildString {
-                            append("当前 v$currentVersionName")
-                            info?.sizeText?.takeIf { it.isNotBlank() }?.let { append(" · $it") }
-                        }
-                    } else {
-                        "正在问服务器有没有新版本…"
-                    },
-                )
-                info?.notes?.takeIf { it.isNotBlank() }?.let { notes ->
-                    Spacer(Modifier.height(m.dp(20f)))
-                    Text(
-                        text = notes,
-                        color = TextBody,
-                        fontSize = m.sp(16f),
-                        maxLines = 5,
-                    )
-                }
-                Spacer(Modifier.height(m.dp(26f)))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                else -> {
                     PanelAction("立即更新", primary = true, focus = primaryFocus) { onDownload() }
                     Spacer(Modifier.width(m.dp(14f)))
                     PanelAction("以后再说", primary = false) { onDismiss() }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun Headline(title: String, sub: String) {
-    val m = rememberTvMetrics()
-    Text(title, color = TextMain, fontSize = m.sp(26f), fontWeight = FontWeight.Bold)
-    if (sub.isNotBlank()) {
-        Spacer(Modifier.height(m.dp(8f)))
-        Text(sub, color = TextSub, fontSize = m.sp(15f), maxLines = 2)
     }
 }
 

@@ -44,11 +44,6 @@ class DemoMovieRepository : MovieRepository {
         return MoviePage(movies = items, total = all.size, relaxed = hitRelaxed)
     }
 
-    override suspend fun search(keyword: String, page: Int, pageSize: Int): List<Movie> {
-        if (keyword.isBlank()) return emptyList()
-        return DEMO_MOVIES.filter { it.title.contains(keyword) }
-    }
-
     override suspend fun detail(id: String): MovieDetail? {
         val movie = DEMO_MOVIES.firstOrNull { it.id == id } ?: return null
         return MovieDetail(

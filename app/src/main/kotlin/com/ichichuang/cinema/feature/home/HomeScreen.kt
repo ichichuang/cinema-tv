@@ -2,22 +2,21 @@ package com.ichichuang.cinema.feature.home
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,19 +24,17 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -58,62 +55,72 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.Motion
 import com.ichichuang.cinema.core.design.Panel
+import com.ichichuang.cinema.core.design.PanelHi
 import com.ichichuang.cinema.core.design.TextMain
 import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.design.rememberTvMetrics
 import com.ichichuang.cinema.core.focus.tvFocus
 import com.ichichuang.cinema.core.ui.CenterHint
-import com.ichichuang.cinema.core.ui.DetailPanel
 import com.ichichuang.cinema.core.ui.FilterChip
-import com.ichichuang.cinema.core.ui.FilterGroup
 import com.ichichuang.cinema.core.ui.PosterCard
 import com.ichichuang.cinema.core.ui.PosterSkeleton
+import com.ichichuang.cinema.domain.model.DefaultMovieFilter
 import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.domain.model.MovieFilter
-import com.ichichuang.cinema.domain.repository.AREA_OPTIONS
-import com.ichichuang.cinema.domain.repository.FILTER_ALL
-import com.ichichuang.cinema.domain.repository.LANG_OPTIONS
+import com.ichichuang.cinema.domain.repository.CATEGORY_ALL
 import com.ichichuang.cinema.feature.update.UpdateCenter
 import com.ichichuang.cinema.feature.update.UpdateOverlay
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
-import org.koin.androidx.compose.koinViewModel
 
 /**
- * 首页 —— 一屏搞定一切。
+ * 首页 —— 上下两个区，界限分明。
  *
- * 布局：筛选区（两行）+ 左侧海报墙 + 右侧常驻详情。
- * 遥控器：左右切筛选/分类（焦点自动跟随滚动），上下进海报墙，OK 直接播放。
+ * ```
+ * ┌──────────────────────────────────────────────┐
+ * │ 极简影院                      新版本 · 设置 │ ← 固定高度
+ * │ [筛选]  当前条件横向滚动…            共 N 部 │ ← 固定高度
+ * │ （放宽提示：固定一行，没有内容也占着）      │
+ * ├──────────────────────────────────────────────┤
+ * │  海报墙（点击 → 详情页从右侧滑入）          │
+ * └──────────────────────────────────────────────┘
+ * ```
  *
- * 筛选设计：分类（接口自动生成）+ 语言 + 地区 + 年份 三个可选维度，
- * 默认只看国语（用户改过就记住他改的）。
+ * 为什么改成这样（用户真机反馈）：
+ * - 右侧常驻详情卡片太拥挤 → 直接去掉，点卡片进全屏详情页
+ * - 筛选条一行太长、遥控器要按几十下 → 收进「筛选」按钮，点开是整屏浮层
+ * - 顶部区和海报墙**各自固定**，任何动态内容（新版本金标、放宽提示、结果数）
+ *   都在预留好的槽位里淡入淡出，不会顶动下面的排版
+ *
+ * 遥控器路径：海报墙 → 上 → 「筛选」 → 上 →「设置」。
+ * 搜索功能已按用户要求整体移除（电视上打字是最糟的体验）。
  */
 @Composable
 fun HomeScreen(
-    onPlay: (Movie) -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenSearch: () -> Unit,
+    viewModel: HomeViewModel,
     updateCenter: UpdateCenter,
-    viewModel: HomeViewModel = koinViewModel(),
+    onOpenDetail: (Movie) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
     val updateState by updateCenter.state.collectAsState()
     val m = rememberTvMetrics()
-    val screenW = LocalConfiguration.current.screenWidthDp
-    val panelWidth: Dp = (screenW * 0.30f).dp
 
-    // 每次"上屏"都做两件事（首次进入、从播放器/设置返回都会走到这里）：
-    //   1. 刷一次进度 → 播放按钮变成"继续观看 12:34"
-    //   2. 请求把焦点还给上次看的那部片 → 右侧详情、列表位置、滚动位置全部原样回显
+    var sheetOpen by remember { mutableStateOf(false) }
+    val filterButtonFocus = remember { FocusRequester() }
+    var sheetWasOpen by remember { mutableStateOf(false) }
+
+    // 每次"上屏"都做两件事（首次进入、从详情/播放器/设置返回都会走到这里）：
+    //   1. 刷一次进度（回来时按钮才知道该不该变成"继续观看"）
+    //   2. 请求把焦点还给上次看的那部片 —— 滚动位置、焦点位置全部原样回显
     LaunchedEffect(Unit) {
         viewModel.refreshSelectedProgress()
         viewModel.onHomeVisible()
@@ -122,73 +129,78 @@ fun HomeScreen(
     // 起来先悄悄问一句有没有新版本（查不到就当没这回事，绝不打扰）
     LaunchedEffect(Unit) { updateCenter.checkSilently() }
 
+    // 筛选浮层关掉后，把焦点还给「筛选」按钮（用户就是从那儿进去的）
+    LaunchedEffect(sheetOpen) {
+        if (sheetOpen) {
+            sheetWasOpen = true
+        } else if (sheetWasOpen) {
+            sheetWasOpen = false
+            delay(80)
+            runCatching { filterButtonFocus.requestFocus() }
+        }
+    }
+
     Box(
         Modifier
             .fillMaxSize()
-            .background(Ink)
+            .background(Ink),
     ) {
-        // 底层内容（海报墙 + 右侧详情）：更新浮层打开时整块关掉焦点，
-        // 否则遥控器会"透过"浮层跑到海报墙 / 详情按钮上，用户会以为遥控器坏了
-        Box(
+        // 底层内容：浮层（筛选 / 更新）打开时整块关掉焦点，
+        // 否则遥控器会"透过"浮层跑到海报墙上，用户会以为遥控器坏了
+        Column(
             Modifier
                 .fillMaxSize()
-                .then(if (updateState.panelOpen) Modifier.focusProperties { canFocus = false } else Modifier)
+                .then(
+                    if (updateState.panelOpen || sheetOpen) {
+                        Modifier.focusProperties { canFocus = false }
+                    } else {
+                        Modifier
+                    },
+                ),
         ) {
+            TopBar(
+                filter = state.filter,
+                total = state.total,
+                relaxedNote = state.relaxedNote,
+                updateVersion = updateState.info?.versionName,
+                filterFocus = filterButtonFocus,
+                onOpenSheet = { sheetOpen = true },
+                onOpenSettings = onOpenSettings,
+                onOpenUpdate = updateCenter::openPanel,
+            )
+
             PosterGrid(
                 movies = state.movies,
                 loading = state.loading,
                 endReached = state.endReached,
                 generation = state.gridGeneration,
                 focusTarget = state.focusTarget,
-                endPadding = panelWidth + m.dp(28f),
                 needsSetup = state.needsSetup,
                 error = state.error,
                 pageError = state.pageError,
                 loadingMore = state.loadingMore,
                 onFocusMovie = viewModel::onMovieFocused,
-                onClickMovie = onPlay,
+                onClickMovie = onOpenDetail,
                 onNearEnd = viewModel::onVisibleIndexChanged,
                 onOpenSettings = onOpenSettings,
                 onRetry = viewModel::retry,
                 onResetFilters = viewModel::resetFilters,
                 onFocusConsumed = viewModel::onFocusTargetConsumed,
-                // 筛选条是网格的第一项 —— 往下翻它自己滚走，把整屏让给海报
-                header = {
-                    Header(
-                        categories = state.categories,
-                        filter = state.filter,
-                        total = state.total,
-                        relaxedNote = state.relaxedNote,
-                        yearOptions = state.yearOptions,
-                        updateVersion = updateState.info?.versionName,
-                        onCategory = viewModel::selectCategory,
-                        onLang = viewModel::selectLang,
-                        onArea = viewModel::selectArea,
-                        onYear = viewModel::selectYear,
-                        onOpenUpdate = updateCenter::openPanel,
-                        onOpenSettings = onOpenSettings,
-                        onOpenSearch = onOpenSearch,
-                    )
-                },
             )
-
-            // 右侧常驻详情：随焦点实时变化，布局不动
-            val shown = state.selected ?: state.movies.firstOrNull()
-            if (shown != null) {
-                DetailPanel(
-                    // 详情到货后用详情的版本（字段更全），没到就用列表里的简表
-                    movie = state.detail?.movie ?: shown,
-                    detail = state.detail,
-                    detailLoading = state.detailLoading,
-                    resumeMs = state.resumeMs,
-                    onPlay = { onPlay(shown) },
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .width(panelWidth),
-                )
-            }
         }
+
+        // 筛选浮层：整屏从下往上滑入，点「完成」滑出去
+        FilterSheet(
+            visible = sheetOpen,
+            filter = state.filter,
+            categories = state.categories,
+            yearOptions = state.yearOptions,
+            onApply = { next ->
+                sheetOpen = false
+                viewModel.applyFilter(next)
+            },
+            onClose = { sheetOpen = false },
+        )
 
         // 更新浮层盖在整屏之上（打开时压暗背景，注意力收在卡片上）
         UpdateOverlay(
@@ -202,33 +214,39 @@ fun HomeScreen(
     }
 }
 
-// ── 顶部：品牌 + 分类（接口自动生成）+ 三个筛选维度 ─────────────
+// ── 顶部固定区 ───────────────────────────────────────────────
 
+/**
+ * 顶部：两行 + 一行提示槽，**每一行都是写死高度的**。
+ *
+ * 所有"有时候有、有时候没有"的东西（新版本金标、放宽提示、结果数）都放在
+ * 预留槽位里淡入淡出 —— 出现和消失都不会把下面的海报墙顶动一像素。
+ */
 @Composable
-private fun Header(
-    categories: List<String>,
+private fun TopBar(
     filter: MovieFilter,
     total: Int,
     relaxedNote: String?,
-    yearOptions: List<String>,
     updateVersion: String?,
-    onCategory: (String) -> Unit,
-    onLang: (String) -> Unit,
-    onArea: (String) -> Unit,
-    onYear: (String) -> Unit,
-    onOpenUpdate: () -> Unit,
+    filterFocus: FocusRequester,
+    onOpenSheet: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenSearch: () -> Unit,
+    onOpenUpdate: () -> Unit,
 ) {
     val m = rememberTvMetrics()
 
     Column(
-        modifier = Modifier
+        Modifier
             .fillMaxWidth()
-            .padding(start = m.dp(48f), end = m.dp(48f), top = m.dp(26f), bottom = m.dp(8f)),
+            .padding(start = m.dp(48f), end = m.dp(48f), top = m.dp(26f)),
     ) {
-        // 第一行：品牌 + 分类 + 设置
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // ── 第一行：品牌（左） + 新版本金标 / 设置（右），高度固定 ──
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(m.dp(46f)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 text = "极简影院",
                 color = TextMain,
@@ -237,122 +255,231 @@ private fun Header(
                 // 轻微字距：大标题上这一点点"松"，是 Apple TV 那种高级感的来源之一
                 letterSpacing = m.sp(1f),
             )
-            Spacer(Modifier.width(m.dp(26f)))
+            Spacer(Modifier.weight(1f))
 
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(rememberScrollState()),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                FilterGroup(
-                    title = "",
-                    options = categories,
-                    selected = filter.category,
-                    onSelect = onCategory,
-                    big = true,
-                )
-            }
-
-            Spacer(Modifier.width(m.dp(16f)))
-            // 发现新版本时的小金标：不弹窗、不遮内容，用户好奇才点
-            // 用"横向展开 + 淡入"而不是缩放：旁边还有"设置"药丸，展开动画才不会让它跳位
-            AnimatedVisibility(
-                visible = updateVersion != null,
-                enter = expandHorizontally(expandFrom = Alignment.Start, animationSpec = Motion.base()) + fadeIn(Motion.base()),
-                exit = shrinkHorizontally(shrinkTowards = Alignment.Start, animationSpec = Motion.quick()) + fadeOut(Motion.quick()),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    FilterChip(
-                        label = "新版本 ${updateVersion.orEmpty()}",
-                        selected = true,
-                        onClick = onOpenUpdate,
-                    )
-                    Spacer(Modifier.width(m.dp(12f)))
-                }
-            }
-            FilterChip(label = "搜索", selected = false, onClick = onOpenSearch)
-            Spacer(Modifier.width(m.dp(12f)))
+            // 金标的固定槽位：没有新版本时它就是一段空白，绝不改变右边按钮的位置
+            UpdateBadgeSlot(
+                version = updateVersion,
+                onClick = onOpenUpdate,
+            )
+            Spacer(Modifier.width(m.dp(14f)))
             FilterChip(label = "设置", selected = false, onClick = onOpenSettings)
         }
 
-        Spacer(Modifier.height(m.dp(12f)))
+        Spacer(Modifier.height(m.dp(14f)))
 
-        // 第二行：语言 / 地区 / 年份（左，可滚动）+ 当前筛选摘要（右，固定）
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(rememberScrollState()),
-                verticalAlignment = Alignment.CenterVertically,
+        // ── 第二行：[筛选] 按钮 + 当前筛选条件（横向滚动展示）──
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(m.dp(48f)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SheetButton(
+                onClick = onOpenSheet,
+                active = filter != DefaultMovieFilter,
+                modifier = Modifier.focusRequester(filterFocus),
+            )
+            Spacer(Modifier.width(m.dp(18f)))
+
+            ActiveFilterStrip(
+                filter = filter,
+                modifier = Modifier.weight(1f),
+            )
+
+            Spacer(Modifier.width(m.dp(16f)))
+            // 结果数的固定槽位（接口没给总数时就是空白）
+            Box(
+                Modifier.width(m.dp(130f)),
+                contentAlignment = Alignment.CenterEnd,
             ) {
-                FilterGroup(
-                    title = "语言",
-                    options = LANG_OPTIONS,
-                    selected = filter.lang.ifBlank { FILTER_ALL },
-                    onSelect = onLang,
-                )
-                FilterGroup(
-                    title = "地区",
-                    options = AREA_OPTIONS,
-                    selected = filter.area.ifBlank { FILTER_ALL },
-                    onSelect = onArea,
-                    dividerBefore = true,
-                )
-                FilterGroup(
-                    title = "年份",
-                    options = yearOptions,
-                    selected = filter.year.ifBlank { FILTER_ALL },
-                    onSelect = onYear,
-                    dividerBefore = true,
-                )
+                if (total > 0) {
+                    Crossfade(
+                        targetState = total,
+                        animationSpec = Motion.quick(),
+                        label = "totalCount",
+                    ) { shown ->
+                        Text(
+                            text = "共 $shown 部",
+                            color = TextSub,
+                            fontSize = m.sp(15f),
+                            maxLines = 1,
+                        )
+                    }
+                }
             }
-
-            Spacer(Modifier.width(m.dp(20f)))
-            FilterSummary(filter = filter, total = total)
         }
 
-        // 筛条件被放宽时的说明（只在真发生时出现，平时完全不占地方）
-        // 用高度展开 + 淡入，而不是"啪"地挤进来把海报墙整体顶一下
+        Spacer(Modifier.height(m.dp(8f)))
+
+        // ── 放宽提示：固定一行高度的槽位（没有内容时也是这个高度）──
+        RelaxedNoteSlot(note = relaxedNote)
+    }
+}
+
+/**
+ * 「新版本 xx」金标：固定宽度的槽位，有新版才亮出来。
+ *
+ * ⚠️ 单独抽成一个组件，而不是直接写在 Row 里：AnimatedVisibility 既有
+ * 顶级版本、也有 RowScope/ColumnScope 版本，嵌在 Box 里调会被"隐式接收者"
+ * 抢走导致编译不过 —— 抽出来（在这一层没有 Row/Column 接收者）最干净。
+ */
+@Composable
+private fun UpdateBadgeSlot(version: String?, onClick: () -> Unit) {
+    val m = rememberTvMetrics()
+    Box(
+        Modifier.width(m.dp(200f)),
+        contentAlignment = Alignment.CenterEnd,
+    ) {
         AnimatedVisibility(
-            visible = relaxedNote != null,
-            enter = expandVertically(animationSpec = Motion.base()) + fadeIn(Motion.base()),
-            exit = shrinkVertically(animationSpec = Motion.quick()) + fadeOut(Motion.quick()),
+            visible = version != null,
+            enter = fadeIn(Motion.base()),
+            exit = fadeOut(Motion.quick()),
         ) {
-            Column {
-                Spacer(Modifier.height(m.dp(10f)))
-                Text(
-                    text = relaxedNote.orEmpty(),
-                    color = Gold.copy(alpha = 0.85f),
-                    fontSize = m.sp(14f),
-                    maxLines = 1,
-                )
-            }
+            FilterChip(
+                label = "新版本 ${version.orEmpty()}",
+                selected = true,
+                onClick = onClick,
+            )
         }
     }
 }
 
-/** 当前筛选摘要："国语 · 大陆 · 共 128 部"（没有可说的就不显示，不摆废字） */
+/** 放宽筛选的说明：固定一行高度，出现/消失都不顶动下面的海报墙 */
 @Composable
-private fun FilterSummary(filter: MovieFilter, total: Int) {
+private fun RelaxedNoteSlot(note: String?) {
     val m = rememberTvMetrics()
-    val parts = buildList {
-        addAll(filter.activeParts)
-        if (total > 0) add("共 $total 部")
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(m.dp(22f)),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        AnimatedVisibility(
+            visible = note != null,
+            enter = fadeIn(Motion.base()),
+            exit = fadeOut(Motion.quick()),
+        ) {
+            Text(
+                text = note.orEmpty(),
+                color = Gold.copy(alpha = 0.85f),
+                fontSize = m.sp(14f),
+                maxLines = 1,
+            )
+        }
     }
-    if (parts.isEmpty()) return
-    // 换条件时"地区 / 年份 / 部数"会一起变，直接换字会跳；交叉淡入淡出更稳
-    Crossfade(
-        targetState = parts.joinToString("  ·  "),
+}
+
+/** 「筛选」按钮：左侧的主入口。有任何非默认筛选时亮一颗小金点（槽位固定，不加宽按钮） */
+@Composable
+private fun SheetButton(
+    onClick: () -> Unit,
+    active: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val m = rememberTvMetrics()
+    val interaction = remember { MutableInteractionSource() }
+    var focused by remember { mutableStateOf(false) }
+
+    val bg by animateColorAsState(
+        targetValue = if (focused) PanelHi else Panel,
+        animationSpec = Motion.focus(),
+        label = "sheetButtonBg",
+    )
+    val fg by animateColorAsState(
+        targetValue = if (focused) Gold else TextMain,
         animationSpec = Motion.quick(),
-        label = "filterSummary",
-    ) { shown ->
+        label = "sheetButtonFg",
+    )
+
+    Row(
+        modifier = modifier
+            .tvFocus(
+                cornerRadius = m.dp(24f),
+                interactionSource = interaction,
+                onFocusChanged = { focused = it },
+            )
+            .clip(RoundedCornerShape(50))
+            .background(bg)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+            ) { onClick() }
+            .padding(horizontal = m.dp(26f), vertical = m.dp(12f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
-            text = shown,
-            color = TextSub,
-            fontSize = m.sp(15f),
-            maxLines = 1,
+            text = "筛选",
+            color = fg,
+            fontSize = m.sp(19f),
+            fontWeight = FontWeight.SemiBold,
         )
+        Spacer(Modifier.width(m.dp(10f)))
+        // 小金点：位置和尺寸恒定，只切换颜色 —— 不会让按钮"长胖"
+        Box(
+            Modifier
+                .size(m.dp(8f))
+                .clip(CircleShape)
+                .background(if (active) Gold else Color.Transparent),
+        )
+    }
+}
+
+/**
+ * 当前筛选条件：横向滚动展示（分类 + 语言 + 地区 + 年份）。
+ *
+ * 刻意**不可聚焦**：它只是"我现在筛的是什么"的说明牌，
+ * 所有修改都在筛选浮层里做。这样遥控器就少了一排要按过去的按钮 ——
+ * 也顺手躲开了"横向滚动 + 焦点自动滚入"互相抖动那个坑。
+ */
+@Composable
+private fun ActiveFilterStrip(
+    filter: MovieFilter,
+    modifier: Modifier = Modifier,
+) {
+    val m = rememberTvMetrics()
+    val chips = buildList {
+        if (filter.category != CATEGORY_ALL) add(filter.category)
+        addAll(filter.activeParts)
+    }
+    val listState = rememberLazyListState()
+
+    // 条件一变就平滑滚回开头（保证最左、最关心的那一条永远完整可见）
+    LaunchedEffect(chips) {
+        runCatching { listState.animateScrollToItem(0) }
+    }
+
+    LazyRow(
+        state = listState,
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(m.dp(10f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (chips.isEmpty()) {
+            item {
+                Text(
+                    text = "全部分类 · 不限语言 / 地区 / 年份",
+                    color = TextSub.copy(alpha = 0.75f),
+                    fontSize = m.sp(15f),
+                    maxLines = 1,
+                )
+            }
+        }
+        items(chips) { label ->
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(Panel)
+                    .padding(horizontal = m.dp(16f), vertical = m.dp(8f)),
+            ) {
+                Text(
+                    text = label,
+                    color = TextMain.copy(alpha = 0.85f),
+                    fontSize = m.sp(15f),
+                    maxLines = 1,
+                )
+            }
+        }
     }
 }
 
@@ -369,7 +496,6 @@ private fun PosterGrid(
     endReached: Boolean,
     generation: Int,
     focusTarget: String?,
-    endPadding: Dp,
     needsSetup: Boolean,
     error: String?,
     pageError: String?,
@@ -381,8 +507,6 @@ private fun PosterGrid(
     onRetry: () -> Unit,
     onResetFilters: () -> Unit,
     onFocusConsumed: () -> Unit,
-    /** 网格的第一项（筛选条）。放进网格是为了让它"往下翻时自动让位"，把整屏留给海报 */
-    header: @Composable () -> Unit,
 ) {
     val m = rememberTvMetrics()
     val screenW = LocalConfiguration.current.screenWidthDp
@@ -400,7 +524,7 @@ private fun PosterGrid(
      * 这一批"已入场"的海报。key 是 generation：换筛选/换分类重来一次，
      * 所以每次筛选变化都会看到一次整齐的交错入场。
      *
-     * ⚠️ 必须是 rememberSaveable：去播放器再回到首页，整个组合会被重建，
+     * ⚠️ 必须是 rememberSaveable：去详情/播放器再回到首页，整个组合会被重建，
      *    普通 remember 会让整墙海报再"闪一次"入场动画 —— 那正是"回显没做好"的观感来源。
      */
     val entered = rememberSaveable(
@@ -415,19 +539,16 @@ private fun PosterGrid(
 
     val contentPadding = PaddingValues(
         start = m.dp(48f),
-        end = endPadding,
-        top = m.dp(0f),   // 头部自带内边距
+        end = m.dp(48f),
+        top = m.dp(10f),
         bottom = m.dp(60f),
     )
-
-    // 网格里第 0 项是筛选条，所以「影片下标」=「网格 item 下标」- 1
-    val headerItems = 1
 
     // 滚到接近底部 → 交给 ViewModel 决定要不要加载下一页
     LaunchedEffect(gridState) {
         snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
             .distinctUntilChanged()
-            .collect { last -> if (last >= headerItems) onNearEnd(last - headerItems) }
+            .collect { last -> if (last >= 0) onNearEnd(last) }
     }
 
     // 换筛选后回到顶部：否则会停在上一次的滚动位置，看起来像"没反应"。
@@ -438,39 +559,31 @@ private fun PosterGrid(
         runCatching { gridState.scrollToItem(0) }
     }
 
-    // 提示类界面（未配置片源 / 接口出错 / 筛选无结果）：筛选条照旧在最上面 ——
-    // 特别是"筛不到片"的时候，用户必须能立刻改筛选，绝不能把入口藏起来
-    @Composable
-    fun HintPage(title: String, body: String, actionText: String, onAction: () -> Unit) {
-        Column(Modifier.fillMaxSize()) {
-            header()
-            Box(Modifier.weight(1f)) {
-                CenterHint(title = title, body = body, actionText = actionText, onAction = onAction)
-            }
-        }
-    }
-
     when {
         // 还没配置片源 → 引导去设置（这是第一次使用的正常状态，不是错误）
-        needsSetup -> HintPage(
-            title = "还没有配置影视接口地址",
-            body = "应用不内置任何片源。去「设置」里填入你自己的苹果CMS接口地址，这里就会出现内容。" +
-                "想先看看界面长什么样，地址栏里填 demo 即可。",
-            actionText = "去设置",
-            onAction = onOpenSettings,
-        )
+        needsSetup -> Box(Modifier.fillMaxSize()) {
+            CenterHint(
+                title = "还没有配置影视接口地址",
+                body = "应用不内置任何片源。去「设置」→「扫码配置」，用手机扫一下码，把" +
+                    "你自己的苹果CMS接口地址填进去，这里就会出现内容。" +
+                    "想先看看界面长什么样，在手机上填 demo 即可。",
+                actionText = "去设置",
+                onAction = onOpenSettings,
+            )
+        }
 
         // 接口出错（地址写错 / 站点挂了 / 网络不通）→ 说人话 + 可以重试
-        error != null && movies.isEmpty() -> HintPage(
-            title = "没能取到片源数据",
-            body = error,
-            actionText = "重试",
-            onAction = onRetry,
-        )
+        error != null && movies.isEmpty() -> Box(Modifier.fillMaxSize()) {
+            CenterHint(
+                title = "没能取到片源数据",
+                body = error,
+                actionText = "重试",
+                onAction = onRetry,
+            )
+        }
 
         loading && movies.isEmpty() -> {
             // 骨架屏：加载时是"微光占位"，绝不是白屏或转圈
-            // 头部也一起占位 —— 数据到货时布局不会"跳一下"
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
                 modifier = Modifier.fillMaxSize(),
@@ -479,18 +592,19 @@ private fun PosterGrid(
                 verticalArrangement = Arrangement.spacedBy(m.dp(26f)),
                 userScrollEnabled = false,
             ) {
-                item(span = { GridItemSpan(maxLineSpan) }) { header() }
                 items(12) { PosterSkeleton() }
             }
         }
 
-        movies.isEmpty() -> HintPage(
-            title = "这个筛选下暂时没有片子",
-            body = "换个分类，或者把语言 / 地区 / 年份放宽一点。" +
-                "（也可以直接重置成默认：全部分类 + 国语）",
-            actionText = "重置筛选",
-            onAction = onResetFilters,
-        )
+        movies.isEmpty() -> Box(Modifier.fillMaxSize()) {
+            CenterHint(
+                title = "这个筛选下暂时没有片子",
+                body = "换个分类，或者把语言 / 地区 / 年份放宽一点。" +
+                    "（也可以直接重置成默认：全部分类 + 国语）",
+                actionText = "重置筛选",
+                onAction = onResetFilters,
+            )
+        }
 
         else -> {
             LazyVerticalGrid(
@@ -501,9 +615,6 @@ private fun PosterGrid(
                 horizontalArrangement = Arrangement.spacedBy(m.dp(20f)),
                 verticalArrangement = Arrangement.spacedBy(m.dp(26f)),
             ) {
-                // 筛选条是网格的第一项：往下翻时它自己滚出屏幕，海报墙因此多出一整行
-                item(span = { GridItemSpan(maxLineSpan) }) { header() }
-
                 itemsIndexed(movies, key = { _, movie -> movie.id }) { index, movie ->
                     // 第一次出现在这个筛选下的海报：淡入 + 轻微放大，按顺序一张张出来
                     if (entered[movie.id] != true) {
@@ -546,7 +657,7 @@ private fun PosterGrid(
                 }
                 // 底部状态：三种情况都交代一句，不让用户对着"没反应的列表"发呆
                 when {
-                    pageError != null -> item(span = { GridItemSpan(maxLineSpan) }) {
+                    pageError != null -> item {
                         Box(
                             Modifier
                                 .fillMaxWidth()
@@ -562,7 +673,7 @@ private fun PosterGrid(
                         }
                     }
 
-                    loadingMore -> item(span = { GridItemSpan(maxLineSpan) }) {
+                    loadingMore -> item {
                         // 呼吸感：会"轻轻明灭"的加载提示，比一行死文字更像"正在做事"
                         val pulse = rememberInfiniteTransition(label = "loadingPulse")
                         val pulseAlpha by pulse.animateFloat(
@@ -588,7 +699,7 @@ private fun PosterGrid(
                         }
                     }
 
-                    endReached -> item(span = { GridItemSpan(maxLineSpan) }) {
+                    endReached -> item {
                         Box(
                             Modifier
                                 .fillMaxWidth()
@@ -604,9 +715,9 @@ private fun PosterGrid(
     }
 
     // 焦点回位 —— 首页"操作回显"的核心：
-    //   ① 有恢复请求（首次加载 / 从播放器、设置返回 / 应用重启后恢复）
-    //      → 先滚到那部片，再把焦点交给它：右侧详情、列表位置原样回来
-    //   ② 没有请求 → 什么都不做（用户可能正在筛选条上按，绝不能抢焦点）
+    //   ① 有恢复请求（首次加载 / 从详情、播放器、设置返回 / 应用重启后恢复）
+    //      → 先滚到那部片，再把焦点交给它：列表位置原样回来
+    //   ② 没有请求 → 什么都不做（用户可能正在按筛选按钮，绝不能抢焦点）
     // 同一个目标只处理一次（handledTarget），处理完回报 ViewModel 清掉请求。
     LaunchedEffect(focusTarget, movies.size) {
         val target = focusTarget ?: return@LaunchedEffect
@@ -619,10 +730,9 @@ private fun PosterGrid(
         if (index >= 0) {
             // 已经看得到的就绝不滚动 —— 滚动位置本身就是"回显"的一部分，
             // 只要目标不在屏幕上（首次加载 / 翻了很多页）才需要把它带进来。
-            val itemIndex = index + headerItems
-            val alreadyVisible = gridState.layoutInfo.visibleItemsInfo.any { it.index == itemIndex }
+            val alreadyVisible = gridState.layoutInfo.visibleItemsInfo.any { it.index == index }
             if (!alreadyVisible) {
-                runCatching { gridState.scrollToItem(itemIndex) }
+                runCatching { gridState.scrollToItem(index) }
                 delay(60)
             }
         }

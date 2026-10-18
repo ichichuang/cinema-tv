@@ -1,6 +1,7 @@
 package com.ichichuang.cinema.core.design
 
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.DurationBasedAnimationSpec
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearEasing
@@ -54,10 +55,13 @@ object Motion {
         spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessHigh)
 
     /**
-     * 必须**连续**的动画（播放进度条）：线性、无缓动。
-     * 进度每秒才上报一次，用缓动会看出来"一抽一抽"，线性才像真在走。
+     * 必须**连续**的动画（播放进度条、详情页背景缓慢推近）：线性、无缓动。
+     *
+     * 返回类型刻意是 DurationBasedAnimationSpec（而不是更宽的 FiniteAnimationSpec）：
+     * 只有"时长型"的动画才能塞进 infiniteRepeatable —— 类型窄一点，
+     * 调用方（比如详情页的背景推近）就不用自己再写一遍 tween 了。
      */
-    fun <T> linear(ms: Int): FiniteAnimationSpec<T> = tween(ms, easing = LinearEasing)
+    fun <T> linear(ms: Int): DurationBasedAnimationSpec<T> = tween(ms, easing = LinearEasing)
 
     /** 大块内容换人：淡入 + 微微上浮，用"换镜头"的方式替代硬切 */
     fun <T> swap(): FiniteAnimationSpec<T> = tween(DUR_SWAP, easing = EaseOut)

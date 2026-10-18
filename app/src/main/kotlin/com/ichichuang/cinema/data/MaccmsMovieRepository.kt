@@ -93,14 +93,6 @@ class MaccmsMovieRepository(
         }
     }
 
-    override suspend fun search(keyword: String, page: Int, pageSize: Int): List<Movie> {
-        if (keyword.isBlank()) return emptyList()
-        val raw = requireBase()
-        val base = baseUrl(raw)
-        return api.list(base = base, typeId = null, page = page, keyword = keyword)
-            .items.map { it.toMovie(base) }
-    }
-
     override suspend fun detail(id: String): MovieDetail? {
         val raw = requireBase()
         val base = baseUrl(raw)
@@ -126,7 +118,7 @@ class MaccmsMovieRepository(
         settings.apiBase.first().trim().takeIf { it.isNotEmpty() && it != CinemaSettings.DEMO }
 
     private suspend fun requireBase(): String =
-        usableBase() ?: throw SourceException("还没有配置影视接口地址：请到「设置」里填写")
+        usableBase() ?: throw SourceException("还没有配置影视接口地址：到「设置」里点「扫码配置」，用手机扫码填一下")
 
     private fun baseUrl(raw: String): HttpUrl =
         normalizeBaseUrl(raw) ?: throw SourceException("接口地址格式不对：$raw")

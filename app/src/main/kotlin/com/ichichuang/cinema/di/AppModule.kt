@@ -8,17 +8,14 @@ import com.ichichuang.cinema.data.remote.buildHttpClient
 import com.ichichuang.cinema.data.settings.CinemaSettings
 import com.ichichuang.cinema.data.settings.DataStoreBrowseStore
 import com.ichichuang.cinema.data.settings.DataStoreFilterStore
-import com.ichichuang.cinema.data.settings.DataStoreSearchHistory
 import com.ichichuang.cinema.data.settings.PlaybackProgress
 import com.ichichuang.cinema.data.update.GitHubUpdater
 import com.ichichuang.cinema.domain.repository.BrowseStore
 import com.ichichuang.cinema.domain.repository.FilterStore
 import com.ichichuang.cinema.domain.repository.MovieRepository
-import com.ichichuang.cinema.domain.repository.SearchHistoryStore
 import com.ichichuang.cinema.domain.repository.Updater
 import com.ichichuang.cinema.feature.home.HomeViewModel
 import com.ichichuang.cinema.feature.player.PlayerViewModel
-import com.ichichuang.cinema.feature.search.SearchViewModel
 import com.ichichuang.cinema.feature.settings.SettingsViewModel
 import com.ichichuang.cinema.feature.update.UpdateCenter
 import kotlinx.serialization.json.Json
@@ -37,10 +34,8 @@ val appModule = module {
     single { PlaybackProgress(androidContext()) }
     /** 筛选记忆：默认国语，用户改过就记住他改的 */
     single<FilterStore> { DataStoreFilterStore(androidContext()) }
-    /** 浏览位置记忆：从播放器/设置回来、甚至应用被杀后重启，都回到上次看的那部片 */
+    /** 浏览位置记忆：从详情/播放器/设置回来、甚至应用被杀后重启，都回到上次看的那部片 */
     single<BrowseStore> { DataStoreBrowseStore(androidContext()) }
-    /** 搜索历史：电视上打字最贵，搜过的词必须留下 */
-    single<SearchHistoryStore> { DataStoreSearchHistory(androidContext()) }
     single { buildHttpClient() }
     single {
         Json {
@@ -68,9 +63,17 @@ val appModule = module {
     single { UpdateCenter(context = androidContext(), updater = get()) }
 
     // ── 页面 ─────────────────────────────────────────────────
-    viewModel { HomeViewModel(repository = get(), progress = get(), filterStore = get(), browseStore = get()) }
-    viewModel { SearchViewModel(repository = get(), progress = get(), historyStore = get()) }
-    viewModel { SettingsViewModel(settings = get(), context = androidContext()) }
+    /**
+     * ⚠️ **single 而不是 viewModel**：首页和详情页必须是同一个实例。
+     * 详情的数据（简介 / 线路 / 上次看到哪）在首页卡片被聚焦时就拉好了，
+     * 共享实例 → 点开详情瞬间有内容、返回时列表位置原样还在。
+     * 用 viewModel 的话 navigation 会按页面各建一个，两边的状态就散了。
+     * （它是 ViewModel 子类，viewModelScope 照样能用；生命周期与应用一致，正是我们要的）
+     */
+    single {
+        HomeViewModel(repository = get(), progress = get(), filterStore = get(), browseStore = get())
+    }
+    viewModel { SettingsViewModel(settings = get(), repository = get(), context = androidContext()) }
     // 播放器要 Context 建 ExoPlayer —— 用 application context，不会漏 Activity
     viewModel { PlayerViewModel(repository = get(), progress = get(), context = androidContext()) }
 }

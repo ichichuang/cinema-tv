@@ -1,6 +1,5 @@
 package com.ichichuang.cinema.domain.repository
 
-import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.domain.model.MovieDetail
 import com.ichichuang.cinema.domain.model.MovieFilter
 import com.ichichuang.cinema.domain.model.MoviePage
@@ -18,8 +17,9 @@ interface MovieRepository {
      * 片源配置（接口地址）的变化流。空串 = 用户还没填。
      *
      * UI 靠它做两件事：
-     *  - 没填 → 首页显示"去设置里填接口地址"的引导，而不是报错
+     *  - 没填 → 首页显示"去设置里扫码配置"的引导，而不是报错
      *  - 填了/改了 → 自动重新加载，不需要重启应用
+     *    （手机扫码保存后能"电视实时生效"，靠的就是这条流）
      */
     val config: Flow<String>
 
@@ -34,9 +34,6 @@ interface MovieRepository {
      * 理由：电视上一片空白是最糟的体验，宁可给点东西 + 一句人话解释。
      */
     suspend fun movies(filter: MovieFilter, page: Int, pageSize: Int = 24): MoviePage
-
-    /** 按关键词搜索 */
-    suspend fun search(keyword: String, page: Int, pageSize: Int = 24): List<Movie>
 
     /** 影片详情（简介 + 播放线路）；取不到返回 null */
     suspend fun detail(id: String): MovieDetail?
