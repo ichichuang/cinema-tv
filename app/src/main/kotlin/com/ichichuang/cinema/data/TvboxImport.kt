@@ -74,6 +74,10 @@ class TvboxImport(private val http: OkHttpClient) {
         if (allRepos.size > repos.size) {
             notes.add("订阅地址太多，只处理了前 ${repos.size} 个")
         }
+        val relative = repos.count { it == null }
+        if (relative > 0) {
+            notes.add("跳过了 $relative 个相对路径地址（形如 ./xxx.json，电视上抓不到）")
+        }
         repos.forEach { repoUrl ->
             if (repoUrl == null) return@forEach
             val body = runCatching { fetch(rewrite(repoUrl)) }.getOrNull()
