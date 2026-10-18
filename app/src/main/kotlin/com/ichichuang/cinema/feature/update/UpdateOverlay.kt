@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +50,9 @@ import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.design.rememberTvMetrics
 import com.ichichuang.cinema.core.focus.tvFocus
 import com.ichichuang.cinema.core.system.UpdateInstaller
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.delay
 
 /**
@@ -112,8 +116,20 @@ private fun UpdateCard(
     val m = rememberTvMetrics()
     val context = LocalContext.current
     val info = state.info
-    // 系统层面是否允许本应用安装未知来源的应用（决定"还差一步"提示要不要出现）
-    val canInstall = UpdateInstaller.canInstall(context)
+    // 系统层面是否允许本应用安装未知来源的应用（决定"还差一步"提示要不要出现）。
+    // ⚠️ 必须跟着生命周期刷新：用户去系统设置里开完权限回来，如果这里还停在旧值，
+    //    卡片会继续显示「去允许安装」——再点一次又跳系统页，看起来就像坏了。
+    var canInstall by remember { mutableStateOf(UpdateInstaller.canInstall(context)) }
+    val lifecycle = (LocalContext.current as? LifecycleOwner)?.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                canInstall = UpdateInstaller.canInstall(context)
+            }
+        }
+        lifecycle?.addObserver(observer)
+        onDispose { lifecycle?.removeObserver(observer) }
+    }
 
     val primaryFocus = remember { FocusRequester() }
     var autoInstalledFor by remember { mutableStateOf<String?>(null) }
@@ -126,8 +142,10 @@ private fun UpdateCard(
         }
     }
 
-    // 下载完成 → 自动调起系统安装界面（每个文件只自动一次，剩下交给按钮）
-    LaunchedEffect(state.phase, state.apkPath) {
+    // 下载完成 → 自动调起系统安装界面（每个文件只自动一次，剩下交给按钮）。
+    // canInstall 也作为触发条件：用户刚把权限开好、切回应用的那一瞬间，
+    // 这里会立刻自动弹安装界面 —— "去允许 → 允许 → 回来"一条龙，不用再找按钮。
+    LaunchedEffect(state.phase, state.apkPath, canInstall) {
         val path = state.apkPath
         if (state.phase == UpdatePhase.READY && path != null && autoInstalledFor != path) {
             autoInstalledFor = path

@@ -173,8 +173,8 @@ class SettingsViewModel(
             if (!accepted) {
                 _state.update {
                     it.copy(
-                        catalogError = "最多同时启用 " + CinemaSettings.MAX_ENABLED_SOURCES +
-                            " 个片源：先取消一个，再勾新的",
+                        catalogError = "已到上限：最多同时启用 " +
+                            CinemaSettings.MAX_ENABLED_SOURCES + " 个，先取消一个再勾",
                     )
                 }
                 return@launch
@@ -308,7 +308,7 @@ class SettingsViewModel(
         _state.update { it.copy(serverMessage = "已收到手机的勾选，正在测试…") }
         val accepted = runCatching { settings.toggleSource(target) }.getOrDefault(false)
         if (!accepted) {
-            val msg = "最多同时启用 " + CinemaSettings.MAX_ENABLED_SOURCES + " 个片源：先取消一个再勾"
+            val msg = "已到上限：最多同时启用 " + CinemaSettings.MAX_ENABLED_SOURCES + " 个，先取消一个再勾"
             _state.update { it.copy(serverMessage = msg) }
             return PhoneSaveResult(false, msg)
         }

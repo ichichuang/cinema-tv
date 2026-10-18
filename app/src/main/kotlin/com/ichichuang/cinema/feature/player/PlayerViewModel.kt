@@ -196,6 +196,12 @@ class PlayerViewModel(
             player.pause()
         } else {
             if (player.playbackState == Player.STATE_IDLE) player.prepare()
+            // 播完停在最后一帧时，再按 OK = 从头重看一遍。
+            // 不处理的话这一下 play() 没有任何反应，用户会以为遥控器/应用坏了。
+            if (player.playbackState == Player.STATE_ENDED) {
+                player.seekTo(0)
+                _state.update { it.copy(positionMs = 0) }
+            }
             player.play()
         }
         showControls()
@@ -437,7 +443,8 @@ class PlayerViewModel(
             lastSavedMs = 0L
             _state.update {
                 it.copy(
-                    hint = "已经播完最后一集了",
+                    // 电影（单集）不说"最后一集"——那是剧集的说法
+                    hint = if (s.episodes.size > 1) "已经播完最后一集了" else "播放结束",
                     hintNonce = it.hintNonce + 1,
                     controlsVisible = true,
                     controlsShownAt = System.currentTimeMillis(),

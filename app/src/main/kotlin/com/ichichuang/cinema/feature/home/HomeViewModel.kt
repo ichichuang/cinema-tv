@@ -353,6 +353,13 @@ class HomeViewModel(
         }
     }
 
+    /** 翻页失败后的「按 OK 重试」（列表底部的补救条用；滚动自动重试仍然有效） */
+    fun retryNextPage() {
+        val s = _state.value
+        if (s.loading || s.loadingMore || s.endReached || s.needsSetup) return
+        loadNextPage()
+    }
+
     private fun loadNextPage() {
         val s = _state.value
         if (s.needsSetup) return
@@ -373,9 +380,10 @@ class HomeViewModel(
                     }
                 }
                 .onFailure {
-                    // 翻页失败不打断用户：滚到底部会看到一句说明，再往下动一下就会重试
+                    // 翻页失败不打断用户：列表底部会出现一颗"按 OK 重试"的补救条
+                    //（光写一行字不行 —— 人已经在列表底部，"往下翻"物理上翻不动）
                     _state.update {
-                        it.copy(loadingMore = false, pageError = "这一页没加载上，再往下翻一下会重新试")
+                        it.copy(loadingMore = false, pageError = "这一页没加载上，按 OK 重试")
                     }
                 }
         }

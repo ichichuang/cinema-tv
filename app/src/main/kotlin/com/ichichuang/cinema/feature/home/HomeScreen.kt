@@ -192,6 +192,7 @@ fun HomeScreen(
                     onNearEnd = viewModel::onVisibleIndexChanged,
                     onOpenSettings = onOpenSettings,
                     onRetry = viewModel::retry,
+                    onRetryPage = viewModel::retryNextPage,
                     onResetFilters = viewModel::resetFilters,
                     onFocusConsumed = viewModel::onFocusTargetConsumed,
                 )
@@ -527,6 +528,7 @@ private fun PosterGrid(
     onNearEnd: (Int) -> Unit,
     onOpenSettings: () -> Unit,
     onRetry: () -> Unit,
+    onRetryPage: () -> Unit,
     onResetFilters: () -> Unit,
     onFocusConsumed: () -> Unit,
 ) {
@@ -684,15 +686,12 @@ private fun PosterGrid(
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .padding(top = m.dp(20f)),
+                                .padding(top = m.dp(20f), bottom = m.dp(10f)),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text = pageError,
-                                color = Gold.copy(alpha = 0.85f),
-                                fontSize = m.sp(15f),
-                                maxLines = 1,
-                            )
+                            // 可聚焦的补救条：人在列表底部"往下翻"物理上翻不动，
+                            // 只有给出一个能按的东西（按 OK 重试）才不是死胡同
+                            PageRetryChip(text = pageError, onClick = onRetryPage)
                         }
                     }
 
@@ -769,5 +768,48 @@ private fun PosterGrid(
             delay(90)
         }
         onFocusConsumed()
+    }
+}
+
+/**
+ * 翻页失败的补救条：一行字 + 可聚焦（按 OK 重试）。
+ *
+ * 为什么必须能聚焦：失败提示出现在**列表底部**，
+ * 用户此刻能把列表"往下翻"的动作已经做完了 —— 光写一行说明等于死胡同。
+ * 给它焦点闭环：↓ 走到这里 → OK 重试 → 成功后方块消失、新海报接上。
+ */
+@Composable
+private fun PageRetryChip(text: String, onClick: () -> Unit) {
+    val m = rememberTvMetrics()
+    val radius = m.dp(50f)
+    val interaction = remember { MutableInteractionSource() }
+    var focused by remember { mutableStateOf(false) }
+    val bg by animateColorAsState(
+        targetValue = if (focused) Gold.copy(alpha = 0.22f) else Panel,
+        animationSpec = Motion.focus(),
+        label = "pageRetryBg",
+    )
+    Row(
+        modifier = Modifier
+            .tvFocus(
+                cornerRadius = radius,
+                interactionSource = interaction,
+                onFocusChanged = { focused = it },
+            )
+            .clip(RoundedCornerShape(50))
+            .background(bg)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+            ) { onClick() }
+            .padding(horizontal = m.dp(26f), vertical = m.dp(13f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            color = Gold.copy(alpha = 0.95f),
+            fontSize = m.sp(15f),
+            maxLines = 1,
+        )
     }
 }

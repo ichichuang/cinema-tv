@@ -286,10 +286,15 @@ fun SettingsScreen(
                 Spacer(Modifier.height(m.dp(16f)))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val checking = updateState.phase == UpdatePhase.CHECKING
+                    val downloading = updateState.phase == UpdatePhase.DOWNLOADING
                     DarkButton(
-                        text = if (checking) "检查中…" else "检查更新",
+                        text = when {
+                            checking -> "检查中…"
+                            downloading -> "更新中…"
+                            else -> "检查更新"
+                        },
                         width = m.dp(170f),
-                        enabled = !checking,
+                        enabled = !checking && !downloading,
                         onClick = updateCenter::checkManually,
                     )
                     // 「查看更新」的固定槽位：有新版才亮出来，位置永远留着
@@ -300,8 +305,13 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.height(m.dp(12f)))
                 StatusLine(
+                    // 正在后台下载时如实报进度：否则用户在设置页看到的是"什么都没发生"
                     text = updateState.message
-                        ?: "默认走发布方的 GitHub 地址；连不上时可在手机配置页换成镜像。",
+                        ?: when (updateState.phase) {
+                            UpdatePhase.DOWNLOADING ->
+                                "正在下载新版本 ${(updateState.progress * 100).toInt()}%…"
+                            else -> "默认走发布方的 GitHub 地址；连不上时可在手机配置页换成镜像。"
+                        },
                     highlight = updateState.hasUpdate,
                 )
             }
@@ -416,13 +426,15 @@ private fun SourcePicker(
     val m = rememberTvMetrics()
     val closeFocus = remember { FocusRequester() }
     val firstRow = remember { FocusRequester() }
+    val retryFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
     var autoFocused by remember { mutableStateOf(false) }
 
     val hasRows = catalog.isNotEmpty() || saved.isNotEmpty()
 
-    // 打开时：列表有内容 → 焦点给第一条（首选源）；列表空着 → 焦点给「关闭」。
-    // 清单是异步拉回来的：拉完自动把焦点挪到第一条（用户此时正等着列表出现）。
+    // 打开时：列表有内容 → 焦点给第一条（首选源）；
+    // 列表空着（首次/拉取失败）→ 焦点给「获取 / 重新获取推荐源」——那正是此刻要做的事；
+    // 清单是异步拉回来的：拉完自动把焦点挪过去（用户此时正等着列表出现）。
     LaunchedEffect(visible) { if (!visible) autoFocused = false }
     LaunchedEffect(visible, hasRows, loading) {
         if (!visible || autoFocused) return@LaunchedEffect
@@ -430,7 +442,8 @@ private fun SourcePicker(
         if (hasRows) {
             if (runCatching { firstRow.requestFocus() }.isSuccess) autoFocused = true
         } else if (!loading) {
-            runCatching { closeFocus.requestFocus() }
+            val okBtn = runCatching { retryFocus.requestFocus() }.isSuccess
+            if (okBtn || runCatching { closeFocus.requestFocus() }.isSuccess) autoFocused = true
         }
     }
 
@@ -517,6 +530,7 @@ private fun SourcePicker(
                                     text = "正在获取推荐源…",
                                     buttonText = "获取推荐源",
                                     buttonEnabled = false,
+                                    focusRequester = retryFocus,
                                     onFetch = onRefresh,
                                 )
 
@@ -524,6 +538,7 @@ private fun SourcePicker(
                                     text = error,
                                     buttonText = "重新获取",
                                     buttonEnabled = true,
+                                    focusRequester = retryFocus,
                                     onFetch = onRefresh,
                                 )
 
@@ -531,6 +546,7 @@ private fun SourcePicker(
                                     text = "还没获取过推荐源",
                                     buttonText = "获取推荐源",
                                     buttonEnabled = true,
+                                    focusRequester = retryFocus,
                                     onFetch = onRefresh,
                                 )
                             }
@@ -570,7 +586,23 @@ private fun SourcePicker(
                         focusRequester = closeFocus,
                         onClick = onClose,
                     )
-                    Spacer(Modifier.weight(1f))
+                    // 固定槽位：勾到上限、拉取失败之类的提示都在这里出现 —— 位置写死，
+                    // 有字样没字样都不顶动两侧按钮（AnimatedVisibility 在 Row 里会被
+                    // 隐式接收者抢，这里用"永远存在的空 Box"更省心）
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .padding(horizontal = m.dp(18f)),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        Text(
+                            text = if (catalog.isNotEmpty()) error.orEmpty() else "",
+                            color = Gold.copy(alpha = 0.92f),
+                            fontSize = m.sp(14f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     DarkButton(
                         text = if (loading) "刷新中…" else "刷新列表",
                         width = m.dp(170f),
@@ -676,6 +708,7 @@ private fun CatalogStateRow(
     text: String,
     buttonText: String,
     buttonEnabled: Boolean,
+    focusRequester: FocusRequester? = null,
     onFetch: () -> Unit,
 ) {
     val m = rememberTvMetrics()
@@ -710,6 +743,7 @@ private fun CatalogStateRow(
             text = buttonText,
             width = m.dp(150f),
             enabled = buttonEnabled,
+            focusRequester = focusRequester,
             onClick = onFetch,
         )
     }
