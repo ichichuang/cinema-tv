@@ -9,6 +9,7 @@ import com.ichichuang.cinema.data.TvboxImport
 import com.ichichuang.cinema.data.settings.CinemaSettings
 import com.ichichuang.cinema.data.settings.ImageCache
 import com.ichichuang.cinema.data.settings.SavedSource
+import com.ichichuang.cinema.data.sourceUrlKey
 import com.ichichuang.cinema.domain.model.DefaultMovieFilter
 import com.ichichuang.cinema.domain.repository.MovieRepository
 import kotlinx.coroutines.CancellationException
@@ -283,7 +284,8 @@ class SettingsViewModel(
             )
         }
         runCatching { settings.setUpdateUrl(updateUrl) }
-        val known = settings.sources.first().firstOrNull { it.url == apiBase.trim() }?.name
+        val known = settings.sources.first()
+            .firstOrNull { sourceUrlKey(it.url) == sourceUrlKey(apiBase) }?.name
         val result = activateAndTest(known ?: CinemaSettings.DEFAULT_SOURCE_NAME, apiBase)
         _state.update { it.copy(serverMessage = result.text) }
         return PhoneSaveResult(ok = result.passed, message = result.text)
@@ -301,8 +303,8 @@ class SettingsViewModel(
         if (!target.startsWith("http://") && !target.startsWith("https://")) {
             return PhoneSaveResult(false, "地址要以 http:// 或 https:// 开头")
         }
-        val name = settings.sources.first().firstOrNull { it.url == target }?.name
-            ?: _state.value.catalog.firstOrNull { it.url == target }?.name
+        val name = settings.sources.first().firstOrNull { sourceUrlKey(it.url) == sourceUrlKey(target) }?.name
+            ?: _state.value.catalog.firstOrNull { sourceUrlKey(it.url) == sourceUrlKey(target) }?.name
             ?: CinemaSettings.DEFAULT_SOURCE_NAME
         runCatching { settings.rememberSource(name, target) }
         _state.update { it.copy(serverMessage = "已收到手机的勾选，正在测试…") }
@@ -372,13 +374,17 @@ class SettingsViewModel(
         // 启用集合用换行分隔（全是地址，地址里不会有换行符）——手机页 split 一下就行
         val enabled = settings.activeUrlsNow()
         val list = _state.value.catalog.ifEmpty { catalog.cached() }
+        // 「已保存的源」里跟推荐源清单重复的（同一接口换个马甲）不重复展示 ——
+        // 避免一个源两行、勾来勾去对不上（用户截图里真实出现过）
+        val catalogKeys = list.map { sourceUrlKey(it.url) }.toSet()
+        val savedShown = saved.filterNot { sourceUrlKey(it.url) in catalogKeys }
         return buildJsonObject {
             put("ok", true)
             put("active", active)
             put("enabled", enabled.joinToString("\n"))
             put("maxEnabled", CinemaSettings.MAX_ENABLED_SOURCES)
             putJsonArray("saved") {
-                saved.forEach { source ->
+                savedShown.forEach { source ->
                     addJsonObject {
                         put("name", source.name)
                         put("url", source.url)

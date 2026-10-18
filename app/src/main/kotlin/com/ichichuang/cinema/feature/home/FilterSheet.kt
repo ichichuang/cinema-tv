@@ -37,10 +37,10 @@ import com.ichichuang.cinema.core.design.TextMain
 import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.design.rememberTvMetrics
 import com.ichichuang.cinema.core.ui.FilterChip
+import com.ichichuang.cinema.domain.model.CategoryTree
 import com.ichichuang.cinema.domain.model.MovieFilter
 import com.ichichuang.cinema.domain.repository.AREA_OPTIONS
 import com.ichichuang.cinema.domain.repository.CATEGORY_ALL
-import com.ichichuang.cinema.domain.repository.CLASS_OPTIONS
 import com.ichichuang.cinema.domain.repository.FILTER_ALL
 import com.ichichuang.cinema.domain.repository.LANG_OPTIONS
 import kotlinx.coroutines.delay
@@ -62,7 +62,8 @@ import kotlinx.coroutines.delay
 fun FilterSheet(
     visible: Boolean,
     filter: MovieFilter,
-    categories: List<String>,
+    /** 接口返回的真实分类树 —— 分类/类型选项全部来自它，没有一份自造词表 */
+    tree: CategoryTree,
     yearOptions: List<String>,
     onApply: (MovieFilter) -> Unit,
 ) {
@@ -130,17 +131,31 @@ fun FilterSheet(
             ) {
                 FilterSection(
                     title = "分类 · 接口自动生成",
-                    options = categories,
+                    options = listOf(CATEGORY_ALL) + tree.tops,
                     emptyHint = "等接口连通后，分类会自动出现在这里",
                     isSelected = { it == draft.category },
-                    onSelect = { draft = draft.copy(category = it) },
+                    onSelect = { cat ->
+                        // 换分类 → 已经选中的类型如果不在新分类下就落掉（选项以接口为准）
+                        val allowed = tree.typesFor(cat)
+                        draft = draft.copy(
+                            category = cat,
+                            types = draft.types.filter { it in allowed },
+                        )
+                    },
                     firstFocus = firstChip,
                 )
+                // 类型 = 当前分类在接口里的**真实下级题材**，可多选：
+                // 点一下选中（高亮）、再点取消；数了多个就是"这几个都要看"
                 FilterSection(
-                    title = "类型 · 喜剧 / 恐怖 / 动作…",
-                    options = CLASS_OPTIONS,
-                    isSelected = { it == draft.movieClass.ifBlank { FILTER_ALL } },
-                    onSelect = { draft = draft.copy(movieClass = it.toFilterValue()) },
+                    title = "类型 · 接口里的真实题材（可多选）",
+                    options = tree.typesFor(draft.category),
+                    emptyHint = "这个分类在接口里没有细分题材（以接口为准）",
+                    isSelected = { it in draft.types },
+                    onSelect = { type ->
+                        draft = draft.copy(
+                            types = if (type in draft.types) draft.types - type else draft.types + type,
+                        )
+                    },
                 )
                 FilterSection(
                     title = "语言",

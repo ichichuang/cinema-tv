@@ -1,8 +1,10 @@
 package com.ichichuang.cinema.data
 
 import com.ichichuang.cinema.data.remote.MaccmsApi
+import com.ichichuang.cinema.data.remote.RemoteCategory
 import com.ichichuang.cinema.data.remote.SourceException
 import com.ichichuang.cinema.data.settings.CinemaSettings
+import com.ichichuang.cinema.domain.model.CategoryTree
 import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.domain.model.MovieDetail
 import com.ichichuang.cinema.domain.model.MovieFilter
@@ -39,9 +41,37 @@ class MaccmsMovieRepository(
     /** 当前"该取哪些源"：启用集合（含老版单源迁移），空 = 还没配置 */
     private suspend fun targets(): List<MaccmsSource> = settings.activeUrlsNow().map(::sourceOf)
 
-    override suspend fun categories(): List<String> =
-        // 分类列表以第一个启用源为准（各站的"电影/连续剧/综艺/动漫"大差不差）
-        targets().firstOrNull()?.categories() ?: emptyList()
+    override suspend fun categoryTree(): CategoryTree {
+        val list = targets()
+        if (list.isEmpty()) return CategoryTree()
+        // 多源合并：每个站各拉一次自己的树（拿不动的不拖累别的），并集展示
+        val trees = coroutineScope {
+            list.map { source -> async { runCatching { source.tree() } } }.awaitAll()
+        }
+        return CategoryTree.merge(
+            trees.mapNotNull { it.getOrNull() }.map { toTree(it) },
+        )
+    }
+
+    /** 单站的原始分类数组 → 分类树（顶层 / 各自的下级 / 平铺站的原样名字） */
+    private fun toTree(all: List<RemoteCategory>): CategoryTree {
+        val hasStructure = all.any { !it.isTopLevel() }
+        if (!hasStructure) {
+            // 平铺站（老模板不给 type_pid）：名字既当分类也当类型
+            return CategoryTree(tops = all.map { it.name }.distinct(), flat = all.map { it.name }.distinct())
+        }
+        val tops = all.filter { it.isTopLevel() }.map { it.name }.distinct()
+        val children = LinkedHashMap<String, MutableList<String>>()
+        all.filterNot { it.isTopLevel() }.forEach { child ->
+            val parent = all.firstOrNull { it.typeId == child.pid } ?: return@forEach
+            val list = children.getOrPut(parent.name) { mutableListOf() }
+            if (child.name !in list) list += child.name
+        }
+        return CategoryTree(tops, children)
+    }
+
+    private fun RemoteCategory.isTopLevel(): Boolean =
+        pid == null || pid.isEmpty() || pid == "0" || pid == typeId
 
     override suspend fun movies(filter: MovieFilter, page: Int, pageSize: Int): MoviePage {
         val list = targets()
@@ -65,10 +95,21 @@ class MaccmsMovieRepository(
         ok.forEach { pageData ->
             pageData.movies.forEach { movie -> merged.putIfAbsent(movie.mergeKey, movie) }
         }
+        // 诚实说明：几个源没有这个分类（被跳过）/ 结果是空的时候为什么空
+        val skipCount = ok.count { it.skippedNoMatch }
+        val note = when {
+            merged.isEmpty() && skipCount > 0 && skipCount == ok.size ->
+                "你启用的片源里都没有这个分类或类型"
+            merged.isEmpty() && ok.isNotEmpty() && ok.all { it.movies.isEmpty() } ->
+                "按当前筛选条件，所有片源都没找到结果"
+            skipCount > 0 -> "有 $skipCount 个片源没有这个分类/类型，已跳过"
+            else -> null
+        }
         return MoviePage(
             movies = merged.values.toList(),
             relaxed = ok.any { it.relaxed },
             total = ok.sumOf { it.total },
+            note = note,
         )
     }
 

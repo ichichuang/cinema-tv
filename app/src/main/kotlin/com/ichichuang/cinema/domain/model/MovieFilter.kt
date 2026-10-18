@@ -5,7 +5,7 @@ import com.ichichuang.cinema.domain.repository.CATEGORY_ALL
 /**
  * 筛选条件。
  *
- * 约定：**空串 = 该维度不过滤**（界面上对应"全部"）。
+ * 约定：**空串 / 空表 = 该维度不过滤**（界面上对应"全部"）。
  * 这样"有没有筛选"不需要额外的布尔量，`isBlank()` 就是答案。
  */
 data class MovieFilter(
@@ -17,18 +17,24 @@ data class MovieFilter(
     /** 年份，如 "2025"（苹果CMS 的 year 参数） */
     val year: String = "",
     /**
-     * 类型/题材，如 喜剧/恐怖（苹果CMS 的 class 参数）。
-     * 支持的站不多 —— 数据层会先抽查服务器到底筛没筛，没筛就用 vod_class 字段本地兜底。
+     * 类型（题材）——**多选**。
+     *
+     * 取值是接口分类树里的真实下级分类名（如 动作片/恐怖片），不是猜的词。
+     * 数据层把名字解析成各站真实的 type_id 集合（t=id1,id2 服务器筛），
+     * 本地兜底也按同一份 id / 名字核对；站点没有这个分类就诚实跳过。
      */
-    val movieClass: String = "",
+    val types: List<String> = emptyList(),
 ) {
-    /** 四个可选维度都是空的 → 服务器端不需要任何过滤参数 */
+    /** 语言/地区/年份/类型都不限 → 服务器端不需要这些过滤参数（分类参数另算） */
     val noServerFilter: Boolean
-        get() = lang.isBlank() && area.isBlank() && year.isBlank() && movieClass.isBlank()
+        get() = lang.isBlank() && area.isBlank() && year.isBlank() && types.isEmpty()
 
     /** 生效中的可选维度（摘要里显示用） */
     val activeParts: List<String>
-        get() = listOf(lang, area, year, movieClass).filter { it.isNotBlank() }
+        get() = buildList {
+            if (types.isNotEmpty()) add(types.joinToString("/"))
+            addAll(listOf(lang, area, year).filter { it.isNotBlank() })
+        }
 }
 
 /**
@@ -41,10 +47,14 @@ val DefaultMovieFilter = MovieFilter(lang = "国语")
  * 一页影片 + 这次结果的诚实说明。
  *
  * [relaxed] = 为了不给你一片空白，服务器/本地放宽了筛选条件（界面会用人话解释）。
+ * [skippedNoMatch] = 有的片源没有用户要的分类/类型，这一页被**跳过**（多源聚合时说明用）。
+ * [note] = 数据层更具体的一句人话（优先级高于 relaxed 的通用文案）。
  */
 data class MoviePage(
     val movies: List<Movie>,
     val relaxed: Boolean = false,
     /** 接口给的总数（有些站不返回，此时为 0，界面就不显示"共 N 部"） */
     val total: Int = 0,
+    val skippedNoMatch: Boolean = false,
+    val note: String? = null,
 )

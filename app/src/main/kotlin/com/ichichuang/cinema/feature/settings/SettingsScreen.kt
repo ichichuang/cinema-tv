@@ -69,6 +69,7 @@ import com.ichichuang.cinema.core.ui.FilterChip
 import com.ichichuang.cinema.data.CatalogSource
 import com.ichichuang.cinema.data.settings.CinemaSettings
 import com.ichichuang.cinema.data.settings.SavedSource
+import com.ichichuang.cinema.data.sourceUrlKey
 import com.ichichuang.cinema.feature.update.UpdateCenter
 import com.ichichuang.cinema.feature.update.UpdateOverlay
 import com.ichichuang.cinema.feature.update.UpdatePhase
@@ -430,7 +431,13 @@ private fun SourcePicker(
     val listState = rememberLazyListState()
     var autoFocused by remember { mutableStateOf(false) }
 
-    val hasRows = catalog.isNotEmpty() || saved.isNotEmpty()
+    // 地址按归一化比对："…/vod" 与 "…/vod/" 是同一个源（不会勾出两条、显示为两个状态）
+    fun isActive(url: String) = enabled.any { sourceUrlKey(it) == sourceUrlKey(url) }
+    // 「已保存的源」里跟推荐源清单重复的（同一接口换个马甲）不再重复显示 —— 避免一源两行
+    val catalogKeys = catalog.mapTo(HashSet()) { sourceUrlKey(it.url) }
+    val savedShown = saved.filterNot { sourceUrlKey(it.url) in catalogKeys }
+
+    val hasRows = catalog.isNotEmpty() || savedShown.isNotEmpty()
 
     // 打开时：列表有内容 → 焦点给第一条（首选源）；
     // 列表空着（首次/拉取失败）→ 焦点给「获取 / 重新获取推荐源」——那正是此刻要做的事；
@@ -518,7 +525,7 @@ private fun SourcePicker(
                             SourceRow(
                                 title = source.name,
                                 subtitle = source.info.ifBlank { source.url },
-                                active = source.url in enabled,
+                                active = isActive(source.url),
                                 modifier = if (index == 0) Modifier.focusRequester(firstRow) else Modifier,
                                 onClick = { onToggle(source.name, source.url) },
                             )
@@ -553,13 +560,13 @@ private fun SourcePicker(
                         }
                     }
 
-                    if (saved.isNotEmpty()) {
+                    if (savedShown.isNotEmpty()) {
                         item(key = "saved-label") { SectionLabel("已保存的源") }
-                        itemsIndexed(saved, key = { _, s -> "s-" + s.url }) { index, source ->
+                        itemsIndexed(savedShown, key = { _, s -> "s-" + s.url }) { index, source ->
                             SourceRow(
                                 title = source.name,
                                 subtitle = source.url,
-                                active = source.url in enabled,
+                                active = isActive(source.url),
                                 modifier = if (catalog.isEmpty() && index == 0) {
                                     Modifier.focusRequester(firstRow)
                                 } else {

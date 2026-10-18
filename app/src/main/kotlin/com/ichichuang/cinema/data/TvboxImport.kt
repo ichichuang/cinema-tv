@@ -113,7 +113,10 @@ class TvboxImport(private val http: OkHttpClient) {
             if (!looksLikeCms(api)) return@forEach
             val rawName = (o["name"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
                 .ifEmpty { (o["key"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty() }
-            out.putIfAbsent(api, SavedSource(rawName.ifEmpty { hostOf(api) }, api))
+            // 社区仓库常把测速历史写进名字（"LB资源 [392ms] ✅ [2108ms] ✅…"）——
+            // 收进来的那一刻就清洗干净；地址按归一化去重（末尾斜杠不算两个源）
+            val clean = sanitizeSourceName(rawName)
+            out.putIfAbsent(sourceUrlKey(api), SavedSource(clean.ifEmpty { hostOf(api) }, api))
         }
     }
 

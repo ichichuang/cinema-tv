@@ -2,6 +2,7 @@ package com.ichichuang.cinema.data
 
 import com.ichichuang.cinema.data.demo.DemoMovieRepository
 import com.ichichuang.cinema.data.settings.CinemaSettings
+import com.ichichuang.cinema.domain.model.CategoryTree
 import com.ichichuang.cinema.domain.model.MovieDetail
 import com.ichichuang.cinema.domain.model.MovieFilter
 import com.ichichuang.cinema.domain.model.MoviePage
@@ -28,7 +29,7 @@ class SwitchableMovieRepository(
     private suspend fun target(): MovieRepository =
         if (settings.apiBase.first().trim() == CinemaSettings.DEMO) demo else remote
 
-    override suspend fun categories(): List<String> = target().categories()
+    override suspend fun categoryTree(): CategoryTree = target().categoryTree()
 
     override suspend fun movies(filter: MovieFilter, page: Int, pageSize: Int): MoviePage =
         target().movies(filter, page, pageSize)

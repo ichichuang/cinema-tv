@@ -1,13 +1,20 @@
 package com.ichichuang.cinema.data.demo
 
+import com.ichichuang.cinema.domain.model.CategoryTree
 import com.ichichuang.cinema.domain.model.Movie
 
 /**
- * 阶段 0/1 的演示数据（24 部虚构影片）。
- * 阶段 2 之后由真实接口数据取代 —— 界面上看不出区别，这正是分层架构的意义。
+ * 演示数据（24 部虚构影片）。
+ * 分类树 Shape 和真实苹果CMS一致（顶层分类 + 下级类型），筛选手感跟真片源一样。
  */
-val DEMO_CATEGORIES = listOf(
-    "全部", "科幻", "悬疑", "剧情", "奇幻", "动作", "爱情", "纪录", "犯罪", "惊悚",
+val DEMO_TREE = CategoryTree(
+    tops = listOf("电影", "剧集", "动漫", "纪录片"),
+    children = mapOf(
+        "电影" to listOf("科幻", "悬疑", "剧情", "奇幻", "动作", "爱情", "纪录", "犯罪", "惊悚"),
+        "剧集" to listOf("剧情", "悬疑", "犯罪", "惊悚"),
+        "动漫" to listOf("奇幻", "冒险", "科幻"),
+        "纪录片" to listOf("纪录"),
+    ),
 )
 
 private fun m(

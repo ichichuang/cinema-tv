@@ -456,7 +456,9 @@ class ConfigServer(
   var busy = false;
   var enabled = [];
 
-  function isOn(u) { return enabled.indexOf(u) >= 0; }
+  // 地址归一化（只用于"是否已启用"的判断）："…/vod" 与 "…/vod/" 是同一个源
+  function normUrl(u) { return (u || '').replace(/\/+$/, ''); }
+  function isOn(u) { return enabled.indexOf(normUrl(u)) >= 0; }
 
   function show(ok, msg) {
     box.className = 'result show ' + (ok ? 'ok' : 'bad');
@@ -488,7 +490,9 @@ class ConfigServer(
   function load() {
     fetch('/api/sources').then(function (r) { return r.json(); }).then(function (d) {
       if (!d || d.ok !== true) { show(false, '电视那边状态不对，重开一下配置页'); return; }
-      enabled = (d.enabled || '').split('\n').filter(function (s) { return s.trim().length > 0; });
+      enabled = (d.enabled || '').split('\n')
+        .filter(function (s) { return s.trim().length > 0; })
+        .map(function (s) { return normUrl(s.trim()); });
       var maxN = d.maxEnabled || 8;
       sumEl.textContent = enabled.length
         ? ('已启用 ' + enabled.length + ' / ' + maxN + ' 个片源：首页会把它们的电影合在一起')

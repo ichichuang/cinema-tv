@@ -1,6 +1,7 @@
 package com.ichichuang.cinema.data.demo
 
 import com.ichichuang.cinema.data.settings.CinemaSettings
+import com.ichichuang.cinema.domain.model.CategoryTree
 import com.ichichuang.cinema.domain.model.Episode
 import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.domain.model.MovieDetail
@@ -20,28 +21,33 @@ import kotlinx.coroutines.flow.flowOf
  *  2. 接口临时挂掉时，用它区分"是应用坏了"还是"是片源坏了"
  *     （设置里把接口地址填 `demo` 即可切到它）
  *
- * 筛选行为也照着真实实现的契约来（本地筛 + 筛不出就放宽并如实标记），
+ * 筛选行为也照着真实实现的契约来（分类/类型按真实的树核对、筛不出就诚实说明），
  * 这样"填 demo 先看界面"看到的手感跟真片源一致。
  */
 class DemoMovieRepository : MovieRepository {
 
     override val config: Flow<String> = flowOf(CinemaSettings.DEMO)
 
-    override suspend fun categories(): List<String> = DEMO_CATEGORIES
+    override suspend fun categoryTree(): CategoryTree = DEMO_TREE
 
     override suspend fun movies(filter: MovieFilter, page: Int, pageSize: Int): MoviePage {
-        val byCategory = DEMO_MOVIES.filter {
-            filter.category == CATEGORY_ALL || it.genre == filter.category
-        }
-        val matched = byCategory.filter { it.matches(filter) }
+        val types = filter.types.filter { it.isNotBlank() }
+        val byCategory = DEMO_MOVIES.filter { it.inCategory(filter.category) }
+        val matched = byCategory.filter { it.matches(filter, types) }
 
-        // 本地也筛不出来 → 放宽（跟真实片源同一套规矩：宁可给内容 + 说明，不给空白）
-        val hitRelaxed = matched.isEmpty() && page == 1 && !filter.noServerFilter
+        // 语言/地区/年份滤空 → 放宽（跟真实片源同一套规矩：宁可给内容 + 说明，不给空白）；
+        // 但分类/类型是用户点名要的 —— 筛空就诚实空，绝不放宽成"全量"
+        val askedTypes = types.isNotEmpty() || filter.category != CATEGORY_ALL
+        val hitRelaxed = matched.isEmpty() && page == 1 && !askedTypes && !filter.noServerFilter
         val all = if (hitRelaxed) byCategory else matched
 
         val from = (page - 1) * pageSize
         val items = if (from >= all.size) emptyList() else all.drop(from).take(pageSize)
-        return MoviePage(movies = items, total = all.size, relaxed = hitRelaxed)
+        val note = when {
+            items.isEmpty() && page == 1 && askedTypes -> "按当前筛选，演示数据里没找到结果"
+            else -> null
+        }
+        return MoviePage(movies = items, total = all.size, relaxed = hitRelaxed, note = note)
     }
 
     override suspend fun detail(id: String, origin: String): MovieDetail? {
@@ -60,12 +66,20 @@ class DemoMovieRepository : MovieRepository {
         )
     }
 
-    /** 演示数据的本地筛选：字段是空的算不命中（跟真实实现一致，不糊弄） */
-    private fun Movie.matches(f: MovieFilter): Boolean {
+    /** 演示数据里用 genre 当"下级类型"字段；顶层分类按树核对 */
+    private fun Movie.inCategory(category: String): Boolean {
+        if (category == CATEGORY_ALL) return true
+        val kids = DEMO_TREE.children[category]
+        if (kids != null) return genre in kids
+        return genre == category
+    }
+
+    /** 本地筛选：字段是空的算不命中（跟真实实现一致，不糊弄） */
+    private fun Movie.matches(f: MovieFilter, types: List<String>): Boolean {
+        if (types.isNotEmpty() && genre !in types) return false
         if (f.lang.isNotBlank() && !lang.contains(f.lang)) return false
         if (f.area.isNotBlank() && !area.contains(f.area)) return false
         if (f.year.isNotBlank() && year.toString() != f.year) return false
-        if (f.movieClass.isNotBlank() && !genre.contains(f.movieClass)) return false
         return true
     }
 }

@@ -203,7 +203,7 @@ fun HomeScreen(
         FilterSheet(
             visible = sheetOpen,
             filter = state.filter,
-            categories = state.categories,
+            tree = state.categoryTree,
             yearOptions = state.yearOptions,
             onApply = { next ->
                 sheetOpen = false

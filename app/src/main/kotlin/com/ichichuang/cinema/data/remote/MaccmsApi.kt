@@ -45,8 +45,10 @@ data class RemoteVod(
     val area: String?,
     val lang: String?,
     val score: String?,
+    /** 该片的分类 id（vod_type_id）—— 本地核对"是不是用户要的分类/类型"靠它 */
+    val typeId: String?,
     val typeName: String?,
-    /** 题材/剧情分类（vod_class，如 "喜剧 动作"）；本地兜底筛"类型"用它 */
+    /** 题材/剧情分类（vod_class，如 "喜剧 动作"）；仅展示参考，筛选不用它 */
     val classes: String?,
     /** 详情接口才有的剧情简介（原始 HTML） */
     val content: String?,
@@ -65,7 +67,7 @@ class MaccmsApi(
     private val json: Json,
 ) {
 
-    /** 分类树。苹果CMS 用 type_pid 表示父子关系，这里只取顶层（电影/电视剧/综艺/动漫…） */
+    /** 全量分类树（顶层 + 下级，都带 type_id / type_pid）；名字是接口原文，绝不自造 */
     suspend fun categories(base: HttpUrl): List<RemoteCategory> {
         val root = request(base, "ac" to "list")
         val arr = root["class"] as? JsonArray ?: return emptyList()
@@ -75,33 +77,36 @@ class MaccmsApi(
             val name = o["type_name"].asText()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
             val pid = o["type_pid"].asText()
             RemoteCategory(typeId = id, name = name, pid = pid)
-        }.filter { it.pid == null || it.pid == "0" || it.pid == it.typeId }
+        }
     }
 
     /**
-     * 影片列表：按分类（typeId 为 null = 不分类，取全库）或按关键词。
+     * 影片列表：按分类（typeIds 为 null/空 = 不分类，取全库）或按关键词。
      *
-     * 语言/地区/年份/题材是苹果CMS videolist 的**服务器端**筛选参数：
-     * 带了它们，站点直接返回筛好的结果（最省流量）。不支持的站会忽略它们
-     * （返回空 或 原样返回全部）—— 两种情况都由调用方（MaccmsSource）兜底。
+     * [typeIds] 是**真实的分类 id**。注意（25 个真实站在线实测过）：
+     * 苹果CMS 的 `t=` **只认第一个 id** —— `t=6,7` 等价于 `t=6`（逗号多值被忽略），
+     * 而且 `t=<顶层分类>` 也不会带上它的下级（只精确匹配条目自己的 type_id）。
+     * 所以调用方（MaccmsSource）**总是传单个叶子 id**；多选 / 大类浏览由它
+     * 分多次请求合成。这里保留 List 形状只为就绪兼容。
+     * 语言/地区/年份同样是服务器端筛选参数；不支持的站会忽略它们
+     * （返回空 或 原样返回全部）—— 两种情况都由 MaccmsSource 兜底核对。
      */
     suspend fun list(
         base: HttpUrl,
-        typeId: String?,
+        typeIds: List<String>?,
         page: Int,
         keyword: String? = null,
         lang: String? = null,
         area: String? = null,
         year: String? = null,
-        movieClass: String? = null,
     ): RemotePage {
         val params = mutableListOf("ac" to "videolist", "pg" to page.toString())
-        typeId?.let { params += "t" to it }
+        typeIds?.map { it.trim() }?.filter { it.isNotEmpty() }?.distinct()?.takeIf { it.isNotEmpty() }
+            ?.let { params += "t" to it.joinToString(",") }
         keyword?.takeIf { it.isNotBlank() }?.let { params += "wd" to it }
         lang?.takeIf { it.isNotBlank() }?.let { params += "lang" to it }
         area?.takeIf { it.isNotBlank() }?.let { params += "area" to it }
         year?.takeIf { it.isNotBlank() }?.let { params += "year" to it }
-        movieClass?.takeIf { it.isNotBlank() }?.let { params += "class" to it }
 
         val root = request(base, *params.toTypedArray())
         val arr = root["list"] as? JsonArray ?: JsonArray(emptyList())
@@ -161,6 +166,7 @@ class MaccmsApi(
             area = this["vod_area"].asText()?.trim()?.takeIf { it.isNotEmpty() },
             lang = this["vod_lang"].asText()?.trim()?.takeIf { it.isNotEmpty() },
             score = this["vod_score"].asText()?.trim()?.takeIf { it.isNotEmpty() },
+            typeId = this["type_id"].asText()?.trim()?.takeIf { it.isNotEmpty() },
             typeName = this["type_name"].asText()?.trim()?.takeIf { it.isNotEmpty() },
             classes = this["vod_class"].asText()?.trim()?.takeIf { it.isNotEmpty() },
             content = this["vod_content"].asText()?.trim()?.takeIf { it.isNotEmpty() },

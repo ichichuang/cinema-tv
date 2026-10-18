@@ -1,5 +1,6 @@
 package com.ichichuang.cinema.domain.repository
 
+import com.ichichuang.cinema.domain.model.CategoryTree
 import com.ichichuang.cinema.domain.model.MovieDetail
 import com.ichichuang.cinema.domain.model.MovieFilter
 import com.ichichuang.cinema.domain.model.MoviePage
@@ -23,8 +24,13 @@ interface MovieRepository {
      */
     val config: Flow<String>
 
-    /** 分类列表（如：全部 / 电影 / 电视剧 …）；未配置片源时返回空 */
-    suspend fun categories(): List<String>
+    /**
+     * 真实分类树（顶层分类 + 各自的下级类型），全部来自接口的 ac=list。
+     *
+     * "筛选条件必须根据真实接口数据来" —— 界面上的分类/类型选项就是这份树的原文。
+     * 多源启用时由实现合并各站的树；未配置片源时返回空树。
+     */
+    suspend fun categoryTree(): CategoryTree
 
     /**
      * 按筛选条件分页取影片；page 从 1 开始。

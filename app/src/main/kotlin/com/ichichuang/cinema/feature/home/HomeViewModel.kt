@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ichichuang.cinema.data.settings.CinemaSettings
 import com.ichichuang.cinema.data.settings.PlaybackProgress
+import com.ichichuang.cinema.domain.model.CategoryTree
 import com.ichichuang.cinema.domain.model.DefaultMovieFilter
 import com.ichichuang.cinema.domain.model.Movie
 import com.ichichuang.cinema.domain.model.MovieDetail
@@ -29,8 +30,9 @@ import java.util.Calendar
  * 首页状态。单一数据源：UI 只读它，所有变化由 ViewModel 产生。
  */
 data class HomeUiState(
-    val categories: List<String> = emptyList(),
-    /** 当前筛选条件（分类 + 语言 + 地区 + 年份） */
+    /** 接口返回的**真实**分类树（顶层 + 下级），筛选界面就列它 */
+    val categoryTree: CategoryTree = CategoryTree(),
+    /** 当前筛选条件（分类 + 类型 + 语言 + 地区 + 年份） */
     val filter: MovieFilter = DefaultMovieFilter,
     val movies: List<Movie> = emptyList(),
     /** 当前筛选下共有多少部（接口没返回就是 0，UI 会隐藏不显示假的数字） */
@@ -121,7 +123,7 @@ class HomeViewModel(
     // ── 筛选（界面上传的是选项文字，"全部" 转成空串表示不限制）──────
 
     fun selectCategory(category: String) =
-        applyFilter(_state.value.filter.copy(category = category))
+        applyFilter(_state.value.filter.copy(category = category, types = emptyList()))
 
     fun selectLang(option: String) =
         applyFilter(_state.value.filter.copy(lang = option.toFilterValue()))
@@ -246,7 +248,7 @@ class HomeViewModel(
     private fun String.toFilterValue(): String = if (this == FILTER_ALL) "" else this
 
     private fun reloadAll() {
-        loadCategories()
+        loadTree()
         reload(restoreFocus = true)
     }
 
@@ -275,17 +277,23 @@ class HomeViewModel(
         }
     }
 
-    private fun loadCategories() {
+    private fun loadTree() {
         viewModelScope.launch {
-            runCatching { repository.categories() }
-                .onSuccess { list ->
+            runCatching { repository.categoryTree() }
+                .onSuccess { tree ->
                     _state.update { s ->
-                        // 分类树变了（换了片源站）→ 当前分类不在新列表里就静默回到"全部"
-                        if (list.isEmpty() || s.filter.category in list) {
-                            s.copy(categories = list)
+                        // 分类树变了（换了片源站）→ 当前分类不在新树里就静默回到"全部"
+                        val catOk = s.filter.category == CATEGORY_ALL ||
+                            tree.tops.isEmpty() ||
+                            s.filter.category in tree.tops
+                        val fixed = if (catOk) s.filter else s.filter.copy(category = CATEGORY_ALL)
+                        // 类型同理：新树里没有的名字直接落掉（选项和筛选都以接口为准）
+                        val types = if (tree.allTypes.isEmpty()) {
+                            fixed.types
                         } else {
-                            s.copy(categories = list, filter = s.filter.copy(category = CATEGORY_ALL))
+                            fixed.types.filter { it in tree.allTypes || it in tree.children.values.flatten() }
                         }
+                        s.copy(categoryTree = tree, filter = fixed.copy(types = types))
                     }
                 }
         }
@@ -324,8 +332,12 @@ class HomeViewModel(
                 .onSuccess { result ->
                     page = 1
                     // 分类被接口改了（比如换了片源站）→ 回退到"全部"，避免分类对不上
-                    val cats = _state.value.categories
-                    val fixedFilter = if (cats.isNotEmpty() && filter.category !in cats) {
+                    val tree = _state.value.categoryTree
+                    val fixedFilter = if (
+                        tree.tops.isNotEmpty() &&
+                        filter.category != CATEGORY_ALL &&
+                        filter.category !in tree.tops
+                    ) {
                         filter.copy(category = CATEGORY_ALL)
                     } else {
                         filter
@@ -338,7 +350,9 @@ class HomeViewModel(
                             filter = fixedFilter,
                             movies = result.movies.distinctBy { movie -> movie.uniqueKey },
                             total = result.total,
-                            relaxedNote = if (result.relaxed) relaxedText(fixedFilter) else null,
+                            // 数据层更具体的说明优先（比如"有 2 个片源没有这个分类"）
+                            relaxedNote = result.note
+                                ?: if (result.relaxed) relaxedText(fixedFilter) else null,
                             selected = focusMovie,
                             // 只在"该抢焦点"的场合发这个一次性请求（换筛选时不发）
                             focusTarget = if (restoreFocus) focusMovie?.uniqueKey else null,

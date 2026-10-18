@@ -26,6 +26,7 @@ class DataStoreFilterStore(private val context: Context) : FilterStore {
     private val keyLang = stringPreferencesKey("f_lang")
     private val keyArea = stringPreferencesKey("f_area")
     private val keyYear = stringPreferencesKey("f_year")
+    private val keyTypes = stringPreferencesKey("f_types")
 
     override suspend fun load(): MovieFilter {
         val p = context.filterPrefs.data.first()
@@ -35,6 +36,8 @@ class DataStoreFilterStore(private val context: Context) : FilterStore {
             lang = p[keyLang] ?: DefaultMovieFilter.lang,
             area = p[keyArea] ?: "",
             year = p[keyYear] ?: "",
+            // 类型是多选（换行分隔）；老版本没这个键 → 空 = 不限
+            types = p[keyTypes]?.split('\n')?.filter { it.isNotBlank() } ?: emptyList(),
         )
     }
 
@@ -44,6 +47,7 @@ class DataStoreFilterStore(private val context: Context) : FilterStore {
             p[keyLang] = filter.lang
             p[keyArea] = filter.area
             p[keyYear] = filter.year
+            if (filter.types.isEmpty()) p.remove(keyTypes) else p[keyTypes] = filter.types.joinToString("\n")
         }
     }
 }

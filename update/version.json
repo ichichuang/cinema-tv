@@ -1,8 +1,8 @@
 {
-    "versionCode":  12,
-    "versionName":  "0.9.2",
-    "apkUrl":  "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.9.2/cinema-tv-0.9.2.apk",
-    "sizeBytes":  14011539,
-    "notes":  "1. 首页翻页失败不再\"卡死\"：列表底部会出一颗「按 OK 重试」，按一下就重新加载（以前要上下蹭列表才行）\n2. 修了在线更新的权限问题：去系统里允许安装、切回应用后会自动弹出安装界面（以前要再点一次「去允许」才行）\n3. 片源勾到 8 个上限时，现在会明确提示\"已到上限，先取消一个\"（以前按了没反应）\n4. 获取推荐源失败后，焦点直接落在「重新获取」上，省一次方向键\n5. 设置页「检查更新」在下载中会显示进度百分比，不再像什么都没发生\n6. 电影播完停在最后一帧时，按 OK 可以从头再看一遍；单集影片结束提示改为「播放结束」",
-    "mirrorUrl":  "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.9.2/cinema-tv-0.9.2.apk"
+    "versionCode":  13,
+    "versionName":  "0.9.3",
+    "apkUrl":  "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.9.3/cinema-tv-0.9.3.apk",
+    "sizeBytes":  14027919,
+    "notes":  "1. 筛选全部换成\"真实接口数据\"：分类和类型都从片源接口的分类树里读取——有什么分类就列什么，不再用自造词\n2. 类型筛选支持多选：点一下选中（高亮）、再点取消，可以同时选好几个（如 动作片+恐怖片）\n3. 修复\"选电影出来动漫综艺\"：按各站真实的分类 id 精确取片（多选 = 多次真实请求合成并集）；某站没有这个分类时如实跳过并说明，绝不放全量\n4. 配置页（手机扫码）：社区导入的源名会清洗干净——砍掉名字里的测速历史（[392ms] ✅ 那一墙）和符号\n5. 配置页与电视端的源列表：同一个接口的重复条目（只差末尾斜杠 / 换马甲）自动合并，不再一源两行\n6. 「推荐源 · 实测排行」数据重测重排：今天实测的速度和资源量，测不通的源如实标注\n7. 电视端筛选浮层同样显示真实分类/类型；换分类时会自动清掉不属于新分类的已选类型",
+    "mirrorUrl":  "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.9.3/cinema-tv-0.9.3.apk"
 }

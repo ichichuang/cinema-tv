@@ -7,6 +7,9 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.ichichuang.cinema.data.sanitizeSourceName
+import com.ichichuang.cinema.data.sourceHost
+import com.ichichuang.cinema.data.sourceUrlKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -130,7 +133,7 @@ class CinemaSettings(private val context: Context) {
                 prefs.remove(keyEnabled)
                 return@edit
             }
-            val cleanName = name.trim().takeIf { it.isNotEmpty() } ?: DEFAULT_SOURCE_NAME
+            val cleanName = sanitizeSourceName(name).ifEmpty { DEFAULT_SOURCE_NAME }
             prefs[keyApiBase] = cleanUrl
             prefs[keyApiName] = cleanName
 
@@ -141,8 +144,9 @@ class CinemaSettings(private val context: Context) {
                 prefs[keyEnabled] = encodeUrls(listOf(cleanUrl))
             }
 
-            // 顺手并入保存清单：同一个地址只留一条，最新的排最前，超出上限就丢最旧的
-            val rest = decodeSources(prefs[keySources]).filterNot { it.url == cleanUrl }
+            // 顺手并入保存清单：同一个地址（归一化后）只留一条，最新的排最前，超出上限就丢最旧的
+            val rest = decodeSources(prefs[keySources])
+                .filterNot { sourceUrlKey(it.url) == sourceUrlKey(cleanUrl) }
             val merged = listOf(SavedSource(cleanName, cleanUrl)) + rest
             prefs[keySources] = encodeSources(merged.take(MAX_SAVED_SOURCES))
         }
@@ -152,6 +156,7 @@ class CinemaSettings(private val context: Context) {
      * 打开/关闭一个片源的「启用」状态（首页会聚合所有启用源）。
      *
      * 与 activateSource 的分工：activate = 只留这一个；toggle = 多选加减。
+     * 地址按归一化后比对（"…/vod" 与 "…/vod/" 视为同一个源，不会勾出两条）。
      * @return false = 到了启用上限（电视扛不住太多并发源），本次没生效
      */
     suspend fun toggleSource(url: String): Boolean {
@@ -160,8 +165,9 @@ class CinemaSettings(private val context: Context) {
         var accepted = true
         context.dataStore.edit { prefs ->
             val current = deriveActive(prefs)
-            val next = if (clean in current) current - clean else current + clean
-            if (clean !in current && next.size > MAX_ENABLED_SOURCES) {
+            val match = current.firstOrNull { sourceUrlKey(it) == sourceUrlKey(clean) }
+            val next = if (match != null) current - match else current + clean
+            if (match == null && next.size > MAX_ENABLED_SOURCES) {
                 accepted = false
                 return@edit
             }
@@ -173,7 +179,7 @@ class CinemaSettings(private val context: Context) {
             } else {
                 prefs[keyApiBase] = next.first()
                 val saved = decodeSources(prefs[keySources])
-                prefs[keyApiName] = saved.firstOrNull { it.url == next.first() }?.name
+                prefs[keyApiName] = saved.firstOrNull { sourceUrlKey(it.url) == sourceUrlKey(next.first()) }?.name
                     ?: DEFAULT_SOURCE_NAME
             }
         }
@@ -184,7 +190,10 @@ class CinemaSettings(private val context: Context) {
     suspend fun activeUrlsNow(): List<String> = deriveActive(context.dataStore.data.first())
 
     private fun deriveActive(prefs: Preferences): List<String> {
-        val stored = decodeUrls(prefs[keyEnabled]).filter { it != DEMO }
+        // 归一化去重：老数据里可能同时存着 "…/vod" 和 "…/vod/"（同一个源），只留一条
+        val stored = decodeUrls(prefs[keyEnabled])
+            .filter { it != DEMO }
+            .distinctBy { sourceUrlKey(it) }
         if (stored.isNotEmpty()) return stored
         val legacy = prefs[keyApiBase]?.trim().orEmpty()
         return if (legacy.isEmpty() || legacy == DEMO) emptyList() else listOf(legacy)
@@ -198,16 +207,24 @@ class CinemaSettings(private val context: Context) {
     }
 
     /**
-     * 批量并入保存清单（TVBox 导入用）：同地址去重、新的排前面。
+     * 批量并入保存清单（TVBox 导入 / 推荐源勾选用）：
+     * **地址归一化去重**（末尾斜杠不算两个源）、**名字清洗**（砍掉测速历史、去符号）、新的排前面。
      * @return 实际新增的数量
      */
     suspend fun mergeSavedSources(incoming: List<SavedSource>): Int {
-        if (incoming.isEmpty()) return 0
+        val cleaned = incoming
+            .map { source ->
+                val url = source.url.trim()
+                SavedSource(sanitizeSourceName(source.name).ifEmpty { sourceHost(url) }, url)
+            }
+            .filter { it.url.isNotEmpty() }
+            .distinctBy { sourceUrlKey(it.url) }
+        if (cleaned.isEmpty()) return 0
         var added = 0
         context.dataStore.edit { prefs ->
             val existing = decodeSources(prefs[keySources])
-            val seen = existing.mapTo(HashSet()) { it.url }
-            val fresh = incoming.filter { seen.add(it.url) }
+            val seen = existing.mapTo(HashSet()) { sourceUrlKey(it.url) }
+            val fresh = cleaned.filter { seen.add(sourceUrlKey(it.url)) }
             added = fresh.size
             if (added > 0) {
                 prefs[keySources] = encodeSources((fresh + existing).take(MAX_SAVED_SOURCES))
@@ -223,9 +240,7 @@ class CinemaSettings(private val context: Context) {
     suspend fun rememberSource(name: String, url: String) {
         val clean = url.trim()
         if (clean.isEmpty()) return
-        mergeSavedSources(
-            listOf(SavedSource(name.trim().takeIf { it.isNotEmpty() } ?: DEFAULT_SOURCE_NAME, clean)),
-        )
+        mergeSavedSources(listOf(SavedSource(name, clean)))
     }
 
     /**
@@ -234,13 +249,14 @@ class CinemaSettings(private val context: Context) {
      */
     suspend fun importSources(incoming: List<SavedSource>): ImportOutcome {
         val added = mergeSavedSources(incoming)
-        var enabledCount = activeUrlsNow().size
+        val activeKeys = activeUrlsNow().mapTo(HashSet()) { sourceUrlKey(it) }
         var turnedOn = 0
         for (source in incoming) {
-            if (enabledCount >= MAX_ENABLED_SOURCES) break
-            if (source.url in activeUrlsNow()) continue
+            if (activeKeys.size >= MAX_ENABLED_SOURCES) break
+            val key = sourceUrlKey(source.url)
+            if (key.isEmpty() || key in activeKeys) continue
             if (toggleSource(source.url)) {
-                enabledCount += 1
+                activeKeys += key
                 turnedOn += 1
             }
         }
@@ -294,8 +310,10 @@ class CinemaSettings(private val context: Context) {
                 val obj = runCatching { element.jsonObject }.getOrNull() ?: return@mapNotNull null
                 val name = obj["name"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
                 val url = obj["url"]?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
-                if (url.isEmpty()) null else SavedSource(name.ifEmpty { DEFAULT_SOURCE_NAME }, url)
-            }
+                if (url.isEmpty()) null
+                // 读取时就清洗：导入过的社区源名字里可能带着一整墙测速历史（历史数据一并清掉）
+                else SavedSource(sanitizeSourceName(name).ifEmpty { sourceHost(url) }, url)
+            }.distinctBy { sourceUrlKey(it.url) }   // 归一化去重：同接口换马甲的只留一条
         }.getOrDefault(emptyList())
     }
 
