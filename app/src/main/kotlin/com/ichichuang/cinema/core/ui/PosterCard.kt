@@ -135,18 +135,23 @@ fun PosterCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        // 有年份显示年份、有分类显示分类，都没有就显示备注，全没有就不留空行
+        // 有年份显示年份、有分类显示分类，都没有就显示备注
         val subtitle = listOfNotNull(
             movie.year.takeIf { it > 0 }?.toString(),
             movie.genre.takeIf { it.isNotBlank() },
         ).joinToString(" · ").ifBlank { movie.remarks.orEmpty() }
-        if (subtitle.isNotBlank()) {
-            Text(
-                text = subtitle,
-                color = TextSub,
-                fontSize = m.sp(15f),
-                maxLines = 1,
-            )
+        // 副标题固定占一行（21dp）：有的卡片有年份/分类、有的没有 ——
+        // 位置永远留着，同一行的卡片高度才会完全一致，网格排版不被顶乱。
+        Box(Modifier.height(m.dp(21f))) {
+            if (subtitle.isNotBlank()) {
+                Text(
+                    text = subtitle,
+                    color = TextSub,
+                    fontSize = m.sp(15f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

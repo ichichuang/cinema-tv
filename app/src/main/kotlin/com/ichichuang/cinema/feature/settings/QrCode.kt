@@ -16,7 +16,7 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
  * （刻意不用 zxing-android-embedded：那个是为手机相机扫描做的，
  *   我们只需要"画出一张码"，没必要连相机那一整套一起打包。）
  *
- * 尺寸取 512×512：电视上显示约 260dp，512 足够清晰，
+ * 尺寸取 512×512：电视上显示约 210dp（受设计画布 562 高约束），512 足够清晰，
  * 一张位图 512×512×4 ≈ 1MB，对内存紧张的电视是安全的量级。
  */
 object QrCode {

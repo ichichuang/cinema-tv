@@ -22,18 +22,22 @@ data class PhoneSaveResult(val ok: Boolean, val message: String)
  *
  * 为什么要有它：**电视上打字是灾难**（遥控器一格一格挪，输入框一聚焦就弹键盘）。
  * 所以 TV 端的设置页不再有任何输入框 —— 点「扫码配置」后电视在局域网上起一个
- * 小网页，手机上填好点保存，配置直接推到电视里。
+ * 小网页，手机上就能改：
+ *  - **推荐源**：点一下 → 电视立刻切换 + 自动测试（一键导入就在这里）
+ *  - **已保存的源**：点一下切换
+ *  - **自定义地址**：留给用户自己的苹果CMS接口
  *
  * 设计上的几条克制：
  * - **只在配置浮层打开时运行**，关掉即停（平时不监听任何端口）
  * - 只接受**局域网 / 本机**的请求（公网地址一律 403）
- * - 只服务三个路径：`/`（H5 页面）、`/api/config`（读/写配置）、favicon（204 打发）
  * - 手写极简 HTTP/1.1：够用就行，不引任何服务端框架（电视内存紧张，也少一个依赖）
- *
- * 页面与接口同源 —— 手机上不存在跨域问题，不用 CORS 那套东西。
+ * - 页面与接口同源 —— 手机上不存在跨域问题，不用 CORS 那套东西
  */
 class ConfigServer(
     private val onSave: suspend (apiBase: String, updateUrl: String) -> PhoneSaveResult,
+    private val onSelect: suspend (url: String) -> PhoneSaveResult,
+    private val onSourcesPayload: suspend () -> String,
+    private val onRefreshCatalog: suspend () -> PhoneSaveResult,
     private val port: Int = PORT_START,
 ) {
 
@@ -121,6 +125,26 @@ class ConfigServer(
 
             method == "POST" && path == "/api/config" -> handleSave(client, body)
 
+            // 已保存的源 + 推荐源清单（手机页渲染列表用）
+            method == "GET" && path == "/api/sources" -> {
+                val payload = runBlocking {
+                    runCatching { onSourcesPayload() }.getOrElse { "{\"ok\":false}" }
+                }
+                respond(client, 200, TYPE_JSON, payload.toByteArray(Charsets.UTF_8))
+            }
+
+            // 手机上点一条源 → 电视切换 + 测试（同步返回结果）
+            method == "POST" && path == "/api/select" -> handleSelect(client, body)
+
+            // 手机上点「获取推荐源」→ 电视去拉清单（拉完两边都能看到）
+            method == "POST" && path == "/api/catalog/refresh" -> {
+                val result = runBlocking {
+                    runCatching { onRefreshCatalog() }
+                        .getOrElse { PhoneSaveResult(false, "刷新失败：" + (it.message ?: "未知原因")) }
+                }
+                respondJson(client, result)
+            }
+
             method == "GET" && path == "/favicon.ico" ->
                 respond(client, 204, TYPE_TEXT, ByteArray(0))
 
@@ -129,16 +153,8 @@ class ConfigServer(
     }
 
     private fun handleSave(client: Socket, body: ByteArray) {
-        val text = String(body, Charsets.UTF_8)
-        val root = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull()
-        if (root == null) {
-            respondJson(client, PhoneSaveResult(false, "手机发来的数据看不懂，刷新页面再试一次"))
-            return
-        }
-        val api = runCatching { root["apiUrl"]?.jsonPrimitive?.contentOrNull }
-            .getOrNull().orEmpty().trim()
-        val update = runCatching { root["updateUrl"]?.jsonPrimitive?.contentOrNull }
-            .getOrNull().orEmpty().trim()
+        val api = readStringField(body, "apiUrl").orEmpty()
+        val update = readStringField(body, "updateUrl").orEmpty()
 
         if (api.isEmpty()) {
             respondJson(client, PhoneSaveResult(false, "接口地址不能为空"))
@@ -159,6 +175,27 @@ class ConfigServer(
                 .getOrElse { PhoneSaveResult(false, "保存失败：" + (it.message ?: "未知原因")) }
         }
         respondJson(client, result)
+    }
+
+    private fun handleSelect(client: Socket, body: ByteArray) {
+        val url = readStringField(body, "url").orEmpty()
+        if (url.isEmpty()) {
+            respondJson(client, PhoneSaveResult(false, "没收到要切换的地址"))
+            return
+        }
+        val result = runBlocking {
+            runCatching { onSelect(url) }
+                .getOrElse { PhoneSaveResult(false, "切换失败：" + (it.message ?: "未知原因")) }
+        }
+        respondJson(client, result)
+    }
+
+    /** 从 JSON 请求体里取一个字符串字段（取不到 / 格式不对一律返回 null，不抛） */
+    private fun readStringField(body: ByteArray, key: String): String? {
+        if (body.isEmpty()) return null
+        val text = String(body, Charsets.UTF_8)
+        val root = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull() ?: return null
+        return runCatching { root[key]?.jsonPrimitive?.contentOrNull }.getOrNull()?.trim()
     }
 
     private fun respondJson(client: Socket, result: PhoneSaveResult) {
@@ -316,7 +353,7 @@ class ConfigServer(
   .wrap{max-width:560px;margin:0 auto;padding:30px 20px 64px}
   h1{font-size:24px;margin:0 0 8px;letter-spacing:.5px}
   .sub{color:var(--tsub);font-size:14px;line-height:1.7;margin:0 0 20px}
-  label{display:block;font-size:14px;color:var(--tsub);margin:20px 0 8px}
+  label{display:block;font-size:14px;color:var(--tsub);margin:24px 0 8px}
   input{width:100%;padding:15px 16px;font-size:16px;color:var(--tmain);background:var(--panel);
     border:1px solid #2c2c34;border-radius:12px;outline:none;-webkit-appearance:none}
   input:focus{border-color:var(--gold)}
@@ -331,14 +368,33 @@ class ConfigServer(
   .result.bad{color:#e0a08c}
   summary{color:var(--tsub);font-size:14px;margin-top:24px;cursor:pointer}
   .foot{color:#5c5c63;font-size:12px;line-height:1.8;margin-top:28px}
+  .list{margin-top:4px}
+  .item{display:flex;align-items:center;gap:10px;text-align:left;margin:8px 0;padding:14px 16px;
+    background:var(--panel);border:1px solid #2c2c34;border-radius:12px;color:var(--tmain);
+    font-size:15px;font-weight:400}
+  .item .n{font-weight:700;flex:0 0 auto;white-space:nowrap}
+  .item .i{color:#6f6f76;font-size:12px;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .m{flex:0 0 auto;color:var(--gold);font-size:13px;font-weight:600}
+  .item.active{border-color:var(--gold);background:#1d1a14}
+  .item:disabled{opacity:1;cursor:default}
+  .empty{color:#5c5c63;font-size:13px;padding:10px 2px}
+  button.ghost{background:var(--panel);color:var(--tmain);border:1px solid #2c2c34;margin-top:12px;
+    font-size:15px;font-weight:600;padding:14px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>极简影院 · 配置</h1>
-  <p class="sub">在这里填好点保存 → 电视立即生效，并自动测一次连通性。电视上不用打一个字。</p>
+  <p class="sub">点一下就用：推荐源 / 已保存的源，点任意一条 → 电视立即切换并自动测试。电视上不用打一个字。</p>
 
-  <label for="api">影视接口地址（必填）</label>
+  <label>推荐源 · 实测排行（点一下立即使用）</label>
+  <div id="catalog" class="list"><div class="empty">正在获取推荐源…</div></div>
+  <button id="fetchBtn" class="ghost" style="display:none">获取推荐源</button>
+
+  <label>已保存的源（点一下切换）</label>
+  <div id="saved" class="list"><div class="empty">还没有保存过别的源</div></div>
+
+  <label for="api">自定义接口地址（高级）</label>
   <input id="api" value="__API__" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://你的站点/api.php/provide/vod/">
   <p class="hint">苹果CMS V10 接口地址，形如 <code>http://站点/api.php/provide/vod/</code>。应用不内置任何片源。想先看界面长什么样，填 <b>demo</b> 即可。</p>
 
@@ -349,7 +405,7 @@ class ConfigServer(
     <p class="hint">留空就用默认地址。只有电视连不上 GitHub 时，才需要换成镜像。</p>
   </details>
 
-  <button id="save">保存并让电视测试</button>
+  <button id="save">保存自定义地址并测试</button>
   <div id="result" class="result"></div>
 
   <p class="foot">保存后电视会自动测试：能取到影片才算配置成功。<br>测完还能再改；电视上关掉「扫码配置」页面后，这个网址就会失效。</p>
@@ -360,11 +416,91 @@ class ConfigServer(
   var updEl = document.getElementById('upd');
   var btn = document.getElementById('save');
   var box = document.getElementById('result');
+  var catEl = document.getElementById('catalog');
+  var savedEl = document.getElementById('saved');
+  var fetchBtn = document.getElementById('fetchBtn');
+  var busy = false;
 
   function show(ok, msg) {
     box.className = 'result show ' + (ok ? 'ok' : 'bad');
     box.textContent = msg;
   }
+
+  function makeRow(name, info, active, url) {
+    var row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'item' + (active ? ' active' : '');
+    var n = document.createElement('span'); n.className = 'n'; n.textContent = name;
+    var i = document.createElement('span'); i.className = 'i'; i.textContent = info || '';
+    var m = document.createElement('span'); m.className = 'm'; m.textContent = active ? '使用中' : '用这个';
+    row.appendChild(n); row.appendChild(i); row.appendChild(m);
+    if (active) { row.disabled = true; } else {
+      row.addEventListener('click', function () { selectSource(url); });
+    }
+    return row;
+  }
+
+  function paint(el, rows, emptyText) {
+    el.textContent = '';
+    if (!rows.length) {
+      var d = document.createElement('div'); d.className = 'empty'; d.textContent = emptyText;
+      el.appendChild(d);
+      return;
+    }
+    rows.forEach(function (r) { el.appendChild(r); });
+  }
+
+  function load() {
+    fetch('/api/sources').then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || d.ok !== true) { show(false, '电视那边状态不对，重开一下配置页'); return; }
+      var saved = (d.saved || []).map(function (s) {
+        return makeRow(s.name, s.url, s.url === d.active, s.url);
+      });
+      paint(savedEl, saved, '还没有保存过别的源');
+      var cat = (d.catalog || []).map(function (s) {
+        return makeRow(s.name, s.info || s.url, s.url === d.active, s.url);
+      });
+      var hasCat = !!(d.catalog && d.catalog.length);
+      paint(catEl, cat, '还没获取过推荐源，点下面的按钮去获取');
+      fetchBtn.style.display = 'block';
+      fetchBtn.textContent = hasCat ? '刷新推荐源列表' : '获取推荐源';
+    }).catch(function () {
+      show(false, '打不开电视上的配置服务：确认手机和电视在同一个 WiFi');
+    });
+  }
+
+  function selectSource(url) {
+    if (busy) return;
+    busy = true;
+    show(true, '正在让电视切换并测试，稍等几秒…');
+    fetch('/api/select', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { busy = false; show(!!d.ok, d.message || '完成'); load(); })
+      .catch(function () { busy = false; show(false, '电视没响应：确认配置页还开着，然后重试'); load(); });
+  }
+
+  fetchBtn.addEventListener('click', function () {
+    if (busy) return;
+    busy = true;
+    fetchBtn.disabled = true;
+    fetchBtn.textContent = '正在获取…';
+    fetch('/api/catalog/refresh', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        busy = false; fetchBtn.disabled = false;
+        show(!!d.ok, d.message || '完成');
+        load();
+      })
+      .catch(function () {
+        busy = false; fetchBtn.disabled = false;
+        show(false, '获取失败：电视那边连不上清单，稍后再试');
+        load();
+      });
+  });
 
   btn.addEventListener('click', function () {
     var api = apiEl.value.trim();
@@ -384,15 +520,18 @@ class ConfigServer(
       .then(function (r) { return r.json(); })
       .then(function (d) {
         btn.disabled = false;
-        btn.textContent = '保存并让电视测试';
+        btn.textContent = '保存自定义地址并测试';
         show(!!d.ok, d.message || '完成');
+        load();
       })
       .catch(function () {
         btn.disabled = false;
-        btn.textContent = '保存并让电视测试';
+        btn.textContent = '保存自定义地址并测试';
         show(false, '手机和电视没连上：确认在同一个 WiFi，且电视上的「扫码配置」页面还开着');
       });
   });
+
+  load();
 })();
 </script>
 </body>

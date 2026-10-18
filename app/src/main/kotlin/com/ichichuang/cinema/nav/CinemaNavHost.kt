@@ -126,6 +126,9 @@ fun CinemaNavHost(
                     defaultValue = ""
                 },
             ),
+            // 播放页：纯淡入淡出（像影院熄灯那种感觉），不做滑动 —— 滑进来的画面会分神
+            enterTransition = { fadeIn(Motion.enter()) },
+            popExitTransition = { fadeOut(Motion.quick()) },
         ) { entry ->
             PlayerScreen(
                 movieId = entry.arguments?.getString("movieId").orEmpty(),

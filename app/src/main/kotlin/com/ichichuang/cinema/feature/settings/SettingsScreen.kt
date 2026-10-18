@@ -23,9 +23,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -57,6 +61,9 @@ import com.ichichuang.cinema.core.design.TextMain
 import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.design.rememberTvMetrics
 import com.ichichuang.cinema.core.focus.tvFocus
+import com.ichichuang.cinema.data.CatalogSource
+import com.ichichuang.cinema.data.settings.CinemaSettings
+import com.ichichuang.cinema.data.settings.SavedSource
 import com.ichichuang.cinema.feature.update.UpdateCenter
 import com.ichichuang.cinema.feature.update.UpdateOverlay
 import com.ichichuang.cinema.feature.update.UpdatePhase
@@ -66,16 +73,13 @@ import org.koin.androidx.compose.koinViewModel
 /**
  * 设置页 —— **没有一个输入框**。
  *
- * 为什么（用户真机反馈）：电视上任何输入框一聚焦就弹系统键盘，
- * 用遥控器一格一格挪字母，是整台电视上最折磨人的操作。
- * 所以这里的做法是：
- * - 影视接口地址 → 「扫码配置」：电视在局域网上起个小网页，**手机扫码填**，
- *   点保存直接推到电视（保存完电视还会自动测一次，结果同步告诉手机）
- * - 更新地址同理（在手机页面的"高级"里）
- * - 电视上只保留**能一键按完**的动作：测试连接 / 检查更新 / 清缓存
+ * 电视上的配置只有两条路（都按遥控器能走完）：
+ * - 「选择片源」：**一键导入** —— 推荐源清单（发布方实测排行）从网上拉下来，
+ *   点一条就自动切换 + 测试；保存过的源也在这里，随时换回来
+ * - 「扫码配置」：手机扫一下码，填自己的地址 / 改更新地址
  *
  * 排版规矩（页面级硬要求）：**所有容器都是固定尺寸**。
- * 测试结果、检查更新结果、缓存结果都放在**高度写死的槽位**里 ——
+ * 源名字、地址、测试结果、检查更新结果、缓存结果全部放在**高度写死的槽位**里 ——
  * 有内容没内容、一行还是两行，都不会把下面的东西顶动。
  */
 @Composable
@@ -89,7 +93,32 @@ fun SettingsScreen(
     val state by vm.state.collectAsState()
     val updateState by updateCenter.state.collectAsState()
 
-    val overlayOpen = updateState.panelOpen || state.configOpen
+    val overlayOpen = updateState.panelOpen || state.configOpen || state.pickerOpen
+
+    val pickFocus = remember { FocusRequester() }
+    val scanFocus = remember { FocusRequester() }
+    var pickWasOpen by remember { mutableStateOf(false) }
+    var configWasOpen by remember { mutableStateOf(false) }
+
+    // 浮层关掉后把焦点还给"打开它的那个按钮"（遥控器用户从哪进去回哪去）
+    LaunchedEffect(state.pickerOpen) {
+        if (state.pickerOpen) {
+            pickWasOpen = true
+        } else if (pickWasOpen) {
+            pickWasOpen = false
+            delay(80)
+            runCatching { pickFocus.requestFocus() }
+        }
+    }
+    LaunchedEffect(state.configOpen) {
+        if (state.configOpen) {
+            configWasOpen = true
+        } else if (configWasOpen) {
+            configWasOpen = false
+            delay(80)
+            runCatching { scanFocus.requestFocus() }
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         Column(
@@ -110,29 +139,88 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(m.dp(8f)))
             Text(
-                text = "电视上不用打字：点「扫码配置」，用手机扫一下码就能改。",
+                text = "点「选择片源」一键导入推荐源；想用自己的地址，就扫码在手机上填。",
                 color = TextSub,
                 fontSize = m.sp(16f),
                 maxLines = 1,
             )
             Spacer(Modifier.height(m.dp(22f)))
 
-            // ── 影视接口（唯一必须由用户提供的东西）────────────────
+            // ── 片源（唯一必须由用户提供的东西）────────────────────
             SectionCard {
-                Text("影视接口", color = TextMain, fontSize = m.sp(20f))
+                Text("片源", color = TextMain, fontSize = m.sp(20f))
                 Spacer(Modifier.height(m.dp(8f)))
-                // 地址一行 + 状态一行：两个槽位高度写死，配置前后排版一致
-                Text(
-                    text = state.apiBase.takeIf { it.isNotBlank() }
-                        ?: "还没配置 —— 应用不内置任何片源",
-                    color = if (state.apiBase.isNotBlank()) TextMain.copy(alpha = 0.9f) else Gold.copy(alpha = 0.9f),
-                    fontSize = m.sp(16f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+
+                // 第 1 行：源名字 + 地址（固定 26dp 的槽位）
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(m.dp(26f)),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (state.apiBase.isBlank()) {
+                        Text(
+                            text = "还没配置 —— 应用不内置任何片源",
+                            color = Gold.copy(alpha = 0.9f),
+                            fontSize = m.sp(16f),
+                            maxLines = 1,
+                        )
+                    } else {
+                        Text(
+                            text = state.apiName.ifBlank { CinemaSettings.DEFAULT_SOURCE_NAME },
+                            color = TextMain,
+                            fontSize = m.sp(17f),
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                        )
+                        Spacer(Modifier.width(m.dp(10f)))
+                        Text(
+                            text = state.apiBase,
+                            color = TextSub,
+                            fontSize = m.sp(15f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(m.dp(6f)))
+
+                // 第 2 行：一句话状态（固定 22dp 的槽位）
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(m.dp(22f)),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text(
+                        text = if (state.sources.isEmpty()) {
+                            "点「选择片源」导入推荐源；想用自己的地址就扫码"
+                        } else {
+                            "已保存 " + state.sources.size + " 个源 · 点「选择片源」随时切换"
+                        },
+                        color = TextSub,
+                        fontSize = m.sp(14f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
                 Spacer(Modifier.height(m.dp(16f)))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    GoldButton(text = "扫码配置", onClick = vm::openConfig)
+                    GoldButton(
+                        text = "选择片源",
+                        focusRequester = pickFocus,
+                        onClick = vm::openPicker,
+                    )
+                    Spacer(Modifier.width(m.dp(14f)))
+                    DarkButton(
+                        text = "扫码配置",
+                        width = m.dp(170f),
+                        focusRequester = scanFocus,
+                        onClick = vm::openConfig,
+                    )
                     Spacer(Modifier.width(m.dp(14f)))
                     DarkButton(
                         text = "测试连接",
@@ -144,7 +232,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(m.dp(12f)))
                 StatusLine(
                     text = when (val t = state.test) {
-                        SourceTest.Idle -> "配置完成后点「测试连接」；也可以直接用手机扫的页面测"
+                        SourceTest.Idle -> "从推荐里挑一个、或扫码填自己的；切换后自动测一次"
                         else -> t.text
                     },
                     highlight = state.test.passed,
@@ -240,6 +328,19 @@ fun SettingsScreen(
             )
         }
 
+        // 「选择片源」浮层（一键导入 + 已保存的源）
+        SourcePicker(
+            visible = state.pickerOpen,
+            activeUrl = state.apiBase,
+            saved = state.sources,
+            catalog = state.catalog,
+            loading = state.catalogLoading,
+            error = state.catalogError,
+            onSelect = vm::selectSource,
+            onRefresh = vm::refreshCatalog,
+            onClose = vm::closePicker,
+        )
+
         // 扫码配置浮层（手机 → 电视）
         ConfigOverlay(
             visible = state.configOpen,
@@ -257,6 +358,320 @@ fun SettingsScreen(
             onDismiss = updateCenter::closePanel,
             onInstallLaunched = updateCenter::onInstallLaunched,
             onInstallFailed = updateCenter::onInstallFailed,
+        )
+    }
+}
+
+/**
+ * 「选择片源」浮层 —— 一键导入就在这里。
+ *
+ * 上下两块：**推荐源**（从发布仓库拉的实测排行，点一条 = 切换 + 保存 + 自动测试）
+ * 和**已保存的源**（换回来用）。卡片整体尺寸固定，列表内部滚动、
+ * 焦点走进列表时自动滚到看得见的位置 —— 排版不会因为清单长短变形。
+ */
+@Composable
+private fun SourcePicker(
+    visible: Boolean,
+    activeUrl: String,
+    saved: List<SavedSource>,
+    catalog: List<CatalogSource>,
+    loading: Boolean,
+    error: String?,
+    onSelect: (String, String) -> Unit,
+    onRefresh: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val m = rememberTvMetrics()
+    val closeFocus = remember { FocusRequester() }
+    val firstRow = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+    var autoFocused by remember { mutableStateOf(false) }
+
+    val hasRows = catalog.isNotEmpty() || saved.isNotEmpty()
+
+    // 打开时：列表有内容 → 焦点给第一条（首选源）；列表空着 → 焦点给「关闭」。
+    // 清单是异步拉回来的：拉完自动把焦点挪到第一条（用户此时正等着列表出现）。
+    LaunchedEffect(visible) { if (!visible) autoFocused = false }
+    LaunchedEffect(visible, hasRows, loading) {
+        if (!visible || autoFocused) return@LaunchedEffect
+        delay(220)
+        if (hasRows) {
+            if (runCatching { firstRow.requestFocus() }.isSuccess) autoFocused = true
+        } else if (!loading) {
+            runCatching { closeFocus.requestFocus() }
+        }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(Motion.enter()),
+        exit = fadeOut(Motion.quick()),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        if (visible) BackHandler(onBack = onClose)
+
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Scrim(0.86f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            // ★ 固定尺寸卡片：清单长短、加载状态都不改变卡片大小。
+            //   高度 500（不是 620！）：设计画布是 1000×562（见 TvMetrics），
+            //   卡片必须留出上下边，尺寸超了会被屏幕裁掉一条。
+            Column(
+                Modifier
+                    .width(m.dp(820f))
+                    .height(m.dp(500f))
+                    .clip(RoundedCornerShape(m.dp(22f)))
+                    .background(Panel)
+                    .padding(horizontal = m.dp(34f), vertical = m.dp(24f)),
+            ) {
+                // 头部（固定一行）
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(m.dp(44f)),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "选择片源",
+                        color = TextMain,
+                        fontSize = m.sp(26f),
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.width(m.dp(14f)))
+                    Text(
+                        text = "点一下立即切换并自动测试",
+                        color = TextSub,
+                        fontSize = m.sp(14f),
+                        maxLines = 1,
+                    )
+                    Spacer(Modifier.weight(1f))
+                }
+
+                Spacer(Modifier.height(m.dp(8f)))
+
+                // 列表：剩余高度全部给它，内部滚动，焦点自动滚进视野
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(m.dp(8f)),
+                ) {
+                    if (catalog.isNotEmpty()) {
+                        item(key = "cat-label") { SectionLabel("推荐源 · 实测排行") }
+                        itemsIndexed(catalog, key = { _, s -> "c-" + s.url }) { index, source ->
+                            SourceRow(
+                                title = source.name,
+                                subtitle = source.info.ifBlank { source.url },
+                                active = source.url == activeUrl,
+                                modifier = if (index == 0) Modifier.focusRequester(firstRow) else Modifier,
+                                onClick = { onSelect(source.name, source.url) },
+                            )
+                        }
+                    } else {
+                        item(key = "cat-state") {
+                            when {
+                                loading -> CatalogStateRow(
+                                    text = "正在获取推荐源…",
+                                    buttonText = "获取推荐源",
+                                    buttonEnabled = false,
+                                    onFetch = onRefresh,
+                                )
+
+                                error != null -> CatalogStateRow(
+                                    text = error,
+                                    buttonText = "重新获取",
+                                    buttonEnabled = true,
+                                    onFetch = onRefresh,
+                                )
+
+                                else -> CatalogStateRow(
+                                    text = "还没获取过推荐源",
+                                    buttonText = "获取推荐源",
+                                    buttonEnabled = true,
+                                    onFetch = onRefresh,
+                                )
+                            }
+                        }
+                    }
+
+                    if (saved.isNotEmpty()) {
+                        item(key = "saved-label") { SectionLabel("已保存的源") }
+                        itemsIndexed(saved, key = { _, s -> "s-" + s.url }) { index, source ->
+                            SourceRow(
+                                title = source.name,
+                                subtitle = source.url,
+                                active = source.url == activeUrl,
+                                modifier = if (catalog.isEmpty() && index == 0) {
+                                    Modifier.focusRequester(firstRow)
+                                } else {
+                                    Modifier
+                                },
+                                onClick = { onSelect(source.name, source.url) },
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(m.dp(10f)))
+
+                // 底部：两个固定槽位的按钮（关闭 / 刷新列表）
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(m.dp(56f)),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    DarkButton(
+                        text = "关闭",
+                        width = m.dp(170f),
+                        focusRequester = closeFocus,
+                        onClick = onClose,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    DarkButton(
+                        text = if (loading) "刷新中…" else "刷新列表",
+                        width = m.dp(170f),
+                        enabled = !loading,
+                        onClick = onRefresh,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 一条源：名字 + 说明（推荐源显示"首选 · 9.9万部 · 565ms"，已保存的显示地址） */
+@Composable
+private fun SourceRow(
+    title: String,
+    subtitle: String,
+    active: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val m = rememberTvMetrics()
+    val radius = m.dp(12f)
+    val interaction = remember { MutableInteractionSource() }
+    var focused by remember { mutableStateOf(false) }
+    val bg by animateColorAsState(
+        targetValue = when {
+            focused -> PanelHi
+            active -> Gold.copy(alpha = 0.13f)
+            else -> Color.White.copy(alpha = 0.05f)
+        },
+        animationSpec = Motion.focus(),
+        label = "sourceRowBg",
+    )
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(m.dp(62f))
+            .tvFocus(radius, interactionSource = interaction, onFocusChanged = { focused = it })
+            .clip(RoundedCornerShape(radius))
+            .background(bg)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+            ) { onClick() }
+            .padding(horizontal = m.dp(18f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = if (active) Gold else TextMain,
+                fontSize = m.sp(17f),
+                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(m.dp(3f)))
+            Text(
+                text = subtitle,
+                color = TextSub,
+                fontSize = m.sp(13f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(m.dp(12f)))
+        // 固定的状态槽位：只换字，不顶动标题
+        Box(
+            Modifier.width(m.dp(64f)),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            if (active) {
+                Text(
+                    text = "使用中",
+                    color = Gold,
+                    fontSize = m.sp(14f),
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+/** 列表里的小节标题（固定高度） */
+@Composable
+private fun SectionLabel(text: String) {
+    val m = rememberTvMetrics()
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(m.dp(30f)),
+        contentAlignment = Alignment.BottomStart,
+    ) {
+        Text(text = text, color = TextSub, fontSize = m.sp(14f))
+    }
+}
+
+/** 清单没拉回来时的那一行：一句话 + 一个按钮（固定高度，和普通行一致） */
+@Composable
+private fun CatalogStateRow(
+    text: String,
+    buttonText: String,
+    buttonEnabled: Boolean,
+    onFetch: () -> Unit,
+) {
+    val m = rememberTvMetrics()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(m.dp(62f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (!buttonEnabled && text.startsWith("正在")) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(m.dp(20f)),
+                color = Gold,
+                strokeWidth = m.dp(2f),
+            )
+            Spacer(Modifier.width(m.dp(14f)))
+        }
+        Text(
+            text = text,
+            color = if (text.startsWith("获取推荐源失败") || text.startsWith("连不上")) {
+                Gold.copy(alpha = 0.9f)
+            } else {
+                TextSub
+            },
+            fontSize = m.sp(15f),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(m.dp(14f)))
+        DarkButton(
+            text = buttonText,
+            width = m.dp(150f),
+            enabled = buttonEnabled,
+            onClick = onFetch,
         )
     }
 }
@@ -309,38 +724,38 @@ private fun ConfigOverlay(
                     .width(m.dp(560f))
                     .clip(RoundedCornerShape(m.dp(22f)))
                     .background(Panel)
-                    .padding(horizontal = m.dp(36f), vertical = m.dp(30f)),
+                    .padding(horizontal = m.dp(36f), vertical = m.dp(22f)),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
                     text = "手机扫码配置",
                     color = TextMain,
-                    fontSize = m.sp(26f),
+                    fontSize = m.sp(24f),
                     fontWeight = FontWeight.Bold,
                 )
-                Spacer(Modifier.height(m.dp(8f)))
+                Spacer(Modifier.height(m.dp(6f)))
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(m.dp(46f)),
+                        .height(m.dp(42f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = "同一个 WiFi 下，用手机扫码；电脑也可以直接输入下面的网址。" +
-                            "填好点保存，电视立即生效。",
+                            "打开就能一键换源，也可以填自己的地址。",
                         color = TextSub,
-                        fontSize = m.sp(15f),
-                        lineHeight = m.sp(22f),
+                        fontSize = m.sp(14f),
+                        lineHeight = m.sp(20f),
                         textAlign = TextAlign.Center,
                         maxLines = 2,
                     )
                 }
-                Spacer(Modifier.height(m.dp(14f)))
+                Spacer(Modifier.height(m.dp(10f)))
 
-                // 二维码：固定 260dp 的白底方块（白底黑码，所有手机都认）
+                // 二维码：白底黑码，所有手机都认；尺寸受"画布 562 高"约束（见上）
                 Box(
                     Modifier
-                        .size(m.dp(276f))
+                        .size(m.dp(230f))
                         .clip(RoundedCornerShape(m.dp(16f)))
                         .background(Color.White),
                     contentAlignment = Alignment.Center,
@@ -350,7 +765,7 @@ private fun ConfigOverlay(
                             bitmap = qr,
                             contentDescription = "配置地址二维码",
                             contentScale = ContentScale.Fit,
-                            modifier = Modifier.size(m.dp(256f)),
+                            modifier = Modifier.size(m.dp(210f)),
                         )
                     } else {
                         Text(
@@ -361,12 +776,12 @@ private fun ConfigOverlay(
                     }
                 }
 
-                Spacer(Modifier.height(m.dp(16f)))
+                Spacer(Modifier.height(m.dp(12f)))
                 // 网址：给电脑用（固定一行，永远占着）
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(m.dp(30f)),
+                        .height(m.dp(28f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -378,25 +793,25 @@ private fun ConfigOverlay(
                     )
                 }
 
-                Spacer(Modifier.height(m.dp(6f)))
+                Spacer(Modifier.height(m.dp(4f)))
                 // 状态行：固定两行高度（等待 → 已收到 → 测试结果，都不会顶动别的）
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .height(m.dp(48f)),
+                        .height(m.dp(42f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = message.orEmpty(),
                         color = if (passed) Gold else TextSub,
-                        fontSize = m.sp(15f),
-                        lineHeight = m.sp(22f),
+                        fontSize = m.sp(14f),
+                        lineHeight = m.sp(20f),
                         textAlign = TextAlign.Center,
                         maxLines = 2,
                     )
                 }
 
-                Spacer(Modifier.height(m.dp(12f)))
+                Spacer(Modifier.height(m.dp(10f)))
                 DarkButton(
                     text = "关闭",
                     width = m.dp(170f),
@@ -507,6 +922,7 @@ private fun rememberSystemInfo(): String {
 private fun GoldButton(
     text: String,
     width: Dp? = null,
+    focusRequester: FocusRequester? = null,
     onClick: () -> Unit,
 ) {
     val m = rememberTvMetrics()
@@ -521,6 +937,7 @@ private fun GoldButton(
     Box(
         Modifier
             .then(if (width != null) Modifier.width(width) else Modifier)
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .tvFocus(
                 cornerRadius = radius,
                 borderColor = Color.White.copy(alpha = 0.9f),
@@ -540,7 +957,7 @@ private fun GoldButton(
     }
 }
 
-/** 次要按钮：深底、不抢视线（设置页里除"扫码配置"以外的动作都用它） */
+/** 次要按钮：深底、不抢视线（设置页里除「选择片源」以外的动作都用它） */
 @Composable
 private fun DarkButton(
     text: String,

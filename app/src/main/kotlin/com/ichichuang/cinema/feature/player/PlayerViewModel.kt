@@ -11,6 +11,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.ichichuang.cinema.core.design.formatTime
 import com.ichichuang.cinema.data.remote.DEFAULT_UA
+import com.ichichuang.cinema.data.settings.CinemaSettings
 import com.ichichuang.cinema.data.settings.PlaybackProgress
 import com.ichichuang.cinema.data.settings.WatchPoint
 import com.ichichuang.cinema.domain.model.Episode
@@ -22,13 +23,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 data class PlayerUiState(
     val title: String = "",
     val loading: Boolean = true,
     val error: String? = null,
-    /** 临时提示（自动换线路、续播等），几秒后自己消失 */
+    /** 临时提示（自动换线路、续播、快进多少秒…），几秒后自己消失 */
     val hint: String? = null,
+    /** 提示的"序号"：同一句提示连按多次也能重新计时（Value 相等时 Flow 不会重复发射） */
+    val hintNonce: Long = 0L,
     val lines: List<PlayLine> = emptyList(),
     val lineIndex: Int = 0,
     val episodes: List<Episode> = emptyList(),
@@ -39,12 +43,17 @@ data class PlayerUiState(
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
     val controlsVisible: Boolean = true,
-    val listVisible: Boolean = false,
+    /** 「播放设置」面板（菜单键呼出）：步长 / 线路 / 选集 */
+    val panelVisible: Boolean = false,
+    /** 快进/快退步长（毫秒），用户可在面板里选 10/15/30/60 秒 */
+    val seekStepMs: Long = CinemaSettings.DEFAULT_SEEK_STEP_MS,
     /** 每次"有操作"都会刷新这个时间戳，界面靠它重新计时自动隐藏 */
     val controlsShownAt: Long = 0L,
 ) {
     val hasLines: Boolean get() = lines.isNotEmpty()
     val hasEpisodes: Boolean get() = episodes.size > 1
+    val hasPrevEpisode: Boolean get() = episodes.size > 1 && episodeIndex > 0
+    val hasNextEpisode: Boolean get() = episodes.size > 1 && episodeIndex < episodes.lastIndex
 }
 
 /**
@@ -55,10 +64,19 @@ data class PlayerUiState(
  *     否则会闪一下黑屏、进度还丢了。页面只负责把 player 画出来。
  *  2. **线路失败自动切换**：国内在线片源最常见的问题就是"某条线路挂了"，
  *     与其让用户看到英文报错，不如自己换一条，并用人话告诉他发生了什么。
+ *
+ * 遥控器键位（v0.8.0 定的"二维导航"模型）：
+ *  - ←/→ = **时间轴**：快退 / 快进（幅度可选 10/15/30/60 秒，面板里改）
+ *  - ↑/↓ = **剧集轴**：上一集 / 下一集 —— 左右管"片内"、上下管"集间"，
+ *    两个方向各管一件事，不用记"长按短按"
+ *    （单集影片没有剧集轴，上下键就退化成呼出/收起控件，绝不空按没反应）
+ *  - OK = 播放/暂停（长按 = 呼出播放设置，兜底没有菜单键的遥控器）
+ *  - 菜单键 = 播放设置面板：步长 / 线路 / 选集
  */
 class PlayerViewModel(
     private val repository: MovieRepository,
     private val progress: PlaybackProgress,
+    private val settings: CinemaSettings,
     context: Context,
 ) : ViewModel() {
 
@@ -78,6 +96,11 @@ class PlayerViewModel(
     private var lastSavedMs = 0L
 
     init {
+        // 步长跟着设置走：面板里改一次，以后所有片子都记得
+        viewModelScope.launch {
+            settings.seekStepMs.collect { ms -> _state.update { it.copy(seekStepMs = ms) } }
+        }
+
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _state.update { it.copy(playing = isPlaying) }
@@ -136,6 +159,7 @@ class PlayerViewModel(
 
             val saved = runCatching { progress.get(movieId) }.getOrNull()
             val lines = detail.lines
+            // 默认就用一条线路：优先上次看过的那条，否则第一条
             val lineIndex = (saved?.lineIndex ?: 0).coerceIn(0, lines.lastIndex)
             val episodes = lines[lineIndex].episodes
             val episodeIndex = (saved?.episodeIndex ?: 0).coerceIn(0, (episodes.size - 1).coerceAtLeast(0))
@@ -168,14 +192,90 @@ class PlayerViewModel(
         showControls()
     }
 
+    /** 快退一步（步长 = state.seekStepMs） */
+    fun seekBackward() = seekBy(-_state.value.seekStepMs)
+
+    /** 快进一步（步长 = state.seekStepMs） */
+    fun seekForward() = seekBy(_state.value.seekStepMs)
+
+    /** 快进/快退：给一句"快进 15 秒"的短提示，观众心里有数 */
     fun seekBy(deltaMs: Long) {
         val dur = player.duration
         var target = player.currentPosition + deltaMs
         if (target < 0) target = 0
         if (dur > 0 && target > dur) target = dur
         player.seekTo(target)
-        _state.update { it.copy(positionMs = target) }
-        showControls()
+        val seconds = abs(deltaMs) / 1000
+        _state.update {
+            it.copy(
+                positionMs = target,
+                hint = (if (deltaMs >= 0) "快进 " else "快退 ") + seconds + " 秒",
+                hintNonce = it.hintNonce + 1,
+                controlsVisible = true,
+                controlsShownAt = System.currentTimeMillis(),
+            )
+        }
+    }
+
+    /** ↑ 上一集（只有多集影片才调用；单集影片由界面降级成"呼出控件"） */
+    fun prevEpisode() = jumpEpisode(-1)
+
+    /** ↓ 下一集 */
+    fun nextEpisode() = jumpEpisode(1)
+
+    private fun jumpEpisode(delta: Int) {
+        val s = _state.value
+        if (s.episodes.size <= 1) return
+        val target = s.episodeIndex + delta
+        if (target !in s.episodes.indices) {
+            _state.update {
+                it.copy(
+                    hint = if (delta > 0) "已经是最后一集" else "已经是第一集",
+                    hintNonce = it.hintNonce + 1,
+                    controlsVisible = true,
+                    controlsShownAt = System.currentTimeMillis(),
+                )
+            }
+            return
+        }
+        val episode = s.episodes[target]
+        _state.update {
+            it.copy(
+                episodeIndex = target,
+                panelVisible = false,
+                hint = (if (delta > 0) "下一集" else "上一集") + " · " + episode.name,
+                hintNonce = it.hintNonce + 1,
+                controlsVisible = true,
+                controlsShownAt = System.currentTimeMillis(),
+            )
+        }
+        playEpisode(episode, 0L)
+    }
+
+    /** 长按 OK / 按菜单键：呼出或收起播放设置面板 */
+    fun togglePanel() {
+        _state.update {
+            it.copy(
+                panelVisible = !it.panelVisible,
+                controlsVisible = true,
+                controlsShownAt = System.currentTimeMillis(),
+            )
+        }
+    }
+
+    fun hidePanel() = _state.update { it.copy(panelVisible = false) }
+
+    /** 面板里选快进/快退幅度：立即生效 + 落盘（下次开机还是它） */
+    fun setSeekStep(ms: Long) {
+        _state.update {
+            it.copy(
+                seekStepMs = ms,
+                hint = "快进/快退已设为 " + (ms / 1000) + " 秒",
+                hintNonce = it.hintNonce + 1,
+                controlsShownAt = System.currentTimeMillis(),
+            )
+        }
+        viewModelScope.launch { runCatching { settings.setSeekStep(ms) } }
     }
 
     fun selectEpisode(index: Int) {
@@ -184,7 +284,7 @@ class PlayerViewModel(
         _state.update {
             it.copy(
                 episodeIndex = index,
-                listVisible = false,
+                panelVisible = false,
                 controlsShownAt = System.currentTimeMillis(),
             )
         }
@@ -193,27 +293,21 @@ class PlayerViewModel(
 
     fun selectLine(index: Int) {
         val s = _state.value
-        val line = s.lines.getOrNull(index) ?: return
+        if (s.lines.getOrNull(index) == null) return
         autoSwitched = 0
         // 手动换线路：带着当前进度换过去，"像没换过一样"接着看
         switchToLine(index, keepEpisodeName = s.episodeName, resumeMs = s.positionMs)
         _state.update {
             it.copy(
                 lineIndex = index,
-                listVisible = false,
-                hint = "已切到「${line.name}」",
+                panelVisible = false,
+                // 线路名字对用户没有意义（他只知道"这条能播"），提示说人话就行
+                hint = "已切换线路",
+                hintNonce = it.hintNonce + 1,
                 controlsShownAt = System.currentTimeMillis(),
             )
         }
     }
-
-    fun toggleList() {
-        val s = _state.value
-        if (!s.hasEpisodes && s.lines.size <= 1 && !s.hasLines) return
-        _state.update { it.copy(listVisible = !it.listVisible) }
-    }
-
-    fun hideList() = _state.update { it.copy(listVisible = false) }
 
     fun showControls() = _state.update {
         it.copy(controlsVisible = true, controlsShownAt = System.currentTimeMillis())
@@ -221,7 +315,7 @@ class PlayerViewModel(
 
     fun hideControls() {
         val s = _state.value
-        if (s.listVisible || s.error != null) return
+        if (s.panelVisible || s.error != null) return
         _state.update { it.copy(controlsVisible = false) }
     }
 
@@ -288,7 +382,8 @@ class PlayerViewModel(
             _state.update {
                 it.copy(
                     lineIndex = next,
-                    hint = "「${s.lines.getOrNull(s.lineIndex)?.name ?: "线路"}」播不动，已自动换到「${s.lines[next].name}」",
+                    hint = "这条线放不动，已自动换了一条",
+                    hintNonce = it.hintNonce + 1,
                 )
             }
             return
@@ -318,19 +413,30 @@ class PlayerViewModel(
         val s = _state.value
         val next = s.episodes.getOrNull(s.episodeIndex + 1)
         if (next != null) {
+            // 连播下一集：这是"追剧"场景，不该让用户手动去点
             _state.update { it.copy(episodeIndex = s.episodeIndex + 1) }
             playEpisode(next, 0L)
         } else {
+            // 最后一集放完 = 全片看完：进度归零（下次从头看），只留一句人话
+            viewModelScope.launch {
+                runCatching { progress.save(movieId, WatchPoint(s.lineIndex, 0, 0L, s.durationMs)) }
+            }
+            lastSavedMs = 0L
             _state.update {
-                it.copy(error = "这条线路已经播完了", controlsVisible = true)
+                it.copy(
+                    hint = "已经播完最后一集了",
+                    hintNonce = it.hintNonce + 1,
+                    controlsVisible = true,
+                    controlsShownAt = System.currentTimeMillis(),
+                )
             }
         }
     }
 
-    private fun persistProgress() {
+    private fun persistProgress(forceMs: Long? = null) {
         val s = _state.value
         if (movieId.isBlank()) return
-        val pos = runCatching { player.currentPosition }.getOrDefault(s.positionMs)
+        val pos = forceMs ?: runCatching { player.currentPosition }.getOrDefault(s.positionMs)
         val dur = runCatching { player.duration }.getOrDefault(0L).coerceAtLeast(0L)
         viewModelScope.launch {
             runCatching {

@@ -1,6 +1,7 @@
 package com.ichichuang.cinema.di
 
 import com.ichichuang.cinema.data.MaccmsMovieRepository
+import com.ichichuang.cinema.data.SourceCatalog
 import com.ichichuang.cinema.data.SwitchableMovieRepository
 import com.ichichuang.cinema.data.demo.DemoMovieRepository
 import com.ichichuang.cinema.data.remote.MaccmsApi
@@ -48,6 +49,8 @@ val appModule = module {
     single { MaccmsApi(http = get(), json = get()) }
     single { MaccmsMovieRepository(api = get(), settings = get()) }
     single { DemoMovieRepository() }
+    /** 推荐源清单（一键导入用）：拉取 + 本地缓存，应用本体依然不内置任何片源 */
+    single { SourceCatalog(http = get(), json = get(), settings = get()) }
 
     // UI 拿到的永远是"能根据设置自动切换"的那一个
     single<MovieRepository> {
@@ -73,7 +76,21 @@ val appModule = module {
     single {
         HomeViewModel(repository = get(), progress = get(), filterStore = get(), browseStore = get())
     }
-    viewModel { SettingsViewModel(settings = get(), repository = get(), context = androidContext()) }
+    viewModel {
+        SettingsViewModel(
+            settings = get(),
+            repository = get(),
+            catalog = get(),
+            context = androidContext(),
+        )
+    }
     // 播放器要 Context 建 ExoPlayer —— 用 application context，不会漏 Activity
-    viewModel { PlayerViewModel(repository = get(), progress = get(), context = androidContext()) }
+    viewModel {
+        PlayerViewModel(
+            repository = get(),
+            progress = get(),
+            settings = get(),
+            context = androidContext(),
+        )
+    }
 }

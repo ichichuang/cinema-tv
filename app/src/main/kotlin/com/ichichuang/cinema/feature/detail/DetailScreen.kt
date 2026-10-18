@@ -59,11 +59,14 @@ import java.util.Locale
  *
  * 三条硬规矩（用户真机反馈后定的）：
  * 1. **整页不滚动**。所有内容按固定版式落在可视区里：标题 / 一行元信息 /
- *    四行简介 / 一行线路与进度 / 播放按钮。内容到货前后，位置一格都不动。
+ *    四行简介 / 播放按钮。内容到货前后，位置一格都不动。
  * 2. **固定尺寸容器**。简介的框先按四行留好、按钮宽度写死 ——
  *    详情、进度这些"晚到的数据"只会往里填字，不会把排版挤变形。
  * 3. **背景是主角**。整屏大背景 + 缓慢推近（Ken Burns）+ 三段渐变压暗，
  *    不用模糊（Android 12 以下不支持 Modifier.blur，模糊会"有的电视有、有的没有"）。
+ *
+ * v0.8.0：页面上**不再出现任何"线路 / 集数"这类普通观众看不懂的字** ——
+ * 点「播放」就用一条线路直接看，要换线路去播放页的菜单里面换（那是懂的人才去的地方）。
  *
  * 数据不新开 ViewModel：详情/进度在首页卡片被聚焦时已经拉过了，
  * 这里直接读同一份状态 —— 所以 99% 的情况下点开详情是"瞬间有内容"的。
@@ -155,16 +158,6 @@ fun DetailScreen(
                 ),
         )
 
-        // 左上角：给遥控器用户一句安心话（返不回去是电视上最常见的迷惑）
-        Text(
-            text = "按「返回」键回首页",
-            color = TextSub.copy(alpha = 0.65f),
-            fontSize = m.sp(14f),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = m.dp(56f), top = m.dp(28f)),
-        )
-
         // ── 主内容：固定版式，绝无滚动 ──
         Column(
             Modifier
@@ -221,25 +214,7 @@ fun DetailScreen(
                 )
             }
 
-            Spacer(Modifier.height(m.dp(8f)))
-
-            // 线路 / 集数 / 上次看到哪：固定一行高度（没有内容时就是一个空行，不塌也不挤）
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(m.dp(28f)),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Text(
-                    text = extraText(detail, state.resumeMs),
-                    color = Gold.copy(alpha = 0.9f),
-                    fontSize = m.sp(16f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            Spacer(Modifier.height(m.dp(20f)))
+            Spacer(Modifier.height(m.dp(26f)))
 
             DetailPlayButton(
                 label = if (state.resumeMs > 0) "继续观看 " + formatMs(state.resumeMs) else "播放",
@@ -264,16 +239,6 @@ private fun synopsisText(movie: Movie, detail: MovieDetail?): String =
     detail?.synopsis?.takeIf { it.isNotBlank() }
         ?: movie.synopsis.takeIf { it.isNotBlank() }
         ?: "简介还在路上，稍等一下就会出现…"
-
-private fun extraText(detail: MovieDetail?, resumeMs: Long): String {
-    val parts = mutableListOf<String>()
-    if (detail != null && detail.lines.isNotEmpty()) {
-        parts += "${detail.lines.size} 条线路"
-        if (detail.episodeCount > 0) parts += "共 ${detail.episodeCount} 集"
-    }
-    if (resumeMs > 0) parts += "上次看到 " + formatMs(resumeMs)
-    return parts.joinToString("  ·  ")
-}
 
 private fun formatMs(ms: Long): String {
     val total = (ms / 1000).coerceAtLeast(0)

@@ -43,9 +43,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.LifecycleOwner
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -61,6 +58,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.media3.ui.compose.PlayerSurface
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
@@ -72,6 +72,7 @@ import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.design.formatTime
 import com.ichichuang.cinema.core.design.rememberTvMetrics
 import com.ichichuang.cinema.core.focus.tvFocus
+import com.ichichuang.cinema.data.settings.CinemaSettings
 import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
 
@@ -81,12 +82,14 @@ import org.koin.androidx.compose.koinViewModel
  * 设计原则（Apple TV 那套"克制"）：
  *  - 平时画面上**什么都不放**，只有一个隐形的键位层 —— 沉浸感就是这么来的
  *  - 一按键才浮出控件，4 秒后自己消失
- *  - 进度条是一根极细的金线，不做滑块（电视上用遥控器拖进度并不好用，
- *    ←/→ 快退快进 10 秒更顺手）
- *  - 线路/选集是底部升起的一块面板，不跳转新页面
+ *  - 进度条是一根极细的金线，不做滑块（"按一下走一段"比拖滑块遥控友好得多）
+ *  - 播放设置（步长 / 线路 / 选集）是底部升起的一块面板，不跳转新页面
  *
- * 遥控器键位（全电视通用习惯）：
- *  OK = 播放/暂停 · ←/→ = 快退/快进 10 秒 · ↑/↓ = 选集与线路 · 返回 = 退出
+ * 遥控器键位（v0.8.0 定的"二维导航"）：
+ *  - ←/→ = 时间轴：快退 / 快进（幅度 10/15/30/60 秒可选）
+ *  - ↑/↓ = 剧集轴：上一集 / 下一集（单集影片自动降级为呼出 / 收起控件）
+ *  - OK = 播放/暂停（长按 = 播放设置，兜底没有菜单键的遥控器）
+ *  - 菜单键 = 播放设置面板；返回 = 收面板 / 退出
  */
 @Composable
 fun PlayerScreen(
@@ -127,21 +130,23 @@ fun PlayerScreen(
 
     // 返回键：面板开着先收面板，否则退出并落盘进度
     BackHandler {
-        if (state.listVisible) vm.hideList() else {
+        if (state.panelVisible) {
+            vm.hidePanel()
+        } else {
             vm.pauseAndSave()
             onBack()
         }
     }
 
-    // 控件自动隐藏（每次有操作都会刷新时间戳 → 重新计时）
-    LaunchedEffect(state.controlsShownAt, state.listVisible) {
-        if (state.listVisible) return@LaunchedEffect
+    // 控件自动隐藏（每次有操作都会刷新时间戳 → 重新计时）；面板开着时不隐藏
+    LaunchedEffect(state.controlsShownAt, state.panelVisible) {
+        if (state.panelVisible) return@LaunchedEffect
         delay(4000)
         vm.hideControls()
     }
 
-    // 临时提示几秒后自己消失
-    LaunchedEffect(state.hint) {
+    // 临时提示几秒后自己消失（hintNonce 让"同一句提示连按多次"也能重新计时）
+    LaunchedEffect(state.hint, state.hintNonce) {
         if (state.hint != null) {
             delay(3500)
             vm.clearHint()
@@ -149,8 +154,8 @@ fun PlayerScreen(
     }
 
     // 面板收起后把焦点还给根层，否则方向键会乱跑
-    LaunchedEffect(state.listVisible, state.error) {
-        if (!state.listVisible && state.error == null) {
+    LaunchedEffect(state.panelVisible, state.error) {
+        if (!state.panelVisible && state.error == null) {
             runCatching { rootFocus.requestFocus() }
         }
     }
@@ -162,24 +167,57 @@ fun PlayerScreen(
             .focusRequester(rootFocus)
             .onPreviewKeyEvent { e ->
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+
+                // 菜单键：呼出/收起播放设置（面板开着也要能按它收）。
+                // 错误浮层盖在上面时不响应 —— 否则面板会"悄悄打开"在错误层背后。
+                if (e.key == Key.Menu) {
+                    if (state.error == null) vm.togglePanel()
+                    return@onPreviewKeyEvent true
+                }
+
                 // 面板打开时，方向键交给面板自己处理，只保留返回
-                if (state.listVisible) return@onPreviewKeyEvent false
+                if (state.panelVisible) return@onPreviewKeyEvent false
+
                 when (e.key) {
                     Key.DirectionCenter, Key.Enter, Key.Spacebar, Key.NumPadEnter -> {
-                        vm.togglePlay(); true
+                        // 长按 OK = 呼出播放设置（有些遥控器的"菜单"键映射不出来，这是兜底）
+                        if (e.nativeKeyEvent.repeatCount == 0) vm.togglePlay() else vm.togglePanel()
+                        true
                     }
+
                     Key.DirectionLeft -> {
-                        vm.seekBy(-10_000); true
+                        vm.seekBackward(); true
                     }
+
                     Key.DirectionRight -> {
-                        vm.seekBy(10_000); true
+                        vm.seekForward(); true
                     }
-                    Key.DirectionUp, Key.DirectionDown -> {
-                        vm.toggleList(); true
+
+                    // 上下 = 剧集轴：上一集 / 下一集；单集影片没有剧集轴，降级成显示/隐藏控件
+                    Key.DirectionUp -> {
+                        if (state.hasEpisodes) vm.prevEpisode() else vm.showControls()
+                        true
                     }
+
+                    Key.DirectionDown -> {
+                        if (state.hasEpisodes) vm.nextEpisode() else vm.hideControls()
+                        true
+                    }
+
                     Key.MediaPlayPause -> {
                         vm.togglePlay(); true
                     }
+
+                    Key.MediaNext -> {
+                        if (state.hasEpisodes) vm.nextEpisode()
+                        true
+                    }
+
+                    Key.MediaPrevious -> {
+                        if (state.hasEpisodes) vm.prevEpisode()
+                        true
+                    }
+
                     else -> false
                 }
             }
@@ -205,9 +243,9 @@ fun PlayerScreen(
             )
         }
 
-        // ③ 顶部信息（标题 + 当前线路/集）—— 淡入 + 从上轻轻落下
+        // ③ 顶部信息（标题 + 当前集）—— 淡入 + 从上轻轻落下。面板开着时收起来
         AnimatedVisibility(
-            visible = state.controlsVisible && state.error == null,
+            visible = state.controlsVisible && !state.panelVisible && state.error == null,
             enter = fadeIn(Motion.base()) + slideInVertically(Motion.base()) { -it / 5 },
             exit = fadeOut(Motion.quick()) + slideOutVertically(Motion.quick()) { -it / 5 },
             modifier = Modifier.align(Alignment.TopCenter),
@@ -230,16 +268,11 @@ fun PlayerScreen(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (state.episodeName.isNotBlank() || state.hasLines) {
+                // 只有多集影片才显示"第几集"（电影显示这个反而是噪音）
+                if (state.hasEpisodes && state.episodeName.isNotBlank()) {
                     Spacer(Modifier.height(m.dp(6f)))
                     Text(
-                        text = buildString {
-                            state.lines.getOrNull(state.lineIndex)?.name?.let { append(it) }
-                            if (state.episodeName.isNotBlank()) {
-                                if (isNotEmpty()) append(" · ")
-                                append(state.episodeName)
-                            }
-                        },
+                        text = state.episodeName,
                         color = TextSub,
                         fontSize = m.sp(16f),
                     )
@@ -249,7 +282,7 @@ fun PlayerScreen(
 
         // ④ 底部进度 + 键位提示 —— 淡入 + 从下轻轻升起
         AnimatedVisibility(
-            visible = state.controlsVisible && state.error == null,
+            visible = state.controlsVisible && !state.panelVisible && state.error == null,
             enter = fadeIn(Motion.base()) + slideInVertically(Motion.base()) { it / 5 },
             exit = fadeOut(Motion.quick()) + slideOutVertically(Motion.quick()) { it / 5 },
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -257,9 +290,9 @@ fun PlayerScreen(
             ProgressBar(state = state)
         }
 
-        // ⑤ 临时提示（自动换线路、已续播…）：淡入淡出 + 轻微上浮，不是"啪"地出现又消失
+        // ⑤ 临时提示（快进多少秒 / 上一集下一集 / 自动换线路…）：
+        //    淡入淡出 + 轻微上浮，不是"啪"地出现又消失
         //    退出时 state.hint 已经变 null，所以留住最后一句文案，否则淡出没内容可放
-        //    （在副作用里写，绝不在组合期写状态）
         var lastHint by remember { mutableStateOf("") }
         LaunchedEffect(state.hint) { state.hint?.let { lastHint = it } }
         AnimatedVisibility(
@@ -268,7 +301,11 @@ fun PlayerScreen(
             exit = fadeOut(Motion.quick()),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = m.dp(if (state.controlsVisible) 170f else 60f)),
+                .padding(
+                    bottom = m.dp(
+                        if (state.controlsVisible && !state.panelVisible) 170f else 60f,
+                    ),
+                ),
         ) {
             Box(
                 modifier = Modifier
@@ -289,14 +326,19 @@ fun PlayerScreen(
             }
         }
 
-        // ⑥ 选集 / 线路面板
+        // ⑥ 播放设置面板（步长 / 线路 / 选集）
         AnimatedVisibility(
-            visible = state.listVisible,
+            visible = state.panelVisible,
             enter = fadeIn(Motion.base()) + slideInVertically(Motion.enter()) { it / 3 },
             exit = fadeOut(Motion.quick()) + slideOutVertically(Motion.quick()) { it / 3 },
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
-            EpisodePanel(state = state, onLine = vm::selectLine, onEpisode = vm::selectEpisode)
+            PlayPanel(
+                state = state,
+                onSeekStep = vm::setSeekStep,
+                onLine = vm::selectLine,
+                onEpisode = vm::selectEpisode,
+            )
         }
 
         // ⑦ 错误（说人话 + 告诉用户下一步按什么）：淡入 + 轻微放大，不是"拍"在用户脸上
@@ -409,8 +451,15 @@ private fun ProgressBar(state: PlayerUiState) {
                 )
             }
             Spacer(Modifier.weight(1f))
+            // 键位提示跟着实际能力走：多集影片底下提示的是"上/下一集"，
+            // 单集影片提示"显示/隐藏"—— 提示永远和按键真的会做的事一致
             Text(
-                text = "OK 播放/暂停    ←→ 快退快进 10 秒    ↑↓ 选集与线路",
+                text = buildString {
+                    append("←→ 快退/快进 ").append(state.seekStepMs / 1000).append(" 秒")
+                    append("    ")
+                    append(if (state.hasEpisodes) "↑↓ 上一集 / 下一集" else "↑↓ 显示 / 隐藏控件")
+                    append("    菜单 播放设置")
+                },
                 color = TextSub.copy(alpha = 0.75f),
                 fontSize = m.sp(14f),
             )
@@ -418,39 +467,66 @@ private fun ProgressBar(state: PlayerUiState) {
     }
 }
 
-/** 底部升起的选集面板：上排线路，下面集数网格 */
+/**
+ * 播放设置面板（底部升起）：**步长 / 线路 / 选集** 三块。
+ *
+ * 高度是"按内容形态算死的"：有哪些块在打开时就确定 ——
+ * 步长永远有、线路多于一条才有、多集影片才有选集 ——
+ * 打开期间做什么操作（换步长、换线路）都不会改变面板高度，排版纹丝不动。
+ * 选集网格用剩余高度 + 内部滚动：200 集也不怕。
+ */
 @Composable
-private fun EpisodePanel(
+private fun PlayPanel(
     state: PlayerUiState,
+    onSeekStep: (Long) -> Unit,
     onLine: (Int) -> Unit,
     onEpisode: (Int) -> Unit,
 ) {
     val m = rememberTvMetrics()
     val gridState = rememberLazyGridState()
     val episodeFocus = remember { FocusRequester() }
+    val stepFocus = remember { FocusRequester() }
 
-    // 打开时滚到当前集并把焦点放上去（不用手忙脚乱找"看的是第几集"）
-    LaunchedEffect(state.listVisible) {
-        if (!state.listVisible) return@LaunchedEffect
-        delay(60)
-        runCatching {
-            if (state.episodes.isNotEmpty()) {
-                gridState.scrollToItem(state.episodeIndex)
-                episodeFocus.requestFocus()
-            }
+    val showLines = state.lines.size > 1
+    val showEpisodes = state.episodes.size > 1
+
+    // 打开时：多集影片滚到当前集、把焦点放上去（不用手忙脚乱找"看的是第几集"）；
+    // 否则把焦点放在当前步长那档上
+    LaunchedEffect(state.panelVisible) {
+        if (!state.panelVisible) return@LaunchedEffect
+        delay(120)
+        if (showEpisodes) runCatching { gridState.scrollToItem(state.episodeIndex) }
+        repeat(6) {
+            val ok = runCatching {
+                if (showEpisodes) episodeFocus.requestFocus() else stepFocus.requestFocus()
+            }.isSuccess
+            if (ok) return@LaunchedEffect
+            delay(80)
         }
     }
+
+    val panelHeight = m.dp(
+        178f +
+            (if (showLines) 96f else 0f) +
+            (if (showEpisodes) 246f else 0f),
+    )
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .height(panelHeight)
             .clip(RoundedCornerShape(topStart = m.dp(22f), topEnd = m.dp(22f)))
             .background(Panel.copy(alpha = 0.97f))
-            .padding(horizontal = m.dp(56f), vertical = m.dp(26f)),
+            .padding(horizontal = m.dp(56f), vertical = m.dp(24f)),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(m.dp(36f)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = "选集与线路",
+                text = "播放设置",
                 color = TextMain,
                 fontSize = m.sp(22f),
                 fontWeight = FontWeight.SemiBold,
@@ -463,30 +539,50 @@ private fun EpisodePanel(
             )
         }
 
-        // 线路（多于一条才有意义）
-        if (state.lines.size > 1) {
-            Spacer(Modifier.height(m.dp(16f)))
+        Spacer(Modifier.height(m.dp(12f)))
+
+        // ── 快进 / 快退的幅度 ──
+        PanelLabel("快退 / 快进一次走多远")
+        Spacer(Modifier.height(m.dp(8f)))
+        Row(horizontalArrangement = Arrangement.spacedBy(m.dp(12f))) {
+            CinemaSettings.SEEK_STEP_OPTIONS.forEach { step ->
+                val selected = step == state.seekStepMs
+                PanelChip(
+                    text = (step / 1000).toString() + " 秒",
+                    selected = selected,
+                    modifier = if (selected) Modifier.focusRequester(stepFocus) else Modifier,
+                    onClick = { onSeekStep(step) },
+                )
+            }
+        }
+
+        // ── 线路（多于一条才有意义）──
+        if (showLines) {
+            Spacer(Modifier.height(m.dp(14f)))
+            PanelLabel("线路")
+            Spacer(Modifier.height(m.dp(8f)))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(m.dp(12f))) {
                 itemsIndexed(state.lines) { index, line ->
-                    val selected = index == state.lineIndex
-                    LineChip(
-                        text = "${line.name} · ${line.episodes.size} 集",
-                        selected = selected,
+                    PanelChip(
+                        text = line.name,
+                        selected = index == state.lineIndex,
                         onClick = { onLine(index) },
                     )
                 }
             }
         }
 
-        // 集数
-        if (state.episodes.isNotEmpty()) {
-            Spacer(Modifier.height(m.dp(18f)))
+        // ── 选集 ──
+        if (showEpisodes) {
+            Spacer(Modifier.height(m.dp(14f)))
+            PanelLabel("选集")
+            Spacer(Modifier.height(m.dp(8f)))
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = m.dp(88f)),
                 state = gridState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(m.dp(300f)),
+                    .weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(m.dp(10f)),
                 verticalArrangement = Arrangement.spacedBy(m.dp(10f)),
             ) {
@@ -500,17 +596,39 @@ private fun EpisodePanel(
                     )
                 }
             }
+        } else {
+            Spacer(Modifier.weight(1f))
         }
     }
 }
 
+/** 面板里的小节标题（固定一行高度） */
 @Composable
-private fun LineChip(text: String, selected: Boolean, onClick: () -> Unit) {
+private fun PanelLabel(text: String) {
+    val m = rememberTvMetrics()
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(m.dp(24f)),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(text = text, color = TextSub, fontSize = m.sp(15f))
+    }
+}
+
+/** 面板里的胶囊按钮（步长 / 线路共用） */
+@Composable
+private fun PanelChip(
+    text: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     val m = rememberTvMetrics()
     val radius = m.dp(10f)
     val interaction = remember { MutableInteractionSource() }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .tvFocus(radius, interactionSource = interaction)
             .clip(RoundedCornerShape(radius))
             .background(if (selected) Gold.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.06f))

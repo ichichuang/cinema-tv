@@ -169,24 +169,33 @@ fun HomeScreen(
                 onOpenUpdate = updateCenter::openPanel,
             )
 
-            PosterGrid(
-                movies = state.movies,
-                loading = state.loading,
-                endReached = state.endReached,
-                generation = state.gridGeneration,
-                focusTarget = state.focusTarget,
-                needsSetup = state.needsSetup,
-                error = state.error,
-                pageError = state.pageError,
-                loadingMore = state.loadingMore,
-                onFocusMovie = viewModel::onMovieFocused,
-                onClickMovie = onOpenDetail,
-                onNearEnd = viewModel::onVisibleIndexChanged,
-                onOpenSettings = onOpenSettings,
-                onRetry = viewModel::retry,
-                onResetFilters = viewModel::resetFilters,
-                onFocusConsumed = viewModel::onFocusTargetConsumed,
-            )
+            // ⚠️ 必须套一层带 weight 的 Box：Column 里的孩子不限定高度时会被当成
+            //    "无限高"，而 LazyVerticalGrid 遇到无限高会直接抛异常（0.7.0 的坑）。
+            //    这个 Box 把"剩余高度"卡死，海报墙才有确定尺寸。
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) {
+                PosterGrid(
+                    movies = state.movies,
+                    loading = state.loading,
+                    endReached = state.endReached,
+                    generation = state.gridGeneration,
+                    focusTarget = state.focusTarget,
+                    needsSetup = state.needsSetup,
+                    error = state.error,
+                    pageError = state.pageError,
+                    loadingMore = state.loadingMore,
+                    onFocusMovie = viewModel::onMovieFocused,
+                    onClickMovie = onOpenDetail,
+                    onNearEnd = viewModel::onVisibleIndexChanged,
+                    onOpenSettings = onOpenSettings,
+                    onRetry = viewModel::retry,
+                    onResetFilters = viewModel::resetFilters,
+                    onFocusConsumed = viewModel::onFocusTargetConsumed,
+                )
+            }
         }
 
         // 筛选浮层：整屏从下往上滑入，点「完成」滑出去
