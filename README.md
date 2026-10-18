@@ -303,12 +303,12 @@ core/      地基：设计系统 / 焦点系统 / 通用组件
 
 ```json
 {
-    "versionCode": 7,
-    "versionName": "0.6.1",
-    "apkUrl": "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.6.1/cinema-tv-0.6.1.apk",
-    "sizeBytes": 13716623,
+    "versionCode": 9,
+    "versionName": "0.8.0",
+    "apkUrl": "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.8.0/cinema-tv-0.8.0.apk",
+    "sizeBytes": 13995151,
     "notes": "1. ...\n2. ...",
-    "mirrorUrl": "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.6.1/cinema-tv-0.6.1.apk"
+    "mirrorUrl": "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.8.0/cinema-tv-0.8.0.apk"
 }
 ```
 
@@ -371,19 +371,21 @@ core/      地基：设计系统 / 焦点系统 / 通用组件
 cd C:\Users\cc\Documents\默认项目\cinema-tv
 .\scripts\build-local.ps1          # 编译 release APK
 .\scripts\check-apk.ps1            # 红线检查（ABI / minSdk / Leanback 入口 / 体积）
-.\scripts\publish-update.ps1 -VersionName 0.6.0 -VersionCode 6   # 发在线更新（可选）
+.\scripts\publish-to-repo.ps1 -VersionName 0.8.0 -VersionCode 9   # 发布新版本（APK + 清单）
+.\scripts\publish-sources.ps1      # 只发「推荐源清单」（换源/加源，不跟版本绑）
 ```
 
 编完 APK 路径会打印在最后一行（`app\build\outputs\apk\release\app-release.apk`），
 拷进 U 盘插电视安装即可。
 
-> **网络说明**（2026-10 实测，纠正过一版错误结论）：
+> **网络说明**（2026-10 实测）：
 > - `github.com` / `api.github.com` **能连**，但 Windows 的 curl 会因连不上证书吊销服务器
 >   误报 `CRYPT_E_REVOCATION_OFFLINE` —— 加 `--ssl-no-revoke` 就通了。
 >   安卓的 OkHttp 不做吊销检查，所以电视那边不受影响。
-> - `raw.githubusercontent.com` **真的连不上**（这个是真被墙）→ 所以更新包必须走 release 附件。
-> - `objects.githubusercontent.com`（release 附件下载域名）**能连** ✓
-> - `gh-proxy.com`（GitHub 加速镜像）**能连** ✓，留作镜像方案
+> - `raw.githubusercontent.com` **真的连不上**（这个是真被墙）→ 对外链接一律套
+>   `gh-proxy.com`（直通、无缓存）或 `cdn.jsdelivr.net`（快、有缓存；
+>   APK 用版本 **tag** 固定地址，缓存反而是优点）。
+> - `gh-proxy.com` / `cdn.jsdelivr.net` **都能连** ✓ —— 发布脚本里的两条链接就是它们。
 > - Gradle 官方分发地址会 307 跳到 github.com，所以本机用的是从镜像下好的独立 Gradle 分发，
 >   仓库里的 `gradle-wrapper.properties` 保持官方地址不变（云端构建不受影响）。
 
@@ -481,7 +483,7 @@ keystore/release.jks             # 签名钥匙（私有仓库）
 | Koin 找不到 `androidContext` / `viewModel{}` | Koin 4.2 起 `koin-androidx-compose` 只有 8KB，不再传递依赖 `koin-android` | 两个依赖都显式写进 `build.gradle.kts` |
 | Actions 页面打不开、artifact 下不了 | 同上：本机 `github.com:443` 不通（SSH 推送是通的） | 用本地构建出包，云端只做备份 |
 | curl 报 `schannel: CRYPT_E_REVOCATION_OFFLINE`（连 github.com / api.github.com 时） | Windows 的 curl 走系统证书链，会去连**证书吊销列表服务器**，那个服务器在这边连不上 → 误报"证书不可用"。**不是墙**（TCP 探测是通的） | 加 `--ssl-no-revoke` 即可。安卓的 OkHttp 不做吊销检查，所以**电视端的更新检查不受这个影响** —— 差点因为这条误判放弃在线更新 |
-| 更新包挂在仓库里（`raw` 路径）却下载失败 | `raw.githubusercontent.com` 在国内是真的连不上 | 走 release 附件（`objects.githubusercontent.com`，实测可通）；清单里再留一条 `mirrorUrl` 兜底 |
+| 更新包挂在仓库里（`raw` 路径）却下载失败 | `raw.githubusercontent.com` 在国内是真的连不上 | 一度改走 release 附件（`objects.githubusercontent.com` 实测可通）；**0.7.0 起整体改为**：APK + 清单提交进公开仓库，对外走 gh-proxy / jsDelivr，清单里再留一条 `mirrorUrl` 兜底 |
 | 侧载应用想做"静默自动升级" | 安卓不允许非系统应用静默安装（`PackageInstaller` 的 `setRequireUserAction(false)` 对侧载应用无效） | 老实做"应用内下载 + 系统安装界面 + 遥控器确认一次"，并把这一步如实写进界面文案 |
 | 从播放器/设置返回首页，列表跳回顶部、右侧详情变成别的片 | 焦点被"自动落到第一张海报"的逻辑抢走（`LaunchedEffect` 在**每次**重新进入组合时都会跑，不只是第一次），Compose 又把列表滚到焦点处 | 焦点改成 ViewModel 发的一次性信号 `focusTarget`（按 movieId 找，不靠索引）；滚动位置恢复后若目标已可见就**不滚动** |
 | 从播放器回来，整墙海报又"闪一次"入场动画 | 交错入场标记用的是普通 `remember`，导航往返会重建组合 → 标记清零 → 重新从 alpha 0 淡入 | 标记改成 `rememberSaveable`（自定义 Saver 存"已入场 id 列表"），只跟 generation（换筛选）绑定 |
