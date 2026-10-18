@@ -344,12 +344,12 @@ core/      地基：设计系统 / 焦点系统 / 通用组件
 
 ```json
 {
-    "versionCode": 9,
-    "versionName": "0.8.0",
-    "apkUrl": "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.8.0/cinema-tv-0.8.0.apk",
-    "sizeBytes": 13995151,
+    "versionCode": 10,
+    "versionName": "0.9.0",
+    "apkUrl": "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.9.0/cinema-tv-0.9.0.apk",
+    "sizeBytes": 14011535,
     "notes": "1. ...\n2. ...",
-    "mirrorUrl": "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.8.0/cinema-tv-0.8.0.apk"
+    "mirrorUrl": "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.9.0/cinema-tv-0.9.0.apk"
 }
 ```
 
