@@ -45,7 +45,7 @@ class MaccmsSource(
     val origin: String,
 ) {
     private val base: HttpUrl = normalizeBaseUrl(origin)
-        ?: throw SourceException("接口地址格式不对：$origin")
+        ?: throw SourceException("地址格式不对：$origin")
 
     // 分类树基本不变：缓存住（避免每次切页都打接口）
     private var treeCache: List<RemoteCategory> = emptyList()
@@ -71,7 +71,7 @@ class MaccmsSource(
                 movies = emptyList(),
                 total = 0,
                 skippedNoMatch = true,
-                note = "这个片源没有「" + askedText(filter) + "」",
+                note = "这个资源没有「" + askedText(filter) + "」",
             )
         }
 
@@ -91,7 +91,7 @@ class MaccmsSource(
                 movies = emptyList(),
                 total = 0,
                 skippedNoMatch = true,
-                note = "这个片源没有「" + askedText(filter) + "」",
+                note = "这个资源没有「" + askedText(filter) + "」",
             )
         }
         return if (plan.leafIds.size == 1) direct(filter, plan, page) else chunked(filter, plan, page, pageSize)
@@ -461,6 +461,6 @@ class MaccmsSource(
         /** 一次调用最多续拉几轮（防呆，避免极端情况打太多请求） */
         const val MAX_REFILL_ROUNDS = 8
 
-        const val EMPTY_NOTE = "按当前筛选，这个片源没找到结果"
+        const val EMPTY_NOTE = "按当前筛选，这个资源没找到结果"
     }
 }

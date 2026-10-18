@@ -406,7 +406,7 @@ class HomeViewModel(
     /** 筛条件被放宽时给一句人话 —— 用户必须知道"为什么结果跟我要的不一样" */
     private fun relaxedText(filter: MovieFilter): String {
         val asked = filter.activeParts.joinToString("·")
-        return "本站片源缺少「$asked」的标注，已自动放开筛选，先把片子给你看"
+        return "「$asked」标注不全，已自动放宽，结果可能不完全匹配"
     }
 
     /** 读观看进度：快看完了（离结尾不到 1 分钟）就不显示"继续观看"，当成看完 */

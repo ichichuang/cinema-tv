@@ -76,7 +76,7 @@ class MaccmsMovieRepository(
     override suspend fun movies(filter: MovieFilter, page: Int, pageSize: Int): MoviePage {
         val list = targets()
         if (list.isEmpty()) {
-            throw SourceException("还没有配置影视接口地址：到「设置」里点「选择片源」，用手机扫码也可以")
+            throw SourceException("还没有添加资源：到「设置」里点「选择资源」，用手机扫码也可以")
         }
         if (list.size == 1) return list[0].movies(filter, page, pageSize)
 
@@ -87,7 +87,7 @@ class MaccmsMovieRepository(
         val ok = results.mapNotNull { it.getOrNull() }
         if (ok.isEmpty()) {
             throw results.firstNotNullOfOrNull { it.exceptionOrNull() }
-                ?: SourceException("所有片源都暂时取不到数据，过一会儿再试")
+                ?: SourceException("所有资源都暂时取不到内容，过一会儿再试")
         }
 
         // 按"片名+年份"去重：同一部片在多个源都出现时，只留排在前面的源的版本
@@ -99,10 +99,10 @@ class MaccmsMovieRepository(
         val skipCount = ok.count { it.skippedNoMatch }
         val note = when {
             merged.isEmpty() && skipCount > 0 && skipCount == ok.size ->
-                "你启用的片源里都没有这个分类或类型"
+                "启用的资源里都没有这个分类或类型"
             merged.isEmpty() && ok.isNotEmpty() && ok.all { it.movies.isEmpty() } ->
-                "按当前筛选条件，所有片源都没找到结果"
-            skipCount > 0 -> "有 $skipCount 个片源没有这个分类/类型，已跳过"
+                "按当前筛选条件，都没找到结果"
+            skipCount > 0 -> "有 $skipCount 个资源没有这个分类/类型，已跳过"
             else -> null
         }
         return MoviePage(

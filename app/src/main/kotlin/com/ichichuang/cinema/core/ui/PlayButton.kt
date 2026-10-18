@@ -6,9 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,13 +68,6 @@ fun PlayButton(
             .padding(horizontal = m.dp(38f), vertical = m.dp(16f)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = "▶",
-            color = Ink,
-            fontSize = m.sp(22f),
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.width(m.dp(14f)))
         Text(
             text = text,
             color = Ink,

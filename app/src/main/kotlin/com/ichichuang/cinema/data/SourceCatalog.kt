@@ -49,14 +49,14 @@ class SourceCatalog(
                     settings.saveCatalog(text)
                     return Result.success(list)
                 }
-                last = IOException("清单里一条源都没有")
+                last = IOException("推荐里一条都没有")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 last = e
             }
         }
-        return Result.failure(last ?: IOException("连不上推荐源清单"))
+        return Result.failure(last ?: IOException("连不上推荐"))
     }
 
     private fun parse(raw: String?): List<CatalogSource> {

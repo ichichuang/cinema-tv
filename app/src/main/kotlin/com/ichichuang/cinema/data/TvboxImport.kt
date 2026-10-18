@@ -95,7 +95,7 @@ class TvboxImport(private val http: OkHttpClient) {
         }
 
         if (found.isEmpty() && notes.isEmpty()) {
-            notes.add("这里面没找到能用的苹果CMS 接口")
+            notes.add("这里面没找到能用的地址")
         }
         return Result(found.values.toList(), fetched, notes)
     }

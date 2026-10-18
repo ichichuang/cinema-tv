@@ -138,13 +138,13 @@ class MaccmsApi(
         val root = try {
             json.parseToJsonElement(text).jsonObject
         } catch (e: Exception) {
-            throw SourceException("接口返回的不是 JSON（可能填错了地址，或站点需要 key）：${text.take(80)}", e)
+            throw SourceException("返回的不是 JSON（可能地址填错了）：${text.take(80)}", e)
         }
 
         // code: 1 = 成功；0/其它 = 失败，msg 里有人话原因
         val code = root["code"].asText()
         if (code != null && code != "1" && code != "0") {
-            throw SourceException(root["msg"].asText() ?: "接口返回 code=$code")
+            throw SourceException(root["msg"].asText() ?: "服务端返回 code=$code")
         }
         val msg = root["msg"].asText()
         if (code == "0" && !msg.isNullOrBlank()) {

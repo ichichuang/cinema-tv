@@ -161,11 +161,11 @@ class ConfigServer(
         val update = readStringField(body, "updateUrl").orEmpty()
 
         if (api.isEmpty()) {
-            respondJson(client, PhoneSaveResult(false, "接口地址不能为空"))
+            respondJson(client, PhoneSaveResult(false, "地址不能为空"))
             return
         }
         if (!api.startsWith("http://") && !api.startsWith("https://") && api != "demo") {
-            respondJson(client, PhoneSaveResult(false, "接口地址要以 http:// 或 https:// 开头（想先看界面就填 demo）"))
+            respondJson(client, PhoneSaveResult(false, "地址要以 http:// 或 https:// 开头（想先看界面就填 demo）"))
             return
         }
         if (update.isNotEmpty() && !update.startsWith("http://") && !update.startsWith("https://")) {
@@ -410,36 +410,39 @@ class ConfigServer(
 <body>
 <div class="wrap">
   <h1>极简影院 · 配置</h1>
-  <p class="sub">勾选制：点一下就把源加入「已启用」（再点一下取消）→ 电视立即生效并自动测试。可以同时启用多个源，首页会把它们的电影合在一起。</p>
+  <p class="sub">点一下就启用（再点一下取消），电视马上生效并自动测试。可以同时启用多个，首页会把这些电影合在一起。</p>
   <div id="sum" class="sum">正在读取电视状态…</div>
 
-  <label>推荐源 · 实测排行（点一下启用 / 取消）</label>
-  <div id="catalog" class="list"><div class="empty">正在获取推荐源…</div></div>
-  <button id="fetchBtn" class="ghost" style="display:none">获取推荐源</button>
+  <label>推荐（点一下启用 / 取消）</label>
+  <div id="catalog" class="list"><div class="empty">正在获取推荐…</div></div>
+  <button id="fetchBtn" class="ghost" style="display:none">获取推荐</button>
 
-  <label>已保存的源（点一下启用 / 取消）</label>
-  <div id="saved" class="list"><div class="empty">还没有保存过别的源</div></div>
-
-  <label for="imp">导入 TVBox 配置（单仓 / 多仓都行）</label>
-  <textarea id="imp" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="{ &quot;sites&quot;: [ ... ] }  或  https://…/推荐的.json"></textarea>
-  <p class="hint">把 TVBox 的 <b>单仓 / 多仓 JSON</b> 全文粘进来，或直接贴一个 <b>订阅地址</b>。相对路径的引用（如 <code>./xxx.json</code>）电视上抓不到会被跳过；只收苹果CMS 接口。</p>
-  <button id="impBtn" class="ghost">导入</button>
-
-  <label for="api">自定义接口地址（高级 · 只启用这一个）</label>
-  <input id="api" value="__API__" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://你的站点/api.php/provide/vod/">
-  <p class="hint">苹果CMS V10 接口地址，形如 <code>http://站点/api.php/provide/vod/</code>。应用不内置任何片源。想先看界面长什么样，填 <b>demo</b> 即可。</p>
+  <label>已添加（点一下启用 / 取消）</label>
+  <div id="saved" class="list"><div class="empty">还没有添加过别的</div></div>
 
   <details>
-    <summary>高级：更新地址（一般不用改）</summary>
-    <label for="upd">在线更新清单地址（version.json）</label>
-    <input id="upd" value="__UPD__" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="留空 = 用默认的 GitHub 发布地址">
-    <p class="hint">留空就用默认地址。只有电视连不上 GitHub 时，才需要换成镜像。</p>
+    <summary>高级：批量导入（TVBox 订阅 / 单仓多仓 JSON）</summary>
+    <label for="imp">整份 JSON 或订阅地址</label>
+    <textarea id="imp" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="{ &quot;sites&quot;: [ ... ] }  或  https://…/推荐的.json"></textarea>
+    <p class="hint">整份 JSON 贴进来，或直接贴订阅地址。相对路径的引用（如 <code>./xxx.json</code>）抓不到会跳过。</p>
+    <button id="impBtn" class="ghost">导入</button>
   </details>
 
-  <button id="save">保存这个地址并测试（替换当前的启用集合）</button>
+  <label for="api">自己填一个地址（只启用这一个）</label>
+  <input id="api" value="__API__" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://你的站点/api.php/provide/vod/">
+  <p class="hint">形如 <code>http://站点/api.php/provide/vod/</code>。应用本身不带内容；想先看界面长什么样，填 <b>demo</b> 即可。</p>
+
+  <details>
+    <summary>高级：改更新地址（一般不用动）</summary>
+    <label for="upd">更新清单地址（version.json）</label>
+    <input id="upd" value="__UPD__" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="留空 = 用默认地址">
+    <p class="hint">留空就用默认的。连不上更新的时候，可以换一个能用的地址。</p>
+  </details>
+
+  <button id="save">保存并测试（只启用这一个）</button>
   <div id="result" class="result"></div>
 
-  <p class="foot">保存后电视会自动测试：能取到影片才算配置成功。<br>测完还能再改；电视上关掉「扫码配置」页面后，这个网址就会失效。</p>
+  <p class="foot">保存后电视会自动测一次，能取到影片才算成功。<br>关掉电视上的「手机配置」页面后，这个网址就会失效。</p>
 </div>
 <script>
 (function () {
@@ -459,6 +462,11 @@ class ConfigServer(
   // 地址归一化（只用于"是否已启用"的判断）："…/vod" 与 "…/vod/" 是同一个源
   function normUrl(u) { return (u || '').replace(/\/+$/, ''); }
   function isOn(u) { return enabled.indexOf(normUrl(u)) >= 0; }
+  // 清单里的 "3023ms" 是排序用的，手机上不显示
+  function cleanInfo(s) {
+    return (s || '').split('·').map(function (x) { return x.trim(); })
+      .filter(function (x) { return x.slice(-2) !== 'ms'; }).join(' · ');
+  }
 
   function show(ok, msg) {
     box.className = 'result show ' + (ok ? 'ok' : 'bad');
@@ -471,7 +479,7 @@ class ConfigServer(
     row.className = 'item' + (on ? ' on' : '');
     var n = document.createElement('span'); n.className = 'n'; n.textContent = name;
     var i = document.createElement('span'); i.className = 'i'; i.textContent = info || '';
-    var m = document.createElement('span'); m.className = 'm'; m.textContent = on ? '✓ 已启用' : '启用';
+    var m = document.createElement('span'); m.className = 'm'; m.textContent = on ? '已启用' : '启用';
     row.appendChild(n); row.appendChild(i); row.appendChild(m);
     row.addEventListener('click', function () { toggleSource(url); });
     return row;
@@ -495,19 +503,19 @@ class ConfigServer(
         .map(function (s) { return normUrl(s.trim()); });
       var maxN = d.maxEnabled || 8;
       sumEl.textContent = enabled.length
-        ? ('已启用 ' + enabled.length + ' / ' + maxN + ' 个片源：首页会把它们的电影合在一起')
-        : '还没有启用任何片源：从下面勾一个吧';
+        ? ('已启用 ' + enabled.length + ' / ' + maxN + ' 个：首页会把电影合在一起')
+        : '还没有启用任何资源：从下面挑一个吧';
       var saved = (d.saved || []).map(function (s) {
         return makeRow(s.name, s.url, isOn(s.url), s.url);
       });
-      paint(savedEl, saved, '还没有保存过别的源');
+      paint(savedEl, saved, '还没有添加过别的');
       var cat = (d.catalog || []).map(function (s) {
-        return makeRow(s.name, s.info || s.url, isOn(s.url), s.url);
+        return makeRow(s.name, cleanInfo(s.info) || s.url, isOn(s.url), s.url);
       });
       var hasCat = !!(d.catalog && d.catalog.length);
-      paint(catEl, cat, '还没获取过推荐源，点下面的按钮去获取');
+      paint(catEl, cat, '还没获取过推荐，点下面的按钮去获取');
       fetchBtn.style.display = 'block';
-      fetchBtn.textContent = hasCat ? '刷新推荐源列表' : '获取推荐源';
+      fetchBtn.textContent = hasCat ? '刷新推荐' : '获取推荐';
     }).catch(function () {
       show(false, '打不开电视上的配置服务：确认手机和电视在同一个 WiFi');
     });
@@ -516,7 +524,7 @@ class ConfigServer(
   function toggleSource(url) {
     if (busy) return;
     busy = true;
-    show(true, '正在让电视切换并测试，稍等几秒…');
+    show(true, '正在切换并测试，稍等几秒…');
     fetch('/api/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -553,7 +561,7 @@ class ConfigServer(
     busy = true;
     impBtn.disabled = true;
     impBtn.textContent = '正在导入…';
-    show(true, '正在让电视导入，订阅地址多的话要等几秒…');
+    show(true, '正在导入，订阅地址多的话要等几秒…');
     fetch('/api/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -576,13 +584,13 @@ class ConfigServer(
   btn.addEventListener('click', function () {
     var api = apiEl.value.trim();
     var upd = updEl.value.trim();
-    if (!api) { show(false, '请先填接口地址'); return; }
+    if (!api) { show(false, '请先填地址'); return; }
     if (api.indexOf('http') !== 0 && api !== 'demo') {
       show(false, '地址要以 http:// 或 https:// 开头（想先看界面就填 demo）');
       return;
     }
     btn.disabled = true;
-    btn.textContent = '正在让电视测试…';
+    btn.textContent = '正在测试…';
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -591,14 +599,14 @@ class ConfigServer(
       .then(function (r) { return r.json(); })
       .then(function (d) {
         btn.disabled = false;
-        btn.textContent = '保存这个地址并测试（替换当前的启用集合）';
+        btn.textContent = '保存并测试（只启用这一个）';
         show(!!d.ok, d.message || '完成');
         load();
       })
       .catch(function () {
         btn.disabled = false;
-        btn.textContent = '保存这个地址并测试（替换当前的启用集合）';
-        show(false, '手机和电视没连上：确认在同一个 WiFi，且电视上的「扫码配置」页面还开着');
+        btn.textContent = '保存并测试（只启用这一个）';
+        show(false, '手机和电视没连上：确认在同一个 WiFi，且电视上的「手机配置」页面还开着');
       });
   });
 

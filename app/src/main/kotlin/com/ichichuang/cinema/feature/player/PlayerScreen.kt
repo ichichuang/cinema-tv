@@ -485,7 +485,7 @@ private fun ProgressBar(state: PlayerUiState) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = if (state.playing) "⏸  正在播放" else "▶  已暂停",
+                text = if (state.playing) "正在播放" else "已暂停",
                 color = TextMain,
                 fontSize = m.sp(16f),
                 fontWeight = FontWeight.Medium,
@@ -508,9 +508,9 @@ private fun ProgressBar(state: PlayerUiState) {
             // 单集影片提示"显示/隐藏"—— 提示永远和按键真的会做的事一致
             Text(
                 text = buildString {
-                    append("←→ 快退/快进 ").append(state.seekStepMs / 1000).append(" 秒")
+                    append("左右键 快退 / 快进 ").append(state.seekStepMs / 1000).append(" 秒")
                     append("    ")
-                    append(if (state.hasEpisodes) "↑↓ 上一集 / 下一集" else "↑↓ 显示 / 隐藏控件")
+                    append(if (state.hasEpisodes) "上下键 上一集 / 下一集" else "上下键 显示 / 隐藏控件")
                     append("    菜单 播放设置")
                 },
                 color = TextSub.copy(alpha = 0.75f),

@@ -271,8 +271,7 @@ private fun UpdateCard(
                 UpdatePhase.ERROR -> Column {
                     Spacer(Modifier.height(m.dp(6f)))
                     Text(
-                        text = "没下载成功通常和网络有关。片源和更新清单是两条独立的路，" +
-                            "接口能用不代表更新地址也能用；再试一次多半就好了。",
+                        text = "没下载成功通常和网络有关，再试一次多半就好了。",
                         color = TextBody,
                         fontSize = m.sp(16f),
                         lineHeight = m.sp(24f),
@@ -284,7 +283,7 @@ private fun UpdateCard(
                     Spacer(Modifier.height(m.dp(6f)))
                     val notes = info?.notes?.takeIf { it.isNotBlank() }
                     Text(
-                        text = notes ?: "这次更新会直接覆盖安装，观看记录、筛选和接口地址都会保留。",
+                        text = notes ?: "这次更新会直接覆盖安装，观看记录、筛选和设置都会保留。",
                         color = TextBody,
                         fontSize = m.sp(16f),
                         lineHeight = m.sp(26f),

@@ -210,7 +210,7 @@ class GitHubUpdater(
         val code = obj["versionCode"].asInt()
             ?: obj["version_code"].asInt()
             ?: obj["code"].asInt()
-            ?: throw SourceException("更新清单里没有 versionCode")
+            ?: throw SourceException("更新清单里缺了版本号")
 
         val name = obj["versionName"].asText()
             ?: obj["version_name"].asText()
@@ -221,7 +221,7 @@ class GitHubUpdater(
             ?: obj["apk_url"].asText()
             ?: obj["url"].asText()
             ?: obj["download_url"].asText()
-            ?: throw SourceException("更新清单里没有下载地址（apkUrl）")
+            ?: throw SourceException("更新清单里没有下载地址")
 
         val notes = (obj["notes"].asText()
             ?: obj["changelog"].asText()

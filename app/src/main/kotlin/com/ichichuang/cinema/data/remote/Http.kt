@@ -70,11 +70,11 @@ suspend fun OkHttpClient.getText(url: HttpUrl): String =
         try {
             newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    throw SourceException("接口返回 HTTP ${response.code}")
+                    throw SourceException("地址返回 HTTP ${response.code}")
                 }
                 val body = response.body
                 val bytes = body.bytes()
-                if (bytes.isEmpty()) throw SourceException("接口返回了空内容")
+                if (bytes.isEmpty()) throw SourceException("地址返回了空内容")
                 decodeBody(bytes, body.contentType()?.charset())
             }
         } catch (e: SourceException) {
@@ -83,7 +83,7 @@ suspend fun OkHttpClient.getText(url: HttpUrl): String =
             // 协程被取消不是"网络错误"，必须原样抛出，否则会打断 ViewModel 的正常取消
             throw e
         } catch (e: Exception) {
-            throw SourceException("连不上接口：${e.message ?: e.javaClass.simpleName}", e)
+            throw SourceException("连不上：${e.message ?: e.javaClass.simpleName}", e)
         }
     }
 

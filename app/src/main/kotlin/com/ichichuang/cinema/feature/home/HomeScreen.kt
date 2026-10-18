@@ -14,9 +14,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,13 +25,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,9 +50,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.Motion
@@ -392,7 +387,7 @@ private fun RelaxedNoteSlot(note: String?) {
     }
 }
 
-/** 「筛选」按钮：左侧的主入口。有任何非默认筛选时亮一颗小金点（槽位固定，不加宽按钮） */
+/** 「筛选」按钮：左侧的主入口。有任何非默认筛选时，文字变金色（状态只靠颜色说，不加符号） */
 @Composable
 private fun SheetButton(
     onClick: () -> Unit,
@@ -409,12 +404,12 @@ private fun SheetButton(
         label = "sheetButtonBg",
     )
     val fg by animateColorAsState(
-        targetValue = if (focused) Gold else TextMain,
+        targetValue = if (focused || active) Gold else TextMain,
         animationSpec = Motion.quick(),
         label = "sheetButtonFg",
     )
 
-    Row(
+    Box(
         modifier = modifier
             .tvFocus(
                 cornerRadius = m.dp(24f),
@@ -428,7 +423,6 @@ private fun SheetButton(
                 indication = null,
             ) { onClick() }
             .padding(horizontal = m.dp(26f), vertical = m.dp(12f)),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = "筛选",
@@ -436,23 +430,14 @@ private fun SheetButton(
             fontSize = m.sp(19f),
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.width(m.dp(10f)))
-        // 小金点：位置和尺寸恒定，只切换颜色 —— 不会让按钮"长胖"
-        Box(
-            Modifier
-                .size(m.dp(8f))
-                .clip(CircleShape)
-                .background(if (active) Gold else Color.Transparent),
-        )
     }
 }
 
 /**
- * 当前筛选条件：横向滚动展示（分类 + 语言 + 地区 + 年份）。
+ * 当前筛选条件：一行说明文字（分类 · 类型 · 语言 · 地区 · 年份）。
  *
- * 刻意**不可聚焦**：它只是"我现在筛的是什么"的说明牌，
- * 所有修改都在筛选浮层里做。这样遥控器就少了一排要按过去的按钮 ——
- * 也顺手躲开了"横向滚动 + 焦点自动滚入"互相抖动那个坑。
+ * 刻意**不可聚焦**：它只是"我现在筛的是什么"的说明，
+ * 所有修改都在筛选浮层里做。一行放不下就省略号，不换行、不顶排版。
  */
 @Composable
 private fun ActiveFilterStrip(
@@ -460,49 +445,19 @@ private fun ActiveFilterStrip(
     modifier: Modifier = Modifier,
 ) {
     val m = rememberTvMetrics()
-    val chips = buildList {
+    val text = buildList {
         if (filter.category != CATEGORY_ALL) add(filter.category)
         addAll(filter.activeParts)
-    }
-    val listState = rememberLazyListState()
+    }.joinToString(" · ").ifBlank { "全部影片" }
 
-    // 条件一变就平滑滚回开头（保证最左、最关心的那一条永远完整可见）
-    LaunchedEffect(chips) {
-        runCatching { listState.animateScrollToItem(0) }
-    }
-
-    LazyRow(
-        state = listState,
+    Text(
+        text = text,
+        color = TextSub.copy(alpha = 0.85f),
+        fontSize = m.sp(15f),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(m.dp(10f)),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (chips.isEmpty()) {
-            item {
-                Text(
-                    text = "全部分类 · 不限语言 / 地区 / 年份",
-                    color = TextSub.copy(alpha = 0.75f),
-                    fontSize = m.sp(15f),
-                    maxLines = 1,
-                )
-            }
-        }
-        items(chips) { label ->
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Panel)
-                    .padding(horizontal = m.dp(16f), vertical = m.dp(8f)),
-            ) {
-                Text(
-                    text = label,
-                    color = TextMain.copy(alpha = 0.85f),
-                    fontSize = m.sp(15f),
-                    maxLines = 1,
-                )
-            }
-        }
-    }
+    )
 }
 
 // ── 海报墙 ───────────────────────────────────────────────────
@@ -585,22 +540,21 @@ private fun PosterGrid(
     }
 
     when {
-        // 还没配置片源 → 引导去设置（这是第一次使用的正常状态，不是错误）
+        // 还没添加资源 → 引导去设置（这是第一次使用的正常状态，不是错误）
         needsSetup -> Box(Modifier.fillMaxSize()) {
             CenterHint(
-                title = "还没有配置影视接口地址",
-                body = "应用不内置任何片源。去「设置」→「扫码配置」，用手机扫一下码，把" +
-                    "你自己的苹果CMS接口地址填进去，这里就会出现内容。" +
-                    "想先看看界面长什么样，在手机上填 demo 即可。",
+                title = "还没有内容",
+                body = "去「设置」里挑一个资源，这里马上就有电影；用手机扫一下码，" +
+                    "也可以填自己收藏的地址。",
                 actionText = "去设置",
                 onAction = onOpenSettings,
             )
         }
 
-        // 接口出错（地址写错 / 站点挂了 / 网络不通）→ 说人话 + 可以重试
+        // 连接出错（地址写错 / 站点挂了 / 网络不通）→ 说人话 + 可以重试
         error != null && movies.isEmpty() -> Box(Modifier.fillMaxSize()) {
             CenterHint(
-                title = "没能取到片源数据",
+                title = "没能取到内容",
                 body = error,
                 actionText = "重试",
                 onAction = onRetry,
@@ -623,9 +577,8 @@ private fun PosterGrid(
 
         movies.isEmpty() -> Box(Modifier.fillMaxSize()) {
             CenterHint(
-                title = "这个筛选下暂时没有片子",
-                body = "换个分类或类型，把语言 / 地区 / 年份放宽一点，" +
-                    "也可以回到「筛选」里把条件点成「全部」。",
+                title = "这里暂时没有片子",
+                body = "换个分类或类型试试，条件放宽一点就有了。",
                 actionText = "重置筛选",
                 onAction = onResetFilters,
             )

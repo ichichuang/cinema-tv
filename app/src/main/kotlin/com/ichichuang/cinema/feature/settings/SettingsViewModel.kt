@@ -37,7 +37,7 @@ sealed interface SourceTest {
     }
 
     data object Testing : SourceTest {
-        override val text: String = "正在连接接口…"
+        override val text: String = "正在连接…"
     }
 
     data class Ok(override val text: String) : SourceTest
@@ -211,18 +211,18 @@ class SettingsViewModel(
         }.getOrDefault(false)
         val enabled = runCatching { settings.activeUrlsNow() }.getOrDefault(emptyList())
         if (!demoMode && enabled.isEmpty()) {
-            return SourceTest.Failed("还没配置接口地址：先「选择片源」或扫码配置")
+            return SourceTest.Failed("还没添加资源：先「选择资源」，或者手机扫码填")
         }
         return try {
             val page = repository.movies(DefaultMovieFilter, page = 1)
             val count = if (page.total > 0) page.total else page.movies.size
             if (page.movies.isEmpty()) {
-                SourceTest.Failed("接口能连上，但一条数据都没有：检查地址是否写全（结尾的 / 别丢）")
+                SourceTest.Failed("连上了，但一条片子都没有：检查一下地址是否写完整")
             } else {
-                val multi = if (enabled.size > 1) "，已汇总 " + enabled.size + " 个源" else ""
+                val multi = if (enabled.size > 1) "，共用了 " + enabled.size + " 个资源" else ""
                 SourceTest.Ok(
                     "已连通：取到 $count 部影片$multi" +
-                        if (page.relaxed) "（本站筛选标注不全，已自动放宽）" else "",
+                        if (page.relaxed) "（标注不全，已放宽筛选）" else "",
                 )
             }
         } catch (e: CancellationException) {
@@ -256,7 +256,7 @@ class SettingsViewModel(
                 it.copy(
                     serverUrl = url,
                     serverMessage = if (url == null) {
-                        "配置服务没能启动：检查电视网络连接后，关掉重开一次"
+                        "没能启动：检查电视网络后，关掉重开一次"
                     } else {
                         "等待手机连接…"
                     },
@@ -280,7 +280,7 @@ class SettingsViewModel(
         _state.update {
             it.copy(
                 test = SourceTest.Testing,
-                serverMessage = "已收到手机配置，正在测试连通性…",
+                serverMessage = "已收到，正在测试…",
             )
         }
         runCatching { settings.setUpdateUrl(updateUrl) }
@@ -307,7 +307,7 @@ class SettingsViewModel(
             ?: _state.value.catalog.firstOrNull { sourceUrlKey(it.url) == sourceUrlKey(target) }?.name
             ?: CinemaSettings.DEFAULT_SOURCE_NAME
         runCatching { settings.rememberSource(name, target) }
-        _state.update { it.copy(serverMessage = "已收到手机的勾选，正在测试…") }
+        _state.update { it.copy(serverMessage = "已收到勾选，正在测试…") }
         val accepted = runCatching { settings.toggleSource(target) }.getOrDefault(false)
         if (!accepted) {
             val msg = "已到上限：最多同时启用 " + CinemaSettings.MAX_ENABLED_SOURCES + " 个，先取消一个再勾"
@@ -324,14 +324,14 @@ class SettingsViewModel(
      * 解析出苹果CMS 片源 → 批量存入保存清单，并自动启用若干（不超过上限）。
      */
     private suspend fun importFromPhone(input: String): PhoneSaveResult {
-        _state.update { it.copy(serverMessage = "正在导入，稍等…（订阅地址多的话要几秒）") }
+        _state.update { it.copy(serverMessage = "正在导入，稍等…") }
         val parsed = runCatching { importer.fromTextOrUrl(input) }.getOrElse { e ->
             val msg = "导入失败：" + (e.message ?: "网络不通")
             _state.update { it.copy(serverMessage = msg) }
             return PhoneSaveResult(false, msg)
         }
         if (parsed.sources.isEmpty()) {
-            val why = parsed.notes.joinToString("；").ifBlank { "没找到能用的苹果CMS 接口" }
+            val why = parsed.notes.joinToString("；").ifBlank { "没找到能用的地址" }
             val msg = "一个都没导入：$why"
             _state.update { it.copy(serverMessage = msg) }
             return PhoneSaveResult(false, msg)
@@ -342,9 +342,9 @@ class SettingsViewModel(
             return PhoneSaveResult(false, msg)
         }
         val msg = buildString {
-            append("已保存 ").append(outcome.added).append(" 个片源")
+            append("已添加 ").append(outcome.added).append(" 个")
             append("，已启用 ").append(outcome.enabled).append(" 个")
-            append("（上限 ").append(CinemaSettings.MAX_ENABLED_SOURCES).append(" 个）")
+            append("（最多同时启用 ").append(CinemaSettings.MAX_ENABLED_SOURCES).append(" 个）")
             if (parsed.notes.isNotEmpty()) append("；").append(parsed.notes.joinToString("；"))
         }
         _state.update { it.copy(serverMessage = msg) }
@@ -357,7 +357,7 @@ class SettingsViewModel(
         return catalog.refresh().fold(
             onSuccess = { list ->
                 _state.update { it.copy(catalog = list, catalogLoading = false, catalogError = null) }
-                PhoneSaveResult(true, "已获取 " + list.size + " 个推荐源，点一下就能用")
+                PhoneSaveResult(true, "已获取 " + list.size + " 条推荐，点一下就能用")
             },
             onFailure = { e ->
                 val msg = friendlyError(e)
@@ -404,7 +404,7 @@ class SettingsViewModel(
     }
 
     private fun friendlyError(e: Throwable): String =
-        "获取推荐源失败：" + (e.message ?: "网络不通，稍后再试")
+        "获取推荐失败：" + (e.message ?: "网络不通，稍后再试")
 
     // ── 缓存 ───────────────────────────────────────────────────
 

@@ -130,9 +130,9 @@ fun FilterSheet(
                     .verticalScroll(rememberScrollState()),
             ) {
                 FilterSection(
-                    title = "分类 · 接口自动生成",
+                    title = "分类",
                     options = listOf(CATEGORY_ALL) + tree.tops,
-                    emptyHint = "等接口连通后，分类会自动出现在这里",
+                    emptyHint = "暂时没有分类",
                     isSelected = { it == draft.category },
                     onSelect = { cat ->
                         // 换分类 → 已经选中的类型如果不在新分类下就落掉（选项以接口为准）
@@ -147,9 +147,9 @@ fun FilterSheet(
                 // 类型 = 当前分类在接口里的**真实下级题材**，可多选：
                 // 点一下选中（高亮）、再点取消；数了多个就是"这几个都要看"
                 FilterSection(
-                    title = "类型 · 接口里的真实题材（可多选）",
+                    title = "类型（可多选）",
                     options = tree.typesFor(draft.category),
-                    emptyHint = "这个分类在接口里没有细分题材（以接口为准）",
+                    emptyHint = "这个分类没有细分",
                     isSelected = { it in draft.types },
                     onSelect = { type ->
                         draft = draft.copy(
@@ -176,14 +176,6 @@ fun FilterSheet(
                     onSelect = { draft = draft.copy(year = it.toFilterValue()) },
                 )
             }
-
-            // ── 底部说明（固定一行）──
-            Text(
-                text = "选好后按「返回」，回到首页立刻生效；这次选择会被记住",
-                color = TextSub,
-                fontSize = m.sp(15f),
-                maxLines = 1,
-            )
         }
     }
 }

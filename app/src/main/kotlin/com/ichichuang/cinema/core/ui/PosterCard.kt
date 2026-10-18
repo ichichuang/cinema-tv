@@ -36,7 +36,7 @@ import java.util.Locale
 /**
  * 海报卡 —— 首页的基础单元，也是全应用"焦点手感"的标准样本。
  *
- * 图片加载统一走 [PosterImage]（内部是 Coil3 + 解码尺寸限制 + 渐变兜底），
+ * 图片加载统一走 [PosterImage]（内部是 Coil3 + 解码尺寸限制 + 深色兜底 + 字块封面识别），
  * 所以这里只管排版、焦点和角标。
  */
 @Composable
@@ -82,7 +82,7 @@ fun PosterCard(
                 .aspectRatio(2f / 3f)
                 .clip(shape),
         ) {
-            // 真实海报（图没到 / 没有图时自动退化成渐变 + 首字，永远不会是灰块）
+            // 真实海报（图没到 / 没有图时是安静的深色块；字块封面会被识别换掉）
             PosterImage(
                 url = movie.posterUrl,
                 title = movie.title,
@@ -101,7 +101,7 @@ fun PosterCard(
                         .padding(horizontal = m.dp(8f), vertical = m.dp(4f)),
                 ) {
                     Text(
-                        text = "★ " + "%.1f".format(Locale.US, movie.score),
+                        text = "%.1f".format(Locale.US, movie.score) + "分",
                         color = Gold,
                         fontSize = m.sp(15f),
                         fontWeight = FontWeight.Bold,

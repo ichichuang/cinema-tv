@@ -495,7 +495,7 @@ class PlayerViewModel(
         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
         PlaybackException.ERROR_CODE_DECODING_FAILED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
-        -> "这台电视解不了这个视频编码（常见于 H.265/AV1 片源）"
+        -> "这台电视解不了这个视频编码（常见于 H.265 / AV1 视频）"
 
         else -> "播放失败（${e.errorCodeName}）"
     }

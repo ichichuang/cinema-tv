@@ -145,16 +145,16 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(m.dp(8f)))
             Text(
-                text = "点「选择片源」一键导入推荐源；想用自己的地址，就扫码在手机上填。",
+                text = "点「选择资源」挑一个；想用自己的地址，就用手机扫码填。",
                 color = TextSub,
                 fontSize = m.sp(16f),
                 maxLines = 1,
             )
             Spacer(Modifier.height(m.dp(22f)))
 
-            // ── 片源（唯一必须由用户提供的东西）────────────────────
+            // ── 资源（唯一必须由用户提供的东西）────────────────────
             SectionCard(appearIndex = 0) {
-                Text("片源", color = TextMain, fontSize = m.sp(20f))
+                Text("资源", color = TextMain, fontSize = m.sp(20f))
                 Spacer(Modifier.height(m.dp(8f)))
 
                 // 第 1 行：源名字 + 地址（固定 26dp 的槽位）
@@ -166,7 +166,7 @@ fun SettingsScreen(
                 ) {
                     if (state.apiBase.isBlank()) {
                         Text(
-                            text = "还没配置 —— 应用不内置任何片源",
+                            text = "还没添加 —— 应用本身不带内容",
                             color = Gold.copy(alpha = 0.9f),
                             fontSize = m.sp(16f),
                             maxLines = 1,
@@ -202,10 +202,10 @@ fun SettingsScreen(
                 ) {
                     Text(
                         text = if (state.sources.isEmpty()) {
-                            "点「选择片源」导入推荐源；想用自己的地址就扫码"
+                            "点「选择资源」挑一个；自己的地址用手机扫码填"
                         } else {
-                            "已保存 " + state.sources.size + " 个源 · 已启用 " +
-                                state.enabledUrls.size + " 个（首页聚合）· 随时可勾选"
+                            "已添加 " + state.sources.size + " 个 · 已启用 " +
+                                state.enabledUrls.size + " 个 · 首页会一起显示"
                         },
                         color = TextSub,
                         fontSize = m.sp(14f),
@@ -217,13 +217,13 @@ fun SettingsScreen(
                 Spacer(Modifier.height(m.dp(16f)))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     GoldButton(
-                        text = "选择片源",
+                        text = "选择资源",
                         focusRequester = pickFocus,
                         onClick = vm::openPicker,
                     )
                     Spacer(Modifier.width(m.dp(14f)))
                     DarkButton(
-                        text = "扫码配置",
+                        text = "手机配置",
                         width = m.dp(170f),
                         focusRequester = scanFocus,
                         onClick = vm::openConfig,
@@ -239,7 +239,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(m.dp(12f)))
                 StatusLine(
                     text = when (val t = state.test) {
-                        SourceTest.Idle -> "从推荐里挑一个、或扫码填自己的；勾选后自动测一次"
+                        SourceTest.Idle -> "选好资源后，会自动测一次连接"
                         else -> t.text
                     },
                     highlight = state.test.passed,
@@ -253,7 +253,7 @@ fun SettingsScreen(
                 Text("首页列表展示", color = TextMain, fontSize = m.sp(20f))
                 Spacer(Modifier.height(m.dp(8f)))
                 Text(
-                    text = "每行显示多少个海报（4–8）· 改完回首页立刻生效",
+                    text = "每行显示几个海报 · 改完回首页立刻生效",
                     color = TextSub,
                     fontSize = m.sp(15f),
                     maxLines = 1,
@@ -276,14 +276,6 @@ fun SettingsScreen(
             // ── 在线更新 ────────────────────────────────────────
             SectionCard(appearIndex = 2) {
                 Text("在线更新", color = TextMain, fontSize = m.sp(20f))
-                Spacer(Modifier.height(m.dp(8f)))
-                Text(
-                    text = state.updateUrl,
-                    color = TextSub,
-                    fontSize = m.sp(15f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
                 Spacer(Modifier.height(m.dp(16f)))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val checking = updateState.phase == UpdatePhase.CHECKING
@@ -311,7 +303,7 @@ fun SettingsScreen(
                         ?: when (updateState.phase) {
                             UpdatePhase.DOWNLOADING ->
                                 "正在下载新版本 ${(updateState.progress * 100).toInt()}%…"
-                            else -> "默认走发布方的 GitHub 地址；连不上时可在手机配置页换成镜像。"
+                            else -> "有新版本会在首页提醒你。"
                         },
                     highlight = updateState.hasUpdate,
                 )
@@ -327,7 +319,7 @@ fun SettingsScreen(
                         Spacer(Modifier.height(m.dp(8f)))
                         Text(
                             text = state.cacheMessage
-                                ?: "海报缓存攒多了会占空间。电视存储紧张时清一下，不影响观看。",
+                                ?: "海报缓存攒多了会占空间，存储紧张时清一下。",
                             color = if (state.cacheMessage != null) Gold.copy(alpha = 0.9f) else TextSub,
                             fontSize = m.sp(15f),
                             maxLines = 1,
@@ -348,7 +340,7 @@ fun SettingsScreen(
                 Text("系统信息", color = TextMain, fontSize = m.sp(20f))
                 Spacer(Modifier.height(m.dp(8f)))
                 Text(
-                    text = "电视的设置里找不到 Android 版本时，看这里。反馈问题时截这一屏即可。",
+                    text = "反馈问题时截这一屏就行。",
                     color = TextSub,
                     fontSize = m.sp(15f),
                     maxLines = 1,
@@ -364,7 +356,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(m.dp(26f)))
             Text(
-                text = "「当前版本 v${updateCenter.currentVersionName}」 · 按遥控器「返回」键回到首页",
+                text = "当前版本 v${updateCenter.currentVersionName}",
                 color = TextSub,
                 fontSize = m.sp(16f),
             )
@@ -487,14 +479,14 @@ private fun SourcePicker(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "选择片源",
+                        text = "选择资源",
                         color = TextMain,
                         fontSize = m.sp(26f),
                         fontWeight = FontWeight.Bold,
                     )
                     Spacer(Modifier.width(m.dp(14f)))
                     Text(
-                        text = "点一下启用 / 取消，可多选（首页聚合）",
+                        text = "点一下启用，再点一下取消，可以多选",
                         color = TextSub,
                         fontSize = m.sp(14f),
                         maxLines = 1,
@@ -520,11 +512,11 @@ private fun SourcePicker(
                     verticalArrangement = Arrangement.spacedBy(m.dp(8f)),
                 ) {
                     if (catalog.isNotEmpty()) {
-                        item(key = "cat-label") { SectionLabel("推荐源 · 实测排行") }
+                        item(key = "cat-label") { SectionLabel("推荐") }
                         itemsIndexed(catalog, key = { _, s -> "c-" + s.url }) { index, source ->
                             SourceRow(
                                 title = source.name,
-                                subtitle = source.info.ifBlank { source.url },
+                                subtitle = source.info.cleanSourceInfo().ifBlank { source.url },
                                 active = isActive(source.url),
                                 modifier = if (index == 0) Modifier.focusRequester(firstRow) else Modifier,
                                 onClick = { onToggle(source.name, source.url) },
@@ -534,8 +526,8 @@ private fun SourcePicker(
                         item(key = "cat-state") {
                             when {
                                 loading -> CatalogStateRow(
-                                    text = "正在获取推荐源…",
-                                    buttonText = "获取推荐源",
+                                    text = "正在获取推荐…",
+                                    buttonText = "获取推荐",
                                     buttonEnabled = false,
                                     focusRequester = retryFocus,
                                     onFetch = onRefresh,
@@ -550,8 +542,8 @@ private fun SourcePicker(
                                 )
 
                                 else -> CatalogStateRow(
-                                    text = "还没获取过推荐源",
-                                    buttonText = "获取推荐源",
+                                    text = "还没获取过推荐",
+                                    buttonText = "获取推荐",
                                     buttonEnabled = true,
                                     focusRequester = retryFocus,
                                     onFetch = onRefresh,
@@ -561,7 +553,7 @@ private fun SourcePicker(
                     }
 
                     if (savedShown.isNotEmpty()) {
-                        item(key = "saved-label") { SectionLabel("已保存的源") }
+                        item(key = "saved-label") { SectionLabel("已添加") }
                         itemsIndexed(savedShown, key = { _, s -> "s-" + s.url }) { index, source ->
                             SourceRow(
                                 title = source.name,
@@ -622,7 +614,14 @@ private fun SourcePicker(
     }
 }
 
-/** 一条源：名字 + 说明（推荐源显示"首选 · 9.9万部 · 565ms"，已保存的显示地址） */
+/**
+ * 清单里的 "3023ms" 只是发布方排序用的数字，界面上不显示（看的人根本不需要毫秒）。
+ * 其余段（首选、16.5万部）原样保留，用 · 拼起来。
+ */
+private fun String.cleanSourceInfo(): String =
+    split("·").map { it.trim() }.filterNot { it.endsWith("ms") }.joinToString(" · ")
+
+/** 一条源：名字 + 说明（推荐里显示"首选 · 16.5万部"，已添加的显示地址） */
 @Composable
 private fun SourceRow(
     title: String,
@@ -685,7 +684,7 @@ private fun SourceRow(
         ) {
             if (active) {
                 Text(
-                    text = "✓ 已启用",
+                    text = "已启用",
                     color = Gold,
                     fontSize = m.sp(14f),
                     fontWeight = FontWeight.SemiBold,
@@ -735,7 +734,7 @@ private fun CatalogStateRow(
         }
         Text(
             text = text,
-            color = if (text.startsWith("获取推荐源失败") || text.startsWith("连不上")) {
+            color = if (text.startsWith("获取推荐失败") || text.startsWith("连不上")) {
                 Gold.copy(alpha = 0.9f)
             } else {
                 TextSub
@@ -821,8 +820,8 @@ private fun ConfigOverlay(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "同一个 WiFi 下，用手机扫码；电脑也可以直接输入下面的网址。" +
-                            "打开就能一键换源，也可以填自己的地址。",
+                        text = "同一个 WiFi，手机扫码打开；电脑也可以输下面的网址。" +
+                            "打开后就能添加资源。",
                         color = TextSub,
                         fontSize = m.sp(14f),
                         lineHeight = m.sp(20f),

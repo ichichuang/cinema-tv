@@ -240,9 +240,9 @@ fun DetailScreen(
     }
 }
 
-/** 一行元信息：★ 8.7 · 2024 · 大陆 · 国语 · 动作 · 120 分钟 */
+/** 一行元信息：评分 8.7 · 2024 · 大陆 · 国语 · 动作 · 120 分钟 */
 private fun metaLine(movie: Movie, detail: MovieDetail?): String = listOfNotNull(
-    movie.score.takeIf { it > 0 }?.let { "★ " + "%.1f".format(Locale.US, it) },
+    movie.score.takeIf { it > 0 }?.let { "评分 " + "%.1f".format(Locale.US, it) },
     movie.year.takeIf { it > 0 }?.toString(),
     (detail?.area?.takeIf { it.isNotBlank() } ?: movie.area.takeIf { it.isNotBlank() }),
     (detail?.lang?.takeIf { it.isNotBlank() } ?: movie.lang.takeIf { it.isNotBlank() }),
@@ -310,13 +310,6 @@ private fun DetailPlayButton(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = "▶",
-            color = Ink,
-            fontSize = m.sp(20f),
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.width(m.dp(12f)))
         Crossfade(
             targetState = label,
             animationSpec = Motion.quick(),
