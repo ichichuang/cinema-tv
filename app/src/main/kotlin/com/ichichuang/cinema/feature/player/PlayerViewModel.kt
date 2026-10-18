@@ -42,6 +42,8 @@ data class PlayerUiState(
     val buffering: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
+    /** 已缓冲到哪（进度条上只"亮"到这里为止，看得见网络状态） */
+    val bufferedMs: Long = 0L,
     val controlsVisible: Boolean = true,
     /** 「播放设置」面板（菜单键呼出）：步长 / 线路 / 选集 */
     val panelVisible: Boolean = false,
@@ -129,7 +131,8 @@ class PlayerViewModel(
             while (true) {
                 val pos = runCatching { player.currentPosition }.getOrDefault(0L)
                 val dur = runCatching { player.duration }.getOrDefault(0L).coerceAtLeast(0L)
-                _state.update { it.copy(positionMs = pos, durationMs = dur) }
+                val buf = runCatching { player.bufferedPosition }.getOrDefault(0L)
+                _state.update { it.copy(positionMs = pos, durationMs = dur, bufferedMs = buf) }
                 if (player.isPlaying && pos - lastSavedMs > 10_000) {
                     lastSavedMs = pos
                     persistProgress()

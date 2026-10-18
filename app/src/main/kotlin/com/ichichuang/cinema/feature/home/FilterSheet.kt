@@ -30,6 +30,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.Motion
@@ -55,6 +60,7 @@ import kotlinx.coroutines.delay
  * 交互约定（按用户真机反馈改过）：
  * - **没有「保存 / 完成」那一行** —— 选好后直接按遥控器「返回」，
  *   回到首页立刻按新条件重筛（这次选择也会被记住）
+ * - 遥控器「菜单」键和「返回」等价：也能"应用并关闭"（首页上菜单键是进浮层的门）
  * - 想重置：每个分区点「全部」；语言点「国语」（默认值）
  */
 @OptIn(ExperimentalLayoutApi::class)
@@ -93,7 +99,17 @@ fun FilterSheet(
             Modifier
                 .fillMaxSize()
                 .background(Ink)
-                .padding(start = m.dp(56f), end = m.dp(56f), top = m.dp(28f), bottom = m.dp(22f)),
+                .padding(start = m.dp(56f), end = m.dp(56f), top = m.dp(28f), bottom = m.dp(22f))
+                .onPreviewKeyEvent { e ->
+                    // 菜单键 = 应用并关闭（和「返回」同一条路）。
+                    // 首页那层用同一个键开门，这里用同一个键收尾 —— 按哪个键进的就按哪个键出。
+                    if (e.type == KeyEventType.KeyDown && e.key == Key.Menu) {
+                        onApply(draft)
+                        true
+                    } else {
+                        false
+                    }
+                },
         ) {
             // ── 标题行（固定高度）：左边标题，右边当前选择的摘要 ──
             Row(

@@ -5,12 +5,14 @@ import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,9 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -35,7 +35,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -52,9 +51,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -79,6 +80,7 @@ import com.ichichuang.cinema.core.design.formatTime
 import com.ichichuang.cinema.core.design.rememberTvMetrics
 import com.ichichuang.cinema.core.focus.tvFocus
 import com.ichichuang.cinema.data.settings.CinemaSettings
+import kotlin.math.abs
 import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
 
@@ -401,12 +403,28 @@ private fun ProgressBar(state: PlayerUiState) {
     } else {
         0f
     }
+    val buffered = if (state.durationMs > 0) {
+        (state.bufferedMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+
     // 位置 500ms 才上报一次，直接跟着跳会"一抽一抽"；
     // 用等长线性插值补上中间的过程，看着才像真的在走。
-    val fraction by animateFloatAsState(
-        targetValue = target,
-        animationSpec = Motion.linear(460),
-        label = "progressFraction",
+    // 大跳变（换集、刚进页面、拖得很远）直接"落"到新位置 —— 不让进度条当众扫一遍。
+    val head = remember { Animatable(target) }
+    LaunchedEffect(target) {
+        if (abs(target - head.value) > 0.5f) {
+            head.snapTo(target)
+        } else {
+            head.animateTo(target, Motion.linear(460))
+        }
+    }
+    // 时长一知道就亮出光点："在看哪儿"从一开始就该看得见
+    val dotAlpha by animateFloatAsState(
+        targetValue = if (state.durationMs > 0) 1f else 0f,
+        animationSpec = Motion.quick(),
+        label = "progressDot",
     )
 
     Column(
@@ -419,66 +437,74 @@ private fun ProgressBar(state: PlayerUiState) {
             )
             .padding(horizontal = m.dp(56f), vertical = m.dp(28f)),
     ) {
-        // 进度轨道：外层占 14 高度，中间 4dp 是金线，多出来的空间留给尖端光点"发光"。
-        // 这一格高度是写死的 —— 光点是纯装饰，任何时候都不会挤动下面的时间行。
-        val dotAlpha by animateFloatAsState(
-            targetValue = if (fraction > 0.012f) 1f else 0f,
-            animationSpec = Motion.quick(),
-            label = "progressDot",
-        )
-        Box(
+        // 进度轨道：整条用 Canvas 画 —— 像素级对齐，不再靠嵌套盒子拼宽度。
+        // 外层 22dp 是写死的槽位：轨道粗细、光晕怎么变都不会顶动下面的时间行。
+        Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(m.dp(14f)),
-            contentAlignment = Alignment.Center,
+                .height(m.dp(22f)),
         ) {
-            // 底座（未播部分）
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(m.dp(4f))
-                    .clip(RoundedCornerShape(m.dp(2f)))
-                    .background(Color.White.copy(alpha = 0.18f)),
+            val cy = size.height / 2f
+            val w = size.width
+            val hpx = m.dp(6f).toPx()          // 轨道粗细（1.5 米外也要看得清）
+            val r = hpx / 2f
+            val coreR = m.dp(4f).toPx()        // 尖端实心点半径
+            val glowR = m.dp(10f).toPx()       // 尖端光晕半径
+
+            // ① 底座（未播部分）
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.14f),
+                topLeft = Offset(0f, cy - r),
+                size = Size(w, hpx),
+                cornerRadius = CornerRadius(r, r),
             )
-            // 已播线 + 尖端光点（这一层刻意不裁剪，光点才能画到金线外面）
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(fraction)
-                    .height(m.dp(14f)),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth()
-                        .height(m.dp(4f))
-                        .clip(RoundedCornerShape(m.dp(2f)))
-                        .background(Gold),
+
+            // ② 已缓冲（"下载到哪了"）—— 比底座亮一档，压在已播线下面
+            val bufW = (w * buffered).coerceIn(0f, w)
+            if (bufW > hpx) {
+                drawRoundRect(
+                    color = Color.White.copy(alpha = 0.24f),
+                    topLeft = Offset(0f, cy - r),
+                    size = Size(bufW, hpx),
+                    cornerRadius = CornerRadius(r, r),
                 )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        // 往右挪半个身位：光点正好"骑"在进度尖上，而不是拖在后面
-                        .offset(x = m.dp(6f))
-                        .size(m.dp(12f))
-                        .graphicsLayer { alpha = dotAlpha }
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(Gold.copy(alpha = 0.95f), Gold.copy(alpha = 0f)),
-                            ),
+            }
+
+            // ③ 已播（金色）—— 极短时画成一颗小圆头，不会"缩没"
+            val headX = (w * head.value).coerceIn(0f, w)
+            if (headX > 0f) {
+                drawRoundRect(
+                    color = Gold,
+                    topLeft = Offset(0f, cy - r),
+                    size = Size(headX.coerceAtLeast(hpx), hpx),
+                    cornerRadius = CornerRadius(r, r),
+                )
+            }
+
+            // ④ 尖端光点：位置夹在轨道两端之内 —— 从头到尾都不会"戳出"边界
+            if (dotAlpha > 0.01f) {
+                val coreCx = headX.coerceIn(coreR, (w - coreR).coerceAtLeast(coreR))
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Gold.copy(alpha = 0.80f * dotAlpha),
+                            Gold.copy(alpha = 0f),
                         ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(
-                        Modifier
-                            .size(m.dp(5f))
-                            .clip(CircleShape)
-                            .background(Gold),
-                    )
-                }
+                        center = Offset(coreCx, cy),
+                        radius = glowR,
+                    ),
+                    radius = glowR,
+                    center = Offset(coreCx, cy),
+                )
+                drawCircle(
+                    color = Gold.copy(alpha = dotAlpha),
+                    radius = coreR,
+                    center = Offset(coreCx, cy),
+                )
             }
         }
 
-        Spacer(Modifier.height(m.dp(12f)))
+        Spacer(Modifier.height(m.dp(6f)))
 
         Row(
             modifier = Modifier.fillMaxWidth(),

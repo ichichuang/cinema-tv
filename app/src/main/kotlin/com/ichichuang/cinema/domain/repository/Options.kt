@@ -29,10 +29,14 @@ val AREA_OPTIONS = listOf(
  */
 
 /**
- * 年份筛选项：只列接口**真能按年筛**的近几年。
+ * 年份筛选项：从今年一直列到 2000（接口的 year 参数原生支持任意具体年份）。
  *
- * 刻意不做"更早"——接口的 year 参数只接受具体年份，"更早"没法表达，
- * 摆出来就是骗用户（点了没反应或者结果不对）。
+ * 为什么是 2000 而不是"更早"：再往前的片子在各站存量极少，
+ * 而接口的 year 参数只接受具体年份，"更早"这种话摆出来就是骗用户
+ * （点了没反应或者结果不对）—— 所以只列真能筛的具体年份。
+ *
+ * 0.9.4 及以前只列"今年往前 5 年"（2026→2021），用户反馈"看不到老片"；
+ * 现在把窗口开到 2000，想看老片（90 年代除外）都有对应年份可选。
  */
 fun yearOptions(currentYear: Int): List<String> =
-    listOf(FILTER_ALL) + (currentYear downTo currentYear - 5).map { it.toString() }
+    listOf(FILTER_ALL) + (currentYear downTo maxOf(2000, currentYear - 40)).map { it.toString() }

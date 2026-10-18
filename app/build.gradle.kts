@@ -23,8 +23,8 @@ android {
         targetSdk = 28
         // ⚠️ 每次发布会话都要 +1 且 versionName 跟着升 —— 在线更新靠 versionCode 判新旧，
         //    忘了加就会出现"下载了新版却提示已是最新"的怪事。
-        versionCode = 14
-        versionName = "0.9.4"
+        versionCode = 15
+        versionName = "0.9.5"
 
         // 只出 32 位，和 FFALCON 65S78A（armeabi-v7a）匹配
         ndk {

@@ -51,6 +51,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import com.ichichuang.cinema.core.design.Gold
@@ -137,7 +142,22 @@ fun HomeScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(Ink),
+            .background(Ink)
+            .onPreviewKeyEvent { e ->
+                // 遥控器「菜单」键：海报翻到再往下也不用一路爬回顶部 ——
+                // 在任何位置按一下菜单键，筛选浮层直接从下往上滑出来。
+                // 浮层开着时把按键让给浮层自己（它用同一个键"应用并关闭"）。
+                if (e.type != KeyEventType.KeyDown || e.key != Key.Menu) {
+                    false
+                } else when {
+                    sheetOpen -> false
+                    updateState.panelOpen -> true
+                    else -> {
+                        sheetOpen = true
+                        true
+                    }
+                }
+            },
     ) {
         // 底层内容：浮层（筛选 / 更新）打开时整块关掉焦点，
         // 否则遥控器会"透过"浮层跑到海报墙上，用户会以为遥控器坏了
