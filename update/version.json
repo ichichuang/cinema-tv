@@ -1,8 +1,8 @@
 {
-    "versionCode":  10,
-    "versionName":  "0.9.0",
-    "apkUrl":  "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.9.0/cinema-tv-0.9.0.apk",
+    "versionCode":  11,
+    "versionName":  "0.9.1",
+    "apkUrl":  "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.9.1/cinema-tv-0.9.1.apk",
     "sizeBytes":  14011535,
-    "notes":  "1. 多片源同时启用：勾选好几个源，首页把各站的电影汇总去重 —— 资源一下子多好几倍\n2. 支持导入 TVBox 配置：扫码配置页新增「导入」，粘贴单仓 / 多仓 JSON 或订阅地址都行\n3. 筛选真正生效：选好直接按「返回」立刻按新条件出片；新增「类型」筛选（喜剧 / 恐怖 / 动作…）\n4. 设置新增「首页列表展示」：每行海报数 4–8 可选，默认 5 个\n5. 修复遥控器下翻可能闪退的问题；翻到接近底部会自动加载更多\n6. 修掉首页海报和播放设置面板在聚焦时被裁掉一条边的问题",
-    "mirrorUrl":  "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.9.0/cinema-tv-0.9.0.apk"
+    "notes":  "1. 全面视觉打磨：设置页五张卡片依次浮入、详情页内容随页面滑入轻轻上浮、有新版时右上角金标轻微呼吸\n2. 播放出错时的「重试 / 换线路」按钮现在按 OK 就能直接按（之前被播放器快捷键抢走，按钮按不动）\n3. 进度条尖端加了一颗金色光点，播放 / 暂停 / 快进快退更跟手\n4. 播放设置面板和选集格子的药丸聚焦时底色会亮起来，焦点在哪一眼可见\n5. 修掉播放设置「线路」列表最左右两边聚焦时可能被裁掉一条边的问题\n6. 多个片源 id 撞号时（极少见），详情页不容易点开\"错的那部片\"",
+    "mirrorUrl":  "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.9.1/cinema-tv-0.9.1.apk"
 }

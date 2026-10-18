@@ -4,6 +4,7 @@ import android.app.Activity
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -24,7 +25,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -32,6 +35,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -50,6 +54,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -176,6 +181,10 @@ fun PlayerScreen(
                     if (state.error == null) vm.togglePanel()
                     return@onPreviewKeyEvent true
                 }
+
+                // ⚠️ 错误浮层盖在上面时，其余按键全部让给浮层（它自己处理方向键和 OK），
+                //    否则根层会抢先消费 OK ——「重试 / 换线路」按钮就成了"按不动"的摆设。
+                if (state.error != null) return@onPreviewKeyEvent false
 
                 // 面板打开时，方向键交给面板自己处理，只保留返回
                 if (state.panelVisible) return@onPreviewKeyEvent false
@@ -410,21 +419,63 @@ private fun ProgressBar(state: PlayerUiState) {
             )
             .padding(horizontal = m.dp(56f), vertical = m.dp(28f)),
     ) {
-        // 进度轨道
+        // 进度轨道：外层占 14 高度，中间 4dp 是金线，多出来的空间留给尖端光点"发光"。
+        // 这一格高度是写死的 —— 光点是纯装饰，任何时候都不会挤动下面的时间行。
+        val dotAlpha by animateFloatAsState(
+            targetValue = if (fraction > 0.012f) 1f else 0f,
+            animationSpec = Motion.quick(),
+            label = "progressDot",
+        )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(m.dp(4f))
-                .clip(RoundedCornerShape(m.dp(2f)))
-                .background(Color.White.copy(alpha = 0.18f)),
+                .height(m.dp(14f)),
+            contentAlignment = Alignment.Center,
         ) {
+            // 底座（未播部分）
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(m.dp(4f))
+                    .clip(RoundedCornerShape(m.dp(2f)))
+                    .background(Color.White.copy(alpha = 0.18f)),
+            )
+            // 已播线 + 尖端光点（这一层刻意不裁剪，光点才能画到金线外面）
             Box(
                 modifier = Modifier
                     .fillMaxWidth(fraction)
-                    .height(m.dp(4f))
-                    .clip(RoundedCornerShape(m.dp(2f)))
-                    .background(Gold),
-            )
+                    .height(m.dp(14f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth()
+                        .height(m.dp(4f))
+                        .clip(RoundedCornerShape(m.dp(2f)))
+                        .background(Gold),
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        // 往右挪半个身位：光点正好"骑"在进度尖上，而不是拖在后面
+                        .offset(x = m.dp(6f))
+                        .size(m.dp(12f))
+                        .graphicsLayer { alpha = dotAlpha }
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(Gold.copy(alpha = 0.95f), Gold.copy(alpha = 0f)),
+                            ),
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .size(m.dp(5f))
+                            .clip(CircleShape)
+                            .background(Gold),
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(m.dp(12f)))
@@ -567,9 +618,10 @@ private fun PlayPanel(
             Spacer(Modifier.height(m.dp(10f)))
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(m.dp(14f)),
-                // 6px 内边距：高亮药丸会微微放大加描边，LazyRow 会在自己的边界处把
-                // 放大出来的部分裁掉 —— 留出这块空间，聚焦时才不会"被切一条边"
-                contentPadding = PaddingValues(vertical = m.dp(6f)),
+                // 内边距：高亮药丸会微微放大加描边，LazyRow 会在**自己的边界**把
+                // 放大出来的部分裁掉 —— 上下各留 6、左右各留 8，
+                // 最边上那颗聚焦时才不会"被切一条边"（和上下裁切是同一类坑）。
+                contentPadding = PaddingValues(horizontal = m.dp(8f), vertical = m.dp(6f)),
             ) {
                 itemsIndexed(state.lines) { index, line ->
                     PanelChip(
@@ -627,7 +679,7 @@ private fun PanelLabel(text: String) {
     }
 }
 
-/** 面板里的胶囊按钮（步长 / 线路共用） */
+/** 面板里的胶囊按钮（步长 / 线路共用）：聚焦时底色亮一档 + 字色提亮，手感与首页药丸一致 */
 @Composable
 private fun PanelChip(
     text: String,
@@ -638,11 +690,31 @@ private fun PanelChip(
     val m = rememberTvMetrics()
     val radius = m.dp(10f)
     val interaction = remember { MutableInteractionSource() }
+    var focused by remember { mutableStateOf(false) }
+    val bg by animateColorAsState(
+        targetValue = when {
+            selected && focused -> Gold.copy(alpha = 0.32f)
+            selected -> Gold.copy(alpha = 0.18f)
+            focused -> Color.White.copy(alpha = 0.14f)
+            else -> Color.White.copy(alpha = 0.06f)
+        },
+        animationSpec = Motion.focus(),
+        label = "panelChipBg",
+    )
+    val fg by animateColorAsState(
+        targetValue = when {
+            selected -> Gold
+            focused -> TextMain
+            else -> TextBody
+        },
+        animationSpec = Motion.quick(),
+        label = "panelChipFg",
+    )
     Box(
         modifier = modifier
-            .tvFocus(radius, interactionSource = interaction)
+            .tvFocus(radius, interactionSource = interaction, onFocusChanged = { focused = it })
             .clip(RoundedCornerShape(radius))
-            .background(if (selected) Gold.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.06f))
+            .background(bg)
             // 电视上没有水波纹（那是手机的语言）：关掉 indication，改由 tvFocus 给按压反馈
             .clickable(
                 interactionSource = interaction,
@@ -652,7 +724,7 @@ private fun PanelChip(
     ) {
         Text(
             text = text,
-            color = if (selected) Gold else TextBody,
+            color = fg,
             fontSize = m.sp(16f),
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
         )
@@ -669,13 +741,27 @@ private fun EpisodeCell(
     val m = rememberTvMetrics()
     val radius = m.dp(10f)
     val interaction = remember { MutableInteractionSource() }
+    var focused by remember { mutableStateOf(false) }
+    val bg by animateColorAsState(
+        targetValue = when {
+            isCurrent && focused -> Gold.copy(alpha = 0.30f)
+            isCurrent -> Gold.copy(alpha = 0.2f)
+            focused -> Color.White.copy(alpha = 0.15f)
+            else -> Color.White.copy(alpha = 0.07f)
+        },
+        animationSpec = Motion.focus(),
+        label = "episodeBg",
+    )
     Box(
         modifier = modifier
-            .tvFocus(radius, borderColor = Gold, interactionSource = interaction)
-            .clip(RoundedCornerShape(radius))
-            .background(
-                if (isCurrent) Gold.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.07f),
+            .tvFocus(
+                radius,
+                borderColor = Gold,
+                interactionSource = interaction,
+                onFocusChanged = { focused = it },
             )
+            .clip(RoundedCornerShape(radius))
+            .background(bg)
             .clickable(
                 interactionSource = interaction,
                 indication = null,
@@ -702,6 +788,15 @@ private fun ErrorOverlay(
     onSwitchLine: () -> Unit,
 ) {
     val m = rememberTvMetrics()
+    val retryFocus = remember { FocusRequester() }
+
+    // 出现即把焦点放到「重试」上：按 OK 就是最该做的那件事，
+    // 遥控器用户不需要"摸黑"先按方向键找按钮
+    LaunchedEffect(Unit) {
+        delay(150)
+        runCatching { retryFocus.requestFocus() }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -730,7 +825,12 @@ private fun ErrorOverlay(
             )
             Spacer(Modifier.height(m.dp(28f)))
             Row(horizontalArrangement = Arrangement.spacedBy(m.dp(16f))) {
-                ActionButton(text = "重试", primary = true, onClick = onRetry)
+                ActionButton(
+                    text = "重试",
+                    primary = true,
+                    focusRequester = retryFocus,
+                    onClick = onRetry,
+                )
                 if (canSwitchLine) {
                     ActionButton(text = "换线路", primary = false, onClick = onSwitchLine)
                 }
@@ -746,12 +846,18 @@ private fun ErrorOverlay(
 }
 
 @Composable
-private fun ActionButton(text: String, primary: Boolean, onClick: () -> Unit) {
+private fun ActionButton(
+    text: String,
+    primary: Boolean,
+    focusRequester: FocusRequester? = null,
+    onClick: () -> Unit,
+) {
     val m = rememberTvMetrics()
     val radius = m.dp(12f)
     val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .tvFocus(
                 cornerRadius = radius,
                 borderColor = if (primary) Color.White.copy(alpha = 0.9f) else Gold,

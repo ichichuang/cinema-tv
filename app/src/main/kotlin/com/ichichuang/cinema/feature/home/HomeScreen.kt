@@ -344,10 +344,23 @@ private fun UpdateBadgeSlot(version: String?, onClick: () -> Unit) {
             enter = fadeIn(Motion.base()),
             exit = fadeOut(Motion.quick()),
         ) {
+            // 金标轻轻"呼吸"（0.82 → 1.0）：像一盏提醒灯，而不是闪烁的广告条。
+            // 只在有新版本时出现，平时这一格什么动画都不跑。
+            val breathe = rememberInfiniteTransition(label = "updateBadge")
+            val glow by breathe.animateFloat(
+                initialValue = 0.82f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1700, easing = Motion.EaseInOut),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "updateBadgeGlow",
+            )
             FilterChip(
                 label = "新版本 ${version.orEmpty()}",
                 selected = true,
                 onClick = onClick,
+                modifier = Modifier.graphicsLayer { alpha = glow },
             )
         }
     }

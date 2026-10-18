@@ -6,8 +6,11 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,6 +48,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -148,7 +152,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(m.dp(22f)))
 
             // ── 片源（唯一必须由用户提供的东西）────────────────────
-            SectionCard {
+            SectionCard(appearIndex = 0) {
                 Text("片源", color = TextMain, fontSize = m.sp(20f))
                 Spacer(Modifier.height(m.dp(8f)))
 
@@ -244,7 +248,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(m.dp(22f)))
 
             // ── 首页列表展示：每行海报数（用户点名要的 4–8 档）────
-            SectionCard {
+            SectionCard(appearIndex = 1) {
                 Text("首页列表展示", color = TextMain, fontSize = m.sp(20f))
                 Spacer(Modifier.height(m.dp(8f)))
                 Text(
@@ -269,7 +273,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(m.dp(22f)))
 
             // ── 在线更新 ────────────────────────────────────────
-            SectionCard {
+            SectionCard(appearIndex = 2) {
                 Text("在线更新", color = TextMain, fontSize = m.sp(20f))
                 Spacer(Modifier.height(m.dp(8f)))
                 Text(
@@ -305,7 +309,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(m.dp(22f)))
 
             // ── 图片缓存：真能清掉的那一项 ──────────────────────
-            SectionCard {
+            SectionCard(appearIndex = 3) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("图片缓存", color = TextMain, fontSize = m.sp(20f))
@@ -329,7 +333,7 @@ fun SettingsScreen(
             // ── 系统信息：国产电视的「关于本机」经常压根不显示 Android 版本
             //    （只有型号/序列号），所以 App 里给一份固定可查的 ——
             //    反馈兼容问题时截这一屏就够，不用来回猜"你那台是什么系统"。
-            SectionCard {
+            SectionCard(appearIndex = 4) {
                 Text("系统信息", color = TextMain, fontSize = m.sp(20f))
                 Spacer(Modifier.height(m.dp(8f)))
                 Text(
@@ -432,8 +436,8 @@ private fun SourcePicker(
 
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(Motion.enter()),
-        exit = fadeOut(Motion.quick()),
+        enter = fadeIn(Motion.enter()) + scaleIn(initialScale = 0.96f, animationSpec = Motion.enter()),
+        exit = fadeOut(Motion.quick()) + scaleOut(targetScale = 0.97f, animationSpec = Motion.quick()),
         modifier = Modifier.fillMaxSize(),
     ) {
         if (visible) BackHandler(onBack = onClose)
@@ -741,8 +745,8 @@ private fun ConfigOverlay(
 
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(Motion.enter()),
-        exit = fadeOut(Motion.quick()),
+        enter = fadeIn(Motion.enter()) + scaleIn(initialScale = 0.96f, animationSpec = Motion.enter()),
+        exit = fadeOut(Motion.quick()) + scaleOut(targetScale = 0.97f, animationSpec = Motion.quick()),
         modifier = Modifier.fillMaxSize(),
     ) {
         if (visible) BackHandler(onBack = onDismiss)
@@ -858,13 +862,31 @@ private fun ConfigOverlay(
     }
 }
 
-/** 一节设置：深色卡片，内部所有行都是固定高度 */
+/**
+ * 一节设置：深色卡片，内部所有行都是固定高度。
+ *
+ * [appearIndex]：进场时依次浮入的序号。页面打开时五张卡片像发牌一样
+ * 一张接一张上来（alpha + 轻微上浮，只走 graphicsLayer，不参与布局，
+ * 任何字号下都不会把版式挤乱）。序号越大出现越晚。
+ */
 @Composable
-private fun SectionCard(content: @Composable () -> Unit) {
+private fun SectionCard(
+    appearIndex: Int = 0,
+    content: @Composable () -> Unit,
+) {
     val m = rememberTvMetrics()
+    val appear = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        delay(appearIndex * 45L)
+        appear.animateTo(1f, Motion.enter())
+    }
     Column(
         Modifier
             .fillMaxWidth()
+            .graphicsLayer {
+                alpha = appear.value
+                translationY = (1f - appear.value) * m.dp(22f).toPx()
+            }
             .clip(RoundedCornerShape(m.dp(16f)))
             .background(Panel)
             .padding(horizontal = m.dp(26f), vertical = m.dp(22f)),

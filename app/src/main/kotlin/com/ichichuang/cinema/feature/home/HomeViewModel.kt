@@ -184,7 +184,10 @@ class HomeViewModel(
      *     先用路由参数把画面顶住，等列表/详情回来再补上真实数据
      */
     fun onDetailOpened(movieId: String, fallbackTitle: String, fallbackPoster: String?) {
-        val known = _state.value.movies.firstOrNull { it.id == movieId }
+        // ⚠️ 多源聚合时同一个数字 id 可能属于不同的站：先按「id + 标题」定位，
+        // 再退回「只按 id」，避免冷启动恢复时把详情拉成另一个源的片（同名 id 撞车）。
+        val known = _state.value.movies.firstOrNull { it.id == movieId && it.title == fallbackTitle }
+            ?: _state.value.movies.firstOrNull { it.id == movieId }
             ?: _state.value.selected?.takeIf { it.id == movieId }
         val movie = known ?: Movie(
             id = movieId,

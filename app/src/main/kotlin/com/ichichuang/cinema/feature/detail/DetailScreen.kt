@@ -3,6 +3,7 @@ package com.ichichuang.cinema.feature.detail
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -89,8 +90,12 @@ fun DetailScreen(
     // 冷启动直接恢复到详情页（进程被杀）时，列表还没回来 —— 让 ViewModel 补一次详情/进度
     LaunchedEffect(movieId) { viewModel.onDetailOpened(movieId, title, posterUrl) }
 
-    // 优先用列表里的完整数据；实在没有就用路由参数把画面顶住（不空白）
-    val movie = state.movies.firstOrNull { it.id == movieId }
+    // 优先用列表里的完整数据；实在没有就用路由参数把画面顶住（不空白）。
+    // ⚠️ 多源聚合时两个站可能有同一个数字 id：先按「id + 标题」找，找不到再单按 id 找 ——
+    // 否则点击 A 源的海报，详情页可能显示 B 源同名 id 的另一部片。
+    val movie = state.movies.firstOrNull { it.id == movieId && it.title == title }
+        ?: state.selected?.takeIf { it.id == movieId && it.title == title }
+        ?: state.movies.firstOrNull { it.id == movieId }
         ?: state.selected?.takeIf { it.id == movieId }
         ?: Movie(
             id = movieId,
@@ -110,6 +115,12 @@ fun DetailScreen(
         delay(220)
         runCatching { playFocus.requestFocus() }
     }
+
+    // 内容"跟着页面上浮"：整页转场负责横向滑入，这一层让文案块轻微上浮 ——
+    // 两层叠起来才是"翻页感"，而不是一块板子平移过来。
+    // 只走 graphicsLayer（alpha + 位移），不参与布局测量，任何字号下都不会挤乱版式。
+    val contentIn = remember { Animatable(0f) }
+    LaunchedEffect(movieId) { contentIn.animateTo(1f, Motion.enter()) }
 
     Box(
         Modifier
@@ -158,11 +169,15 @@ fun DetailScreen(
                 ),
         )
 
-        // ── 主内容：固定版式，绝无滚动 ──
+        // ── 主内容：固定版式，绝无滚动；整体随进入轻微上浮 ──
         Column(
             Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth(0.62f)
+                .graphicsLayer {
+                    alpha = contentIn.value
+                    translationY = (1f - contentIn.value) * m.dp(26f).toPx()
+                }
                 .padding(start = m.dp(56f), bottom = m.dp(46f)),
         ) {
             // 标题行高随内容（标题在进页面时就已经确定，不存在"晚到导致跳动"）
