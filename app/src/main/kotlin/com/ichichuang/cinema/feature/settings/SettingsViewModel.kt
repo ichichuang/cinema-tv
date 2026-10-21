@@ -192,8 +192,19 @@ class SettingsViewModel(
             return
         }
         stopDiagnosticReport()
-        val message = diagnostics.openSettings(target)
-        _state.update { it.copy(diagnosticsMessage = message) }
+        _state.update { it.copy(diagnosticsMessage = "正在重新核对该入口…") }
+        viewModelScope.launch {
+            // 包名、启用、导出和权限都在点击时重新查询；查询不放在 UI 线程。
+            val attempt = withContext(Dispatchers.IO) { diagnostics.openSettings(target) }
+            _state.update { state ->
+                state.copy(
+                    diagnostics = state.diagnostics?.copy(
+                        launchAttempts = state.diagnostics.launchAttempts + attempt,
+                    ),
+                    diagnosticsMessage = attempt.outcome,
+                )
+            }
+        }
     }
 
     fun shareDiagnosticReport() {

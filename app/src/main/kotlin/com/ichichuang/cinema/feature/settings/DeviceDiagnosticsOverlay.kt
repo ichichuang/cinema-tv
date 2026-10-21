@@ -8,7 +8,9 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -70,11 +73,19 @@ internal fun DeviceDiagnosticsOverlay(
     onClose: () -> Unit,
 ) {
     val m = rememberTvMetrics()
-    val tabFocus = remember { List(4) { FocusRequester() } }
+    val tabFocus = remember { List(5) { FocusRequester() } }
     val shareFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
     var sectionId by remember { mutableStateOf("device") }
-    val sections = listOf("device" to "概览", "settings" to "系统入口", "components" to "相关组件", "report" to "报告")
+    val sections = listOf(
+        "device" to "概览",
+        "settings" to "系统入口",
+        "declared" to "设置组件",
+        "components" to "相关组件",
+        "report" to "报告",
+    )
+    // 组件详情默认收起，避免几十上百条声明组件一次铺满电视屏幕。
+    val expandedDetails = remember { mutableStateMapOf<String, Boolean>() }
 
     LaunchedEffect(visible) {
         if (visible) {
@@ -178,6 +189,7 @@ internal fun DeviceDiagnosticsOverlay(
                                     "如何理解结果",
                                     when (sectionId) {
                                         "settings" -> "发现或成功打开入口，不证明页面内容可用。普通 HOME 解析不验证实体遥控器 HOME 键。"
+                                        "declared" -> "按包名读取的声明组件（只读），与标准 Action 发现分开。未返回不等于未安装；声明存在不证明页面可用。只有标准入口和已核对候选提供打开按钮。"
                                         "components" -> "结果仅限本应用可见的相关组件；没有返回结果不等于未安装。权限与启用状态按当前快照显示。"
                                         else -> "这里读取设备公开信息，不会更改系统。报告不包含账号、私密标识或资源地址。"
                                     },
@@ -214,6 +226,40 @@ internal fun DeviceDiagnosticsOverlay(
                                 entry.fields.forEachIndexed { fieldIndex, field ->
                                     item(key = "field-$sectionId-$entryIndex-$fieldIndex") {
                                         DiagnosticValueRow(field.label, field.value)
+                                    }
+                                }
+                                if (entry.details.isNotEmpty()) {
+                                    val detailKey = "$sectionId-$entryIndex"
+                                    val expanded = expandedDetails[detailKey] == true
+                                    item(key = "details-toggle-$detailKey") {
+                                        DiagnosticToggleRow(
+                                            title = "已声明 ${entry.details.size} 个组件",
+                                            hint = if (expanded) {
+                                                "按 OK 收起；以下为只读组件信息"
+                                            } else {
+                                                "按 OK 展开；以下为只读组件信息"
+                                            },
+                                            expanded = expanded,
+                                            onToggle = { expandedDetails[detailKey] = !expanded },
+                                        )
+                                    }
+                                    if (expanded) {
+                                        entry.details.forEachIndexed { detailIndex, detail ->
+                                            item(key = "detail-$detailKey-$detailIndex") {
+                                                Text(
+                                                    text = detail.title,
+                                                    color = TextMain,
+                                                    fontSize = m.sp(15f),
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    modifier = Modifier.fillMaxWidth().padding(top = m.dp(6f)),
+                                                )
+                                            }
+                                            detail.fields.forEachIndexed { fieldIndex, field ->
+                                                item(key = "detail-field-$detailKey-$detailIndex-$fieldIndex") {
+                                                    DiagnosticValueRow(field.label, field.value)
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -272,6 +318,37 @@ private fun DiagnosticValueRow(label: String, value: String) {
         Text(label, color = TextSub, fontSize = m.sp(13f))
         Spacer(Modifier.height(m.dp(4f)))
         Text(value.ifBlank { "未返回" }, color = TextMain, fontSize = m.sp(15f), lineHeight = m.sp(21f))
+    }
+}
+
+/** 声明组件列表的展开/收起；与只读信息行一样可聚焦，不引入新的导航层级。 */
+@Composable
+private fun DiagnosticToggleRow(
+    title: String,
+    hint: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    val m = rememberTvMetrics()
+    val interaction = remember { MutableInteractionSource() }
+    var focused by remember { mutableStateOf(false) }
+    val radius = m.dp(10f)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .tvFocus(radius, scale = 1.02f, interactionSource = interaction, onFocusChanged = { focused = it })
+            .clip(RoundedCornerShape(radius))
+            .background(if (focused) PanelHi else Ink.copy(alpha = 0.45f))
+            .clickable(interactionSource = interaction, indication = null) { onToggle() }
+            .padding(horizontal = m.dp(16f), vertical = m.dp(12f)),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, color = TextMain, fontSize = m.sp(15f), fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(m.dp(12f)))
+            Text(if (expanded) "收起" else "展开", color = Gold, fontSize = m.sp(14f), fontWeight = FontWeight.SemiBold)
+        }
+        Spacer(Modifier.height(m.dp(4f)))
+        Text(hint, color = TextSub, fontSize = m.sp(13f))
     }
 }
 

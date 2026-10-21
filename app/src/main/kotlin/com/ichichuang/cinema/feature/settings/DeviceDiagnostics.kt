@@ -29,22 +29,49 @@ import java.util.TimeZone
 
 data class DiagnosticField(val label: String, val value: String)
 
+enum class DiagnosticLaunchKind {
+    /** 标准 Android 设置 Action；点击时按 Action 重新查询并核对组件。 */
+    STANDARD_ACTION,
+
+    /** 已核对的厂商显式组件（目前仅 TCL 设置主页面候选）；点击时按组件重新查询。 */
+    VENDOR_SETTINGS_MAIN,
+}
+
 data class DiagnosticLaunch(
     val label: String,
     val action: String,
     val packageName: String,
     val className: String,
+    val kind: DiagnosticLaunchKind = DiagnosticLaunchKind.STANDARD_ACTION,
 )
+
+/** 按包名读取到的声明组件；只读信息，只有标准入口和已核对候选会另行提供打开按钮。 */
+data class DiagnosticDetail(val title: String, val fields: List<DiagnosticField>)
 
 data class DiagnosticEntry(
     val title: String,
     val fields: List<DiagnosticField>,
     val launch: DiagnosticLaunch? = null,
+    val details: List<DiagnosticDetail> = emptyList(),
+)
+
+/** 一次由用户点击触发的启动请求；成功只代表系统接受了请求。 */
+data class DiagnosticLaunchAttempt(
+    val attemptedAt: String,
+    val label: String,
+    val component: String,
+    val request: String,
+    val accepted: Boolean,
+    val outcome: String,
 )
 
 data class DiagnosticSection(val id: String, val title: String, val entries: List<DiagnosticEntry>)
 
-data class DeviceDiagnosticsSnapshot(val collectedAt: String, val sections: List<DiagnosticSection>) {
+data class DeviceDiagnosticsSnapshot(
+    val collectedAt: String,
+    val sections: List<DiagnosticSection>,
+    val launchAttempts: List<DiagnosticLaunchAttempt> = emptyList(),
+) {
     /** 仅序列化本次白名单采集结果；不读取设置存储、账号、设备唯一标识或片源。 */
     fun toJson(): String {
         val payload = buildJsonObject {
@@ -68,9 +95,38 @@ data class DeviceDiagnosticsSnapshot(val collectedAt: String, val sections: List
                                             }
                                         }
                                     }
+                                    if (entry.details.isNotEmpty()) {
+                                        putJsonArray("details") {
+                                            entry.details.forEach { detail ->
+                                                addJsonObject {
+                                                    put("title", detail.title)
+                                                    putJsonArray("fields") {
+                                                        detail.fields.forEach { field ->
+                                                            addJsonObject {
+                                                                put("label", field.label)
+                                                                put("value", field.value)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
+                    }
+                }
+            }
+            putJsonArray("launchAttempts") {
+                launchAttempts.forEach { attempt ->
+                    addJsonObject {
+                        put("attemptedAt", attempt.attemptedAt)
+                        put("label", attempt.label)
+                        put("component", attempt.component)
+                        put("request", attempt.request)
+                        put("accepted", attempt.accepted)
+                        put("outcome", attempt.outcome)
                     }
                 }
             }
@@ -90,41 +146,74 @@ class DeviceDiagnostics(context: Context) {
     fun collect(): DeviceDiagnosticsSnapshot {
         val discoveredSettings = settingsActions.flatMap { (title, action) -> settingsEntries(title, action) }
         return DeviceDiagnosticsSnapshot(
-            collectedAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ROOT).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }.format(Date()),
+            collectedAt = nowUtc(),
             sections = listOf(
                 DiagnosticSection("device", "设备与系统", deviceEntries()),
                 DiagnosticSection("settings", "系统设置入口", discoveredSettings + debuggingEntry() + homeEntries() + accessibilityEntries()),
+                DiagnosticSection("declared", "设置应用声明组件", declaredSettingsEntries()),
                 DiagnosticSection("components", "相关组件", relevantPackages.map { (name, title) -> packageEntry(name, title) }),
             ),
         )
     }
 
-    /** 不尝试隐藏 Activity、不回退到任意页面、不请求权限，也不替用户更改设置。 */
-    fun openSettings(target: DiagnosticLaunch): String {
-        if (settingsActions.none { it.second == target.action }) {
-            return "该入口不属于允许查询的系统设置。"
+    /**
+     * 点击时重新核对，不信任快照里的旧状态。
+     * 只允许标准设置 Action 和已核对的 TCL 设置主页面候选；不发出隐藏 Activity、服务或广播。
+     */
+    fun openSettings(target: DiagnosticLaunch): DiagnosticLaunchAttempt {
+        val attemptedAt = nowUtc()
+        val component = "${target.packageName}/${target.className}"
+        val request = when (target.kind) {
+            DiagnosticLaunchKind.STANDARD_ACTION -> "标准 Action：${target.action}"
+            DiagnosticLaunchKind.VENDOR_SETTINGS_MAIN -> "显式组件：ACTION_MAIN"
+        }
+        fun attempt(accepted: Boolean, outcome: String) =
+            DiagnosticLaunchAttempt(attemptedAt, target.label, component, request, accepted, outcome)
+
+        if (target.kind == DiagnosticLaunchKind.STANDARD_ACTION &&
+            settingsActions.none { it.second == target.action }
+        ) {
+            return attempt(false, "该入口不属于允许查询的系统设置；未提交启动请求。")
+        }
+        if (target.kind == DiagnosticLaunchKind.VENDOR_SETTINGS_MAIN &&
+            (target.packageName != TCL_SETTINGS_PACKAGE || target.className != TCL_SETTINGS_MAIN)
+        ) {
+            return attempt(false, "该组件不是已核对候选；未提交启动请求，也没有打开其它页面。")
         }
         return try {
-            val info = querySettings(target.action).firstOrNull {
-                it.packageName == target.packageName && it.name == target.className
-            } ?: return "该入口已不可见，请刷新诊断；没有打开其它页面。"
-            if (!isSystemApp(info.applicationInfo) || !componentState(info, info.permission).canOpen) {
-                return "该入口不是系统应用、未启用、未导出、权限不足或状态未知；没有请求修改权限。"
+            val info = when (target.kind) {
+                DiagnosticLaunchKind.STANDARD_ACTION -> querySettings(target.action).firstOrNull {
+                    it.packageName == target.packageName && it.name == target.className
+                } ?: return attempt(false, "该入口已不可见，请刷新诊断；没有打开其它页面。")
+
+                DiagnosticLaunchKind.VENDOR_SETTINGS_MAIN ->
+                    runCatching {
+                        pm.getActivityInfo(
+                            ComponentName(target.packageName, target.className),
+                            PackageManager.MATCH_DISABLED_COMPONENTS,
+                        )
+                    }.getOrElse {
+                        return attempt(false, "点击时重新查询失败（${safeError(it)}）；没有打开其它页面。")
+                    }
             }
-            context.startActivity(
-                Intent(target.action)
-                    .setComponent(ComponentName(info.packageName, info.name))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-            "已向系统请求打开${target.label}；页面内容和功能是否可用，仍需你在电视上确认。"
+            val state = componentState(info, info.permission)
+            if (!isSystemApp(info.applicationInfo) || !state.canOpen) {
+                return attempt(false, "点击时复核未通过：不是系统应用、未启用、未导出、权限不足或状态未知；没有请求修改权限。")
+            }
+            val intent = when (target.kind) {
+                DiagnosticLaunchKind.STANDARD_ACTION -> Intent(target.action)
+                DiagnosticLaunchKind.VENDOR_SETTINGS_MAIN -> Intent(Intent.ACTION_MAIN)
+            }
+                .setComponent(ComponentName(info.packageName, info.name))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            attempt(true, "已向系统提交打开${target.label}的请求；页面是否出现、内容是否可用，仍需你在电视上确认。")
         } catch (_: ActivityNotFoundException) {
-            "系统没有接受该入口，页面可能已移除或不可用。"
+            attempt(false, "系统没有接受该入口，页面可能已移除或不可用。")
         } catch (_: SecurityException) {
-            "系统拒绝打开该入口；没有请求额外权限或绕过限制。"
+            attempt(false, "系统拒绝打开该入口；没有请求额外权限或绕过限制。")
         } catch (error: Exception) {
-            "打开失败：${safeError(error)}"
+            attempt(false, "打开失败：${safeError(error)}")
         }
     }
 
@@ -211,6 +300,117 @@ class DeviceDiagnostics(context: Context) {
             .distinctBy { ComponentName(it.packageName, it.name) }
             .sortedWith(compareBy({ it.packageName }, { it.name }))
 
+    /** 三个设置包的声明组件 + TCL 主页面候选；与标准 Intent 发现分开呈现。 */
+    private fun declaredSettingsEntries(): List<DiagnosticEntry> =
+        declaredSettingsPackages.map { (name, title) -> settingsPackageEntry(name, title) } +
+            tclSettingsCandidateEntry()
+
+    private fun settingsPackageEntry(packageName: String, title: String): DiagnosticEntry {
+        val result = runCatching {
+            pm.getPackageInfo(
+                packageName,
+                PackageManager.GET_ACTIVITIES or PackageManager.MATCH_DISABLED_COMPONENTS,
+            )
+        }
+        val fields = mutableListOf(
+            DiagnosticField("包名", packageName),
+            DiagnosticField("查询方式", "按包名读取声明组件（GET_ACTIVITIES，含禁用组件）；不是标准 Intent 匹配。"),
+            DiagnosticField("查询状态", "已查询"),
+        )
+        return result.fold(
+            onSuccess = { info ->
+                fields += DiagnosticField("查询结果", "已发现（当前用户范围内可见）。")
+                fields += DiagnosticField("组件版本", "${info.versionName.orEmpty()}（${versionCode(info)}）")
+                val app = info.applicationInfo
+                if (app != null) fields += applicationFields(app)
+                else fields += DiagnosticField("应用状态", "系统未返回应用状态。")
+                val activities = info.activities
+                if (activities == null) {
+                    fields += DiagnosticField("声明组件数量", "系统未返回")
+                    fields += DiagnosticField("说明", "系统没有返回 Activity 列表；不能据此认定该包没有声明组件。")
+                } else {
+                    val distinct = activities
+                        .distinctBy { ComponentName(it.packageName, it.name) }
+                        .sortedWith(compareBy({ it.name }))
+                    fields += DiagnosticField("声明组件数量", distinct.size.toString())
+                    fields += DiagnosticField("其中 Activity 别名", distinct.count { it.targetActivity != null }.toString())
+                    fields += DiagnosticField("读取范围", "包含未导出和已禁用组件；仅记录，不启用、不启动。")
+                }
+                DiagnosticEntry(
+                    title = title,
+                    fields = fields,
+                    details = info.activities.orEmpty()
+                        .distinctBy { ComponentName(it.packageName, it.name) }
+                        .sortedWith(compareBy({ it.name }))
+                        .map { activityDetail(it) },
+                )
+            },
+            onFailure = { error ->
+                fields += DiagnosticField("查询结果", queryResult(error))
+                DiagnosticEntry(title, fields)
+            },
+        )
+    }
+
+    private fun activityDetail(info: ActivityInfo): DiagnosticDetail {
+        val state = componentState(info, info.permission)
+        val aliasTarget = info.targetActivity?.takeIf { it.isNotBlank() }
+        val label = runCatching { info.loadLabel(pm).toString() }.getOrNull().orEmpty()
+        return DiagnosticDetail(
+            title = info.name + if (aliasTarget != null) "（别名）" else "",
+            fields = listOf(
+                DiagnosticField("完整组件名", ComponentName(info.packageName, info.name).flattenToString()),
+                DiagnosticField("类型", if (aliasTarget != null) "Activity 别名" else "Activity"),
+                DiagnosticField("别名目标", aliasTarget ?: "不适用"),
+                DiagnosticField("界面标签", label.ifBlank { "系统未提供" }),
+            ) + state.fields + DiagnosticField("可打开状态", if (state.canOpen && isSystemApp(info.applicationInfo)) {
+                "公开状态允许尝试；但仅标准设置入口和已核对候选提供按钮，本组件只读展示。"
+            } else "非系统应用、未启用、未导出、权限不足或状态未知；只读记录，不提供打开。"),
+        )
+    }
+
+    /** 同平台标识设备的笔记只是线索；必须在本机按显式组件重新查询后才提供按钮。 */
+    private fun tclSettingsCandidateEntry(): DiagnosticEntry {
+        val component = ComponentName(TCL_SETTINGS_PACKAGE, TCL_SETTINGS_MAIN)
+        val result = runCatching {
+            pm.getActivityInfo(component, PackageManager.MATCH_DISABLED_COMPONENTS)
+        }
+        val fields = mutableListOf(
+            DiagnosticField("查询方式", "getActivityInfo 显式组件查询（不是 Intent 解析；解析为空不等于组件不存在）。"),
+            DiagnosticField("候选组件", component.flattenToShortString()),
+            DiagnosticField("候选来源", "Aerial MT5879 设备笔记记录可用 ACTION_MAIN 打开该组件；同平台标识不构成本机验证。"),
+            DiagnosticField("查询状态", "已查询"),
+        )
+        val info = result.getOrNull()
+        if (info == null) {
+            fields += DiagnosticField("查询结果", queryResult(result.exceptionOrNull()))
+            fields += DiagnosticField("可打开状态", "未查询到组件，不提供打开按钮，也不回退到其它页面。")
+            return DiagnosticEntry("TCL 设置主页面候选", fields)
+        }
+        fields += DiagnosticField("查询结果", "已发现（系统返回了该组件）。")
+        val state = componentState(info, info.permission)
+        val label = runCatching { info.loadLabel(pm).toString() }.getOrNull().orEmpty()
+        val canOpen = isSystemApp(info.applicationInfo) && state.canOpen
+        fields += DiagnosticField("界面标签", label.ifBlank { "系统未提供" })
+        fields += state.fields
+        fields += DiagnosticField("可打开状态", if (canOpen) {
+            "公开状态允许提交显式启动请求；请求成功不等于页面出现，也不代表页面包含开发者选项。"
+        } else "不是系统应用、未启用、未导出、权限不足或状态未知；只读记录，不提供打开。")
+        return DiagnosticEntry(
+            title = "TCL 设置主页面候选",
+            fields = fields,
+            launch = if (canOpen) {
+                DiagnosticLaunch(
+                    label = "TCL 设置主页面",
+                    action = Intent.ACTION_MAIN,
+                    packageName = component.packageName,
+                    className = component.className,
+                    kind = DiagnosticLaunchKind.VENDOR_SETTINGS_MAIN,
+                )
+            } else null,
+        )
+    }
+
     private fun debuggingEntry(): DiagnosticEntry {
         fun flag(label: String, key: String): DiagnosticField = readField(label) {
             when (Settings.Global.getString(context.contentResolver, key)) {
@@ -265,7 +465,7 @@ class DeviceDiagnostics(context: Context) {
                 .mapNotNull { it.resolveInfo?.serviceInfo }
                 .filter { it.packageName in relevantPackages }
         }
-        val entries = mutableListOf(DiagnosticEntry("无障碍状态", listOf(
+        val entries = mutableListOf<DiagnosticEntry>(DiagnosticEntry("无障碍状态", listOf(
             readField("系统无障碍是否启用") { yesNo(manager.isEnabled) },
             resultField("相关已识别服务", installed) { "${it.size} 项（仅相关包）" },
             resultField("相关已启用服务", enabled) { "${it.size} 项（仅相关包）" },
@@ -375,6 +575,20 @@ class DeviceDiagnostics(context: Context) {
     private fun versionCode(info: PackageInfo): Long =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else info.versionCode.toLong()
 
+    private fun nowUtc(): String = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ROOT).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }.format(Date())
+
+    /** 包查询结果只保留状态类别，不导出异常详情。 */
+    private fun queryResult(error: Throwable?): String = when (error) {
+        null -> "已发现"
+        is PackageManager.NameNotFoundException -> "未发现或对当前应用不可见"
+        is SecurityException -> "系统拒绝访问（权限或固件限制）"
+        is UnsupportedOperationException -> "系统不支持此公开查询"
+        is IllegalArgumentException -> "系统不接受此查询"
+        else -> "读取失败，结果未知"
+    }
+
     private fun safeError(error: Throwable?): String = when (error) {
         is PackageManager.NameNotFoundException -> "未发现或对当前应用不可见；不能认定未安装。"
         is SecurityException -> "系统拒绝访问（权限或固件限制）。"
@@ -384,11 +598,20 @@ class DeviceDiagnostics(context: Context) {
     }
 
     private companion object {
+        const val TCL_SETTINGS_PACKAGE = "com.tcl.settings"
+        const val TCL_SETTINGS_MAIN = "com.tcl.settings.ui.MainActivity"
+
         val settingsActions = listOf(
+            "系统设置" to Settings.ACTION_SETTINGS,
             "开发者设置" to Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS,
             "无障碍设置" to Settings.ACTION_ACCESSIBILITY_SETTINGS,
             "设备信息" to Settings.ACTION_DEVICE_INFO_SETTINGS,
             "默认桌面设置" to Settings.ACTION_HOME_SETTINGS,
+        )
+        val declaredSettingsPackages = linkedMapOf(
+            "com.tcl.settings" to "TCL 设置",
+            "com.android.settings" to "Android 设置",
+            "com.android.tv.settings" to "Android TV 设置",
         )
         val relevantPackages = linkedMapOf(
             "app.orchard.tv" to "Aerial",
