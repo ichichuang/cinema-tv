@@ -1094,6 +1094,7 @@ internal fun DarkButton(
     width: Dp? = null,
     focusRequester: FocusRequester? = null,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val m = rememberTvMetrics()
     val radius = m.dp(10f)
@@ -1105,7 +1106,7 @@ internal fun DarkButton(
         label = "darkButtonBg",
     )
     Box(
-        Modifier
+        modifier
             .then(if (width != null) Modifier.width(width) else Modifier)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .tvFocus(radius, interactionSource = interaction, onFocusChanged = { focused = it })

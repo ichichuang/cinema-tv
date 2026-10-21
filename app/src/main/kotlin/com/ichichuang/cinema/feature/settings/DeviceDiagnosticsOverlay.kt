@@ -24,16 +24,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +47,11 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.Motion
@@ -56,6 +64,7 @@ import com.ichichuang.cinema.core.design.rememberTvMetrics
 import com.ichichuang.cinema.core.focus.tvFocus
 import com.ichichuang.cinema.core.ui.FilterChip
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** 只读快照与按需分享；系统页面仅从明确的按钮点击打开。 */
 @Composable
@@ -73,22 +82,56 @@ internal fun DeviceDiagnosticsOverlay(
     onClose: () -> Unit,
 ) {
     val m = rememberTvMetrics()
-    val tabFocus = remember { List(5) { FocusRequester() } }
+    val scope = rememberCoroutineScope()
+    val lifecycle = (LocalContext.current as? LifecycleOwner)?.lifecycle
+    val sections = remember {
+        listOf(
+            "device" to "概览",
+            "settings" to "系统入口",
+            "declared" to "设置组件",
+            "components" to "相关组件",
+            "report" to "报告",
+        )
+    }
+    val tabFocus = remember { List(sections.size) { FocusRequester() } }
     val shareFocus = remember { FocusRequester() }
+    val refreshFocus = remember { FocusRequester() }
+    val closeFocus = remember { FocusRequester() }
+    val reportTopFocus = remember { FocusRequester() }
+    val reportStopFocus = remember { FocusRequester() }
+    // 动作行按需请求焦点（复用同一个 key 的 requester），从系统页返回时要找回它。
+    val actionFocus = remember { HashMap<String, FocusRequester>() }
     val listState = rememberLazyListState()
     var sectionId by remember { mutableStateOf("device") }
-    val sections = listOf(
-        "device" to "概览",
-        "settings" to "系统入口",
-        "declared" to "设置组件",
-        "components" to "相关组件",
-        "report" to "报告",
-    )
+    var pendingReturnKey by remember { mutableStateOf<String?>(null) }
     // 组件详情默认收起，避免几十上百条声明组件一次铺满电视屏幕。
     val expandedDetails = remember { mutableStateMapOf<String, Boolean>() }
 
+    val section = snapshot?.sections?.firstOrNull { it.id == sectionId }
+    val rows = buildDiagnosticRows(sectionId, section, loading, message, expandedDetails)
+    val firstFocusableIndex = rows.indexOfFirst { it.focusable }
+    val lastFocusableIndex = rows.indexOfLast { it.focusable }
+    val selectedTabIndex = sections.indexOfFirst { it.first == sectionId }
+    val selectedTabFocus = tabFocus.getOrElse(selectedTabIndex) { tabFocus.first() }
+
+    val refreshEnabled = !loading && !reportLoading
+    val downloadEnabled = snapshot != null && !loading && !reportLoading
+    val stopEnabled = reportUrl != null && !reportLoading
+    // 刷新/下载在加载时会临时禁用；向下离开内容区时必须落在仍然可聚焦的控件上。
+    val firstFooterFocus = when {
+        refreshEnabled -> refreshFocus
+        downloadEnabled -> shareFocus
+        else -> closeFocus
+    }
+    // 从页脚向上回到永远可见的标签行（或报告页仍可用的「关闭分享」）。
+    val footerReturnFocus = when {
+        sectionId == "report" && stopEnabled -> reportStopFocus
+        else -> selectedTabFocus
+    }
+
     LaunchedEffect(visible) {
         if (visible) {
+            pendingReturnKey = null
             sectionId = "device"
             listState.scrollToItem(0)
             delay(Motion.DUR_ENTER.toLong())
@@ -96,6 +139,45 @@ internal fun DeviceDiagnosticsOverlay(
         }
     }
     LaunchedEffect(sectionId) { listState.scrollToItem(0) }
+
+    // 从系统设置页返回：把焦点还给刚刚触发的动作行；动作已消失则回到当前标签。
+    val currentRows by rememberUpdatedState(rows)
+    val currentSectionId by rememberUpdatedState(sectionId)
+    val currentVisible by rememberUpdatedState(visible)
+    DisposableEffect(lifecycle) {
+        val owner = lifecycle
+        if (owner == null) {
+            onDispose { }
+        } else {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event != Lifecycle.Event.ON_RESUME) return@LifecycleEventObserver
+                val key = pendingReturnKey ?: return@LifecycleEventObserver
+                pendingReturnKey = null
+                if (!currentVisible) return@LifecycleEventObserver
+                scope.launch {
+                    // 等一帧，让系统页退出后的重组先完成。
+                    delay(80)
+                    val index = currentRows.indexOfFirst { it.key == key }
+                    if (index >= 0) {
+                        // LazyColumn 的屏幕外项目尚未组合，先滚到它再请求焦点。
+                        runCatching { listState.scrollToItem(index) }
+                        delay(80)
+                    }
+                    val requester = actionFocus[key]
+                    // requestFocus() 在目标尚未挂载时会抛异常；成功返回即已交给该行。
+                    val restored = index >= 0 && requester != null && runCatching {
+                        requester.requestFocus()
+                    }.isSuccess
+                    if (!restored) {
+                        val tabIndex = sections.indexOfFirst { it.first == currentSectionId }
+                        runCatching { tabFocus.getOrElse(tabIndex) { tabFocus.first() }.requestFocus() }
+                    }
+                }
+            }
+            owner.addObserver(observer)
+            onDispose { owner.removeObserver(observer) }
+        }
+    }
 
     AnimatedVisibility(
         visible = visible,
@@ -172,95 +254,67 @@ internal fun DeviceDiagnosticsOverlay(
                                 runCatching { shareFocus.requestFocus() }
                                 onStopReport()
                             },
+                            topFocus = reportTopFocus,
+                            stopFocus = reportStopFocus,
+                            selectedTabFocus = selectedTabFocus,
+                            footerFocus = firstFooterFocus,
+                            stopEnabled = stopEnabled,
                         )
                     } else {
-                        val section = snapshot?.sections?.firstOrNull { it.id == sectionId }
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = m.dp(12f), vertical = m.dp(10f)),
                             verticalArrangement = Arrangement.spacedBy(m.dp(10f)),
                         ) {
-                            if (message != null) {
-                                item(key = "message") { DiagnosticValueRow("最近操作", message) }
-                            }
-                            item(key = "boundary") {
-                                DiagnosticValueRow(
-                                    "如何理解结果",
-                                    when (sectionId) {
-                                        "settings" -> "发现或成功打开入口，不证明页面内容可用。普通 HOME 解析不验证实体遥控器 HOME 键。"
-                                        "declared" -> "按包名读取的声明组件（只读），与标准 Action 发现分开。未返回不等于未安装；声明存在不证明页面可用。只有标准入口和已核对候选提供打开按钮。"
-                                        "components" -> "结果仅限本应用可见的相关组件；没有返回结果不等于未安装。权限与启用状态按当前快照显示。"
-                                        else -> "这里读取设备公开信息，不会更改系统。报告不包含账号、私密标识或资源地址。"
-                                    },
-                                )
-                            }
-                            if (section == null) {
-                                item(key = "empty") {
-                                    DiagnosticValueRow("当前状态", if (loading) "正在读取设备信息…" else "暂无结果，请选择下方「刷新」。")
-                                }
-                            }
-                            section?.entries?.forEachIndexed { entryIndex, entry ->
-                                item(key = "title-$sectionId-$entryIndex") {
-                                    Row(
-                                        Modifier.fillMaxWidth().padding(top = m.dp(4f)),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Text(
-                                            text = entry.title,
-                                            color = Gold,
-                                            fontSize = m.sp(16f),
-                                            fontWeight = FontWeight.SemiBold,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        entry.launch?.let { target ->
-                                            Spacer(Modifier.width(m.dp(16f)))
-                                            DarkButton(
-                                                text = "打开${target.label}",
-                                                enabled = !loading,
-                                                onClick = { onOpenSettings(target) },
-                                            )
-                                        }
-                                    }
-                                }
-                                entry.fields.forEachIndexed { fieldIndex, field ->
-                                    item(key = "field-$sectionId-$entryIndex-$fieldIndex") {
-                                        DiagnosticValueRow(field.label, field.value)
-                                    }
-                                }
-                                if (entry.details.isNotEmpty()) {
-                                    val detailKey = "$sectionId-$entryIndex"
-                                    val expanded = expandedDetails[detailKey] == true
-                                    item(key = "details-toggle-$detailKey") {
-                                        DiagnosticToggleRow(
-                                            title = "已声明 ${entry.details.size} 个组件",
-                                            hint = if (expanded) {
-                                                "按 OK 收起；以下为只读组件信息"
-                                            } else {
-                                                "按 OK 展开；以下为只读组件信息"
-                                            },
-                                            expanded = expanded,
-                                            onToggle = { expandedDetails[detailKey] = !expanded },
-                                        )
-                                    }
-                                    if (expanded) {
-                                        entry.details.forEachIndexed { detailIndex, detail ->
-                                            item(key = "detail-$detailKey-$detailIndex") {
-                                                Text(
-                                                    text = detail.title,
-                                                    color = TextMain,
-                                                    fontSize = m.sp(15f),
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    modifier = Modifier.fillMaxWidth().padding(top = m.dp(6f)),
-                                                )
-                                            }
-                                            detail.fields.forEachIndexed { fieldIndex, field ->
-                                                item(key = "detail-field-$detailKey-$detailIndex-$fieldIndex") {
-                                                    DiagnosticValueRow(field.label, field.value)
-                                                }
-                                            }
-                                        }
-                                    }
+                            itemsIndexed(rows, key = { _, row -> row.key }) { index, row ->
+                                val isFirst = row.focusable && index == firstFocusableIndex
+                                val isLast = row.focusable && index == lastFocusableIndex
+                                val focusUp = if (isFirst) selectedTabFocus else null
+                                val focusDown = if (isLast) firstFooterFocus else null
+                                when (row) {
+                                    is DiagnosticRow.Value -> DiagnosticValueRow(
+                                        label = row.label,
+                                        value = row.value,
+                                        focusUp = focusUp,
+                                        focusDown = focusDown,
+                                    )
+
+                                    is DiagnosticRow.Title -> Text(
+                                        text = row.text,
+                                        color = Gold,
+                                        fontSize = m.sp(16f),
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.fillMaxWidth().padding(top = m.dp(4f)),
+                                    )
+
+                                    is DiagnosticRow.Action -> DiagnosticActionRow(
+                                        target = row.target,
+                                        focusRequester = actionFocus.getOrPut(row.key) { FocusRequester() },
+                                        focusUp = focusUp,
+                                        focusDown = focusDown,
+                                        onActivate = {
+                                            pendingReturnKey = row.key
+                                            onOpenSettings(row.target)
+                                        },
+                                    )
+
+                                    is DiagnosticRow.Toggle -> DiagnosticToggleRow(
+                                        title = row.title,
+                                        hint = row.hint,
+                                        expanded = row.expanded,
+                                        onToggle = { expandedDetails[row.detailKey] = !row.expanded },
+                                        focusUp = focusUp,
+                                        focusDown = focusDown,
+                                    )
+
+                                    is DiagnosticRow.DetailTitle -> Text(
+                                        text = row.text,
+                                        color = TextMain,
+                                        fontSize = m.sp(15f),
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.fillMaxWidth().padding(top = m.dp(6f)),
+                                    )
                                 }
                             }
                         }
@@ -275,17 +329,21 @@ internal fun DeviceDiagnosticsOverlay(
                     DarkButton(
                         text = if (loading) "刷新中…" else "刷新",
                         width = m.dp(160f),
-                        enabled = !loading && !reportLoading,
+                        enabled = refreshEnabled,
+                        focusRequester = refreshFocus,
+                        modifier = Modifier.focusProperties { up = footerReturnFocus },
                         onClick = {
-                            runCatching { tabFocus[sections.indexOfFirst { it.first == sectionId }].requestFocus() }
+                            runCatching { selectedTabFocus.requestFocus() }
                             onRefresh()
+                            scope.launch { runCatching { listState.scrollToItem(0) } }
                         },
                     )
                     DarkButton(
                         text = if (reportLoading) "正在生成…" else "下载报告",
                         width = m.dp(180f),
-                        enabled = snapshot != null && !loading && !reportLoading,
+                        enabled = downloadEnabled,
                         focusRequester = shareFocus,
+                        modifier = Modifier.focusProperties { up = footerReturnFocus },
                         onClick = {
                             sectionId = "report"
                             runCatching { tabFocus.last().requestFocus() }
@@ -293,31 +351,196 @@ internal fun DeviceDiagnosticsOverlay(
                         },
                     )
                     Spacer(Modifier.weight(1f))
-                    DarkButton(text = "关闭", width = m.dp(160f), onClick = onClose)
+                    DarkButton(
+                        text = "关闭",
+                        width = m.dp(160f),
+                        focusRequester = closeFocus,
+                        modifier = Modifier.focusProperties { up = footerReturnFocus },
+                        onClick = onClose,
+                    )
                 }
             }
         }
     }
 }
 
+/** 内容区的可组合行模型：key 同时用于 LazyColumn 与“从系统页返回”的焦点定位。 */
+private sealed interface DiagnosticRow {
+    val key: String
+    val focusable: Boolean
+
+    data class Value(override val key: String, val label: String, val value: String) : DiagnosticRow {
+        override val focusable: Boolean = true
+    }
+
+    data class Title(override val key: String, val text: String) : DiagnosticRow {
+        override val focusable: Boolean = false
+    }
+
+    data class Action(override val key: String, val target: DiagnosticLaunch) : DiagnosticRow {
+        override val focusable: Boolean = true
+    }
+
+    data class Toggle(
+        override val key: String,
+        val title: String,
+        val hint: String,
+        val expanded: Boolean,
+        val detailKey: String,
+    ) : DiagnosticRow {
+        override val focusable: Boolean = true
+    }
+
+    data class DetailTitle(override val key: String, val text: String) : DiagnosticRow {
+        override val focusable: Boolean = false
+    }
+}
+
+private fun buildDiagnosticRows(
+    sectionId: String,
+    section: DiagnosticSection?,
+    loading: Boolean,
+    message: String?,
+    expandedDetails: Map<String, Boolean>,
+): List<DiagnosticRow> = buildList {
+    if (message != null) {
+        add(DiagnosticRow.Value("message", "最近操作", message))
+    }
+    add(DiagnosticRow.Value("boundary", "如何理解结果", boundaryText(sectionId)))
+    if (section == null) {
+        add(
+            DiagnosticRow.Value(
+                "empty",
+                "当前状态",
+                if (loading) "正在读取设备信息…" else "暂无结果，请选择下方「刷新」。",
+            ),
+        )
+    }
+    section?.entries?.forEachIndexed { entryIndex, entry ->
+        add(DiagnosticRow.Title("title-$sectionId-$entryIndex", entry.title))
+        // 打开动作单独占一整行，排在说明字段之前：遥控器上下键能直接落到它。
+        // 加载中不生成动作行，避免把焦点留在即将禁用的控件上。
+        if (entry.launch != null && !loading) {
+            add(DiagnosticRow.Action("action-$sectionId-$entryIndex", entry.launch))
+        }
+        entry.fields.forEachIndexed { fieldIndex, field ->
+            add(DiagnosticRow.Value("field-$sectionId-$entryIndex-$fieldIndex", field.label, field.value))
+        }
+        if (entry.details.isNotEmpty()) {
+            val detailKey = "$sectionId-$entryIndex"
+            val expanded = expandedDetails[detailKey] == true
+            add(
+                DiagnosticRow.Toggle(
+                    key = "details-toggle-$detailKey",
+                    title = "已声明 ${entry.details.size} 个组件",
+                    hint = if (expanded) {
+                        "按 OK 收起；以下为只读组件信息"
+                    } else {
+                        "按 OK 展开；以下为只读组件信息"
+                    },
+                    expanded = expanded,
+                    detailKey = detailKey,
+                ),
+            )
+            if (expanded) {
+                entry.details.forEachIndexed { detailIndex, detail ->
+                    add(DiagnosticRow.DetailTitle("detail-title-$detailKey-$detailIndex", detail.title))
+                    detail.fields.forEachIndexed { fieldIndex, field ->
+                        add(
+                            DiagnosticRow.Value(
+                                "detail-field-$detailKey-$detailIndex-$fieldIndex",
+                                field.label,
+                                field.value,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun boundaryText(sectionId: String): String = when (sectionId) {
+    "settings" -> "发现或成功打开入口，不证明页面内容可用。普通 HOME 解析不验证实体遥控器 HOME 键。"
+    "declared" -> "按包名读取的声明组件（只读），与标准 Action 发现分开。未返回不等于未安装；声明存在不证明页面可用。只有标准入口和已核对候选提供打开按钮。"
+    "components" -> "结果仅限本应用可见的相关组件；没有返回结果不等于未安装。权限与启用状态按当前快照显示。"
+    else -> "这里读取设备公开信息，不会更改系统。报告不包含账号、私密标识或资源地址。"
+}
+
 /** 每一条只读信息都能聚焦；遥控器可带动列表滚动，长值完整换行。 */
 @Composable
-private fun DiagnosticValueRow(label: String, value: String) {
+private fun DiagnosticValueRow(
+    label: String,
+    value: String,
+    focusRequester: FocusRequester? = null,
+    focusUp: FocusRequester? = null,
+    focusDown: FocusRequester? = null,
+) {
     val m = rememberTvMetrics()
     var focused by remember { mutableStateOf(false) }
     val radius = m.dp(10f)
     Column(
         Modifier
             .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .tvFocus(radius, scale = 1.02f, onFocusChanged = { focused = it })
             .clip(RoundedCornerShape(radius))
             .background(if (focused) PanelHi else Ink.copy(alpha = 0.45f))
+            .focusProperties {
+                focusUp?.let { up = it }
+                focusDown?.let { down = it }
+            }
             .focusable()
             .padding(horizontal = m.dp(16f), vertical = m.dp(12f)),
     ) {
         Text(label, color = TextSub, fontSize = m.sp(13f))
         Spacer(Modifier.height(m.dp(4f)))
         Text(value.ifBlank { "未返回" }, color = TextMain, fontSize = m.sp(15f), lineHeight = m.sp(21f))
+    }
+}
+
+/**
+ * 系统设置打开动作：整行、金色强调、只有一个 clickable 焦点目标。
+ * 一次确认键只走一次 onActivate；长按重复不会触发额外点击。
+ */
+@Composable
+private fun DiagnosticActionRow(
+    target: DiagnosticLaunch,
+    focusRequester: FocusRequester?,
+    focusUp: FocusRequester?,
+    focusDown: FocusRequester?,
+    onActivate: () -> Unit,
+) {
+    val m = rememberTvMetrics()
+    val interaction = remember { MutableInteractionSource() }
+    var focused by remember { mutableStateOf(false) }
+    val radius = m.dp(12f)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .tvFocus(radius, scale = 1.02f, interactionSource = interaction, onFocusChanged = { focused = it })
+            .clip(RoundedCornerShape(radius))
+            .background(if (focused) PanelHi else Gold.copy(alpha = 0.14f))
+            .focusProperties {
+                focusUp?.let { up = it }
+                focusDown?.let { down = it }
+            }
+            .clickable(interactionSource = interaction, indication = null) { onActivate() }
+            .padding(horizontal = m.dp(18f), vertical = m.dp(14f)),
+    ) {
+        Text(
+            text = "打开${target.label}",
+            color = Gold,
+            fontSize = m.sp(17f),
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.height(m.dp(4f)))
+        Text(
+            text = "按 OK 提交打开请求；页面是否出现仍需你在电视上确认。",
+            color = TextSub,
+            fontSize = m.sp(13f),
+        )
     }
 }
 
@@ -328,6 +551,9 @@ private fun DiagnosticToggleRow(
     hint: String,
     expanded: Boolean,
     onToggle: () -> Unit,
+    focusRequester: FocusRequester? = null,
+    focusUp: FocusRequester? = null,
+    focusDown: FocusRequester? = null,
 ) {
     val m = rememberTvMetrics()
     val interaction = remember { MutableInteractionSource() }
@@ -336,9 +562,14 @@ private fun DiagnosticToggleRow(
     Column(
         Modifier
             .fillMaxWidth()
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .tvFocus(radius, scale = 1.02f, interactionSource = interaction, onFocusChanged = { focused = it })
             .clip(RoundedCornerShape(radius))
             .background(if (focused) PanelHi else Ink.copy(alpha = 0.45f))
+            .focusProperties {
+                focusUp?.let { up = it }
+                focusDown?.let { down = it }
+            }
             .clickable(interactionSource = interaction, indication = null) { onToggle() }
             .padding(horizontal = m.dp(16f), vertical = m.dp(12f)),
     ) {
@@ -353,9 +584,21 @@ private fun DiagnosticToggleRow(
 }
 
 @Composable
-private fun DiagnosticReport(url: String?, loading: Boolean, message: String?, onStop: () -> Unit) {
+private fun DiagnosticReport(
+    url: String?,
+    loading: Boolean,
+    message: String?,
+    onStop: () -> Unit,
+    topFocus: FocusRequester,
+    stopFocus: FocusRequester,
+    selectedTabFocus: FocusRequester,
+    footerFocus: FocusRequester,
+    stopEnabled: Boolean,
+) {
     val m = rememberTvMetrics()
     val qr = remember(url) { url?.let { runCatching { QrCode.bitmap(it) }.getOrNull() } }
+    // 关闭分享不可用时，最后一条只读行要把下键交给页脚，避免停在报告里出不去。
+    val lastReadOnlyDown = if (stopEnabled) null else footerFocus
     Row(
         Modifier.fillMaxSize().padding(m.dp(12f)),
         horizontalArrangement = Arrangement.spacedBy(m.dp(26f)),
@@ -387,18 +630,40 @@ private fun DiagnosticReport(url: String?, loading: Boolean, message: String?, o
             contentPadding = PaddingValues(m.dp(10f)),
             verticalArrangement = Arrangement.spacedBy(m.dp(10f)),
         ) {
-            item {
+            item(key = "report-url") {
                 DiagnosticValueRow(
-                    "同一 Wi-Fi · 手机扫码 / Mac 浏览器输入",
-                    url ?: if (loading) "正在创建只读下载地址…" else "点击下方「下载报告」后显示地址。",
+                    label = "同一 Wi-Fi · 手机扫码 / Mac 浏览器输入",
+                    value = url ?: if (loading) "正在创建只读下载地址…" else "点击下方「下载报告」后显示地址。",
+                    focusRequester = topFocus,
+                    focusUp = selectedTabFocus,
                 )
             }
-            item {
-                DiagnosticValueRow("分享有效期", "链接 5 分钟后失效；关闭分享或诊断也会立即失效。仅可下载这次诊断报告。")
+            item(key = "report-validity") {
+                DiagnosticValueRow(
+                    label = "分享有效期",
+                    value = "链接 5 分钟后失效；关闭分享或诊断也会立即失效。仅可下载这次诊断报告。",
+                    // 只有它确实是最后一条只读行时才显式下跳，避免跳过状态行。
+                    focusDown = if (message == null) lastReadOnlyDown else null,
+                )
             }
-            if (message != null) item { DiagnosticValueRow("当前状态", message) }
-            item {
-                DarkButton(text = "关闭分享", width = m.dp(170f), enabled = url != null && !loading, onClick = onStop)
+            if (message != null) {
+                item(key = "report-message") {
+                    DiagnosticValueRow(
+                        label = "当前状态",
+                        value = message,
+                        focusDown = lastReadOnlyDown,
+                    )
+                }
+            }
+            item(key = "report-stop") {
+                DarkButton(
+                    text = "关闭分享",
+                    width = m.dp(170f),
+                    enabled = stopEnabled,
+                    focusRequester = stopFocus,
+                    modifier = Modifier.focusProperties { if (stopEnabled) down = footerFocus },
+                    onClick = onStop,
+                )
             }
         }
     }

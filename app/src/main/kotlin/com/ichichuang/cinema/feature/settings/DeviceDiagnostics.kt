@@ -300,10 +300,13 @@ class DeviceDiagnostics(context: Context) {
             .distinctBy { ComponentName(it.packageName, it.name) }
             .sortedWith(compareBy({ it.packageName }, { it.name }))
 
-    /** 三个设置包的声明组件 + TCL 主页面候选；与标准 Intent 发现分开呈现。 */
+    /**
+     * TCL 主页面候选放在最前：它是本页唯一可直接打开的厂商页面，
+     * 不能被三个包的长时间声明组件列表埋在后面。其余包仍按原顺序只读展示。
+     */
     private fun declaredSettingsEntries(): List<DiagnosticEntry> =
-        declaredSettingsPackages.map { (name, title) -> settingsPackageEntry(name, title) } +
-            tclSettingsCandidateEntry()
+        listOf(tclSettingsCandidateEntry()) +
+            declaredSettingsPackages.map { (name, title) -> settingsPackageEntry(name, title) }
 
     private fun settingsPackageEntry(packageName: String, title: String): DiagnosticEntry {
         val result = runCatching {
