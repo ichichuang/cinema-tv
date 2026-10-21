@@ -14,6 +14,8 @@ import com.ichichuang.cinema.domain.model.DefaultMovieFilter
 import com.ichichuang.cinema.domain.repository.MovieRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -76,6 +78,12 @@ data class SettingsUiState(
     val serverMessage: String? = null,
     /** 清缓存的反馈（"已清掉 32.4 MB 缓存"） */
     val cacheMessage: String? = null,
+    val diagnosticsOpen: Boolean = false,
+    val diagnosticsLoading: Boolean = false,
+    val diagnostics: DeviceDiagnosticsSnapshot? = null,
+    val diagnosticsMessage: String? = null,
+    val diagnosticReportUrl: String? = null,
+    val diagnosticReportLoading: Boolean = false,
 )
 
 /**
@@ -99,6 +107,12 @@ class SettingsViewModel(
 
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
+
+    private val diagnostics = DeviceDiagnostics(context.applicationContext)
+    private var diagnosticsJob: Job? = null
+    private var diagnosticsGeneration = 0
+    private var reportJob: Job? = null
+    private var reportServer: ConfigServer? = null
 
     private val server = ConfigServer(
         onSave = { apiBase, updateUrl -> applyFromPhone(apiBase, updateUrl) },
@@ -132,6 +146,103 @@ class SettingsViewModel(
             val cached = catalog.cached()
             if (cached.isNotEmpty()) _state.update { it.copy(catalog = cached) }
         }
+    }
+
+    // ── 设备诊断：只读快照，与片源、播放及存储配置无关 ──────────
+
+    fun openDiagnostics() {
+        if (_state.value.diagnosticsOpen) return
+        _state.update { it.copy(diagnosticsOpen = true, diagnosticsMessage = null) }
+        refreshDiagnostics()
+    }
+
+    fun refreshDiagnostics() {
+        if (!_state.value.diagnosticsOpen || _state.value.diagnosticsLoading) return
+        stopDiagnosticReport()
+        val generation = ++diagnosticsGeneration
+        _state.update { it.copy(diagnosticsLoading = true, diagnosticsMessage = null) }
+        diagnosticsJob = viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching { diagnostics.collect() } }
+            if (generation != diagnosticsGeneration || !_state.value.diagnosticsOpen) return@launch
+            _state.update {
+                it.copy(
+                    diagnosticsLoading = false,
+                    diagnostics = result.getOrNull() ?: it.diagnostics,
+                    diagnosticsMessage = if (result.isFailure) "这次未能读取设备信息，请稍后刷新" else null,
+                )
+            }
+        }
+    }
+
+    fun closeDiagnostics() {
+        diagnosticsGeneration++
+        diagnosticsJob?.cancel()
+        diagnosticsJob = null
+        stopDiagnosticReport()
+        _state.update {
+            it.copy(diagnosticsOpen = false, diagnosticsLoading = false, diagnostics = null, diagnosticsMessage = null)
+        }
+    }
+
+    fun openDiagnosticSettings(target: DiagnosticLaunch) {
+        val current = _state.value
+        if (!current.diagnosticsOpen || current.diagnosticsLoading) return
+        if (current.diagnostics?.sections?.any { section -> section.entries.any { it.launch == target } } != true) {
+            _state.update { it.copy(diagnosticsMessage = "入口不属于当前诊断结果，请刷新后重试") }
+            return
+        }
+        stopDiagnosticReport()
+        val message = diagnostics.openSettings(target)
+        _state.update { it.copy(diagnosticsMessage = message) }
+    }
+
+    fun shareDiagnosticReport() {
+        val current = _state.value
+        val snapshot = current.diagnostics ?: return
+        if (!current.diagnosticsOpen || current.diagnosticsLoading || current.diagnosticReportLoading ||
+            current.diagnosticReportUrl != null
+        ) return
+
+        val server = ConfigServer.forDiagnosticReport(snapshot.toJson())
+        reportServer = server
+        _state.update { it.copy(diagnosticReportLoading = true, diagnosticsMessage = null) }
+        reportJob = viewModelScope.launch {
+            try {
+                val url = withContext(Dispatchers.IO) { runCatching { server.start() }.getOrNull() }
+                if (reportServer !== server || !_state.value.diagnosticsOpen) return@launch
+                _state.update {
+                    it.copy(
+                        diagnosticReportLoading = false,
+                        diagnosticReportUrl = url,
+                        diagnosticsMessage = if (url == null) "未找到可用的局域网地址，请检查电视网络后重试" else null,
+                    )
+                }
+                if (url != null) {
+                    // 短间隔检查包含待机时长的时钟；唤醒后及时收回已过期的二维码。
+                    while (server.reportRemainingMillis() > 0L) {
+                        delay(minOf(1_000L, server.reportRemainingMillis().coerceAtLeast(1L)))
+                    }
+                    if (reportServer === server) {
+                        _state.update { it.copy(diagnosticsMessage = "下载链接已过期，需要时可重新生成") }
+                    }
+                }
+            } finally {
+                server.stop()
+                if (reportServer === server) {
+                    reportServer = null
+                    _state.update { it.copy(diagnosticReportUrl = null, diagnosticReportLoading = false) }
+                }
+            }
+        }
+    }
+
+    fun stopDiagnosticReport() {
+        val closing = reportServer
+        reportServer = null
+        reportJob?.cancel()
+        reportJob = null
+        closing?.stop()
+        _state.update { it.copy(diagnosticReportUrl = null, diagnosticReportLoading = false) }
     }
 
     // ── 片源选择（一键导入）─────────────────────────────────────
@@ -427,5 +538,6 @@ class SettingsViewModel(
     override fun onCleared() {
         // 离开设置页（或应用退出）就关掉配置服务：平时不监听任何端口
         server.stop()
+        stopDiagnosticReport()
     }
 }

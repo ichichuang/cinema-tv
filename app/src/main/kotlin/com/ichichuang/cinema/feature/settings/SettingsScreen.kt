@@ -99,12 +99,14 @@ fun SettingsScreen(
     val state by vm.state.collectAsState()
     val updateState by updateCenter.state.collectAsState()
 
-    val overlayOpen = updateState.panelOpen || state.configOpen || state.pickerOpen
+    val overlayOpen = updateState.panelOpen || state.configOpen || state.pickerOpen || state.diagnosticsOpen
 
     val pickFocus = remember { FocusRequester() }
     val scanFocus = remember { FocusRequester() }
+    val diagnosticsFocus = remember { FocusRequester() }
     var pickWasOpen by remember { mutableStateOf(false) }
     var configWasOpen by remember { mutableStateOf(false) }
+    var diagnosticsWasOpen by remember { mutableStateOf(false) }
 
     // 浮层关掉后把焦点还给"打开它的那个按钮"（遥控器用户从哪进去回哪去）
     LaunchedEffect(state.pickerOpen) {
@@ -123,6 +125,15 @@ fun SettingsScreen(
             configWasOpen = false
             delay(80)
             runCatching { scanFocus.requestFocus() }
+        }
+    }
+    LaunchedEffect(state.diagnosticsOpen) {
+        if (state.diagnosticsOpen) {
+            diagnosticsWasOpen = true
+        } else if (diagnosticsWasOpen) {
+            diagnosticsWasOpen = false
+            delay(Motion.DUR_FAST.toLong())
+            runCatching { diagnosticsFocus.requestFocus() }
         }
     }
 
@@ -352,6 +363,13 @@ fun SettingsScreen(
                     fontSize = m.sp(16f),
                     lineHeight = m.sp(26f),
                 )
+                Spacer(Modifier.height(m.dp(16f)))
+                GoldButton(
+                    text = "设备诊断",
+                    width = m.dp(170f),
+                    focusRequester = diagnosticsFocus,
+                    onClick = vm::openDiagnostics,
+                )
             }
 
             Spacer(Modifier.height(m.dp(26f)))
@@ -382,6 +400,20 @@ fun SettingsScreen(
             message = state.serverMessage,
             passed = state.test.passed,
             onDismiss = vm::closeConfig,
+        )
+
+        DeviceDiagnosticsOverlay(
+            visible = state.diagnosticsOpen,
+            loading = state.diagnosticsLoading,
+            snapshot = state.diagnostics,
+            message = state.diagnosticsMessage,
+            reportUrl = state.diagnosticReportUrl,
+            reportLoading = state.diagnosticReportLoading,
+            onRefresh = vm::refreshDiagnostics,
+            onOpenSettings = vm::openDiagnosticSettings,
+            onShareReport = vm::shareDiagnosticReport,
+            onStopReport = vm::stopDiagnosticReport,
+            onClose = vm::closeDiagnostics,
         )
 
         // 更新浮层（和有新版时的下载/安装流程共用同一套界面）
@@ -1056,7 +1088,7 @@ private fun GoldButton(
 
 /** 次要按钮：深底、不抢视线（设置页里除「选择片源」以外的动作都用它） */
 @Composable
-private fun DarkButton(
+internal fun DarkButton(
     text: String,
     enabled: Boolean = true,
     width: Dp? = null,

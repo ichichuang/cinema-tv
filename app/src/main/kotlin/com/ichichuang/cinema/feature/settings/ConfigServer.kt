@@ -1,5 +1,6 @@
 package com.ichichuang.cinema.feature.settings
 
+import android.os.SystemClock
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
@@ -13,6 +14,7 @@ import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.UUID
 
 /** 手机点「保存」之后的结果：电视那边测通了没有 + 给手机看的人话 */
 data class PhoneSaveResult(val ok: Boolean, val message: String)
@@ -40,6 +42,7 @@ class ConfigServer(
     private val onSourcesPayload: suspend () -> String,
     private val onRefreshCatalog: suspend () -> PhoneSaveResult,
     private val port: Int = PORT_START,
+    private val diagnosticReport: ByteArray? = null,
 ) {
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -50,16 +53,29 @@ class ConfigServer(
     @Volatile
     private var currentUrl: String? = null
 
+    private val diagnosticPath = diagnosticReport?.let {
+        "/diagnostics/${UUID.randomUUID().toString().replace("-", "")}/device-report.json"
+    }
+    @Volatile
+    private var reportActive = false
+    private var reportStartedAt = 0L
+
     /** 起服务；成功返回给用户看的网址（含局域网 IP），失败返回 null */
+    @Synchronized
     fun start(): String? {
         if (thread != null) return currentUrl
+
+        // 报告只提供局域网下载；没有可用地址时不展示无法从 Mac 访问的回环网址。
+        val reportAddress = if (diagnosticReport != null) lanIpv4() ?: return null else null
 
         val bound = (port until port + PORT_TRIES).firstNotNullOfOrNull { candidate ->
             runCatching { ServerSocket(candidate) }.getOrNull()
         } ?: return null
 
         socket = bound
-        currentUrl = "http://${lanIpv4() ?: "127.0.0.1"}:${bound.localPort}/"
+        currentUrl = "http://${reportAddress ?: lanIpv4() ?: "127.0.0.1"}:${bound.localPort}${diagnosticPath ?: "/"}"
+        reportStartedAt = SystemClock.elapsedRealtime()
+        reportActive = diagnosticReport != null
         thread = Thread({ acceptLoop(bound) }, "cinema-config-server").apply {
             isDaemon = true
             start()
@@ -67,13 +83,20 @@ class ConfigServer(
         return currentUrl
     }
 
+    @Synchronized
     fun stop() {
+        reportActive = false
         val closing = socket
         socket = null
         thread = null
         currentUrl = null
         runCatching { closing?.close() }
     }
+
+    /** 包含电视待机时长，唤醒后不会给旧链接额外五分钟。 */
+    fun reportRemainingMillis(): Long =
+        if (reportActive) (REPORT_LIFETIME_MILLIS - (SystemClock.elapsedRealtime() - reportStartedAt)).coerceAtLeast(0L)
+        else 0L
 
     // ── 内部 ───────────────────────────────────────────────────
 
@@ -101,14 +124,25 @@ class ConfigServer(
         val method = parts.getOrNull(0).orEmpty()
         val path = parts.getOrNull(1).orEmpty().substringBefore('?').ifEmpty { "/" }
 
-        val length = headers["content-length"]?.toIntOrNull() ?: 0
-        val body = if (length in 1..MAX_BODY) readExact(input, length) else ByteArray(0)
-
         // 只认局域网（电视和手机在同一个 WiFi 下）；公网/奇怪来源一律挡掉
         if (!isLocal(client.inetAddress)) {
             respond(client, 403, TYPE_TEXT, "仅限局域网访问".toByteArray(Charsets.UTF_8))
             return
         }
+
+        // 独立报告会话仅允许读这份快照，不暴露配置页、片源接口或任何写接口。
+        if (diagnosticReport != null) {
+            val valid = reportRemainingMillis() > 0L
+            if (valid && method == "GET" && path == diagnosticPath) {
+                respond(client, 200, TYPE_JSON, diagnosticReport, download = true)
+            } else {
+                respond(client, 404, TYPE_TEXT, "下载链接已关闭、过期或不存在".toByteArray(Charsets.UTF_8))
+            }
+            return
+        }
+
+        val length = headers["content-length"]?.toIntOrNull() ?: 0
+        val body = if (length in 1..MAX_BODY) readExact(input, length) else ByteArray(0)
 
         when {
             method == "GET" && (path == "/" || path == "/index.html") ->
@@ -269,7 +303,7 @@ class ConfigServer(
         return out
     }
 
-    private fun respond(client: Socket, code: Int, contentType: String, body: ByteArray) {
+    private fun respond(client: Socket, code: Int, contentType: String, body: ByteArray, download: Boolean = false) {
         val status = when (code) {
             200 -> "OK"
             204 -> "No Content"
@@ -282,6 +316,10 @@ class ConfigServer(
             append("Content-Type: ").append(contentType).append("\r\n")
             append("Content-Length: ").append(body.size).append("\r\n")
             append("Cache-Control: no-store\r\n")
+            if (download) {
+                append("Content-Disposition: attachment; filename=\"cinema-tv-device-diagnostics.json\"\r\n")
+                append("X-Content-Type-Options: nosniff\r\n")
+            }
             append("Connection: close\r\n")
             append("\r\n")
         }
@@ -339,15 +377,27 @@ class ConfigServer(
         .replace("\"", "&quot;")
         .replace("'", "&#39;")
 
-    private companion object {
-        const val PORT_START = 8899
-        const val PORT_TRIES = 12
-        const val MAX_HEADER = 16 * 1024
+    companion object {
+        const val REPORT_LIFETIME_MILLIS = 5 * 60 * 1000L
+
+        /** 复用 HTTP 和局域网能力；此实例在路由层完全隔离配置读写。 */
+        fun forDiagnosticReport(report: String): ConfigServer = ConfigServer(
+            onSave = { _, _ -> PhoneSaveResult(false, "只读报告") },
+            onToggle = { PhoneSaveResult(false, "只读报告") },
+            onImport = { PhoneSaveResult(false, "只读报告") },
+            onSourcesPayload = { "{}" },
+            onRefreshCatalog = { PhoneSaveResult(false, "只读报告") },
+            diagnosticReport = report.toByteArray(Charsets.UTF_8),
+        )
+
+        private const val PORT_START = 8899
+        private const val PORT_TRIES = 12
+        private const val MAX_HEADER = 16 * 1024
         /** 导入 TVBox 配置时请求体可能是几十上百 KB 的 JSON，留够（电视内存一次 0.5MB 无压力） */
-        const val MAX_BODY = 512 * 1024
-        const val TYPE_HTML = "text/html; charset=utf-8"
-        const val TYPE_JSON = "application/json; charset=utf-8"
-        const val TYPE_TEXT = "text/plain; charset=utf-8"
+        private const val MAX_BODY = 512 * 1024
+        private const val TYPE_HTML = "text/html; charset=utf-8"
+        private const val TYPE_JSON = "application/json; charset=utf-8"
+        private const val TYPE_TEXT = "text/plain; charset=utf-8"
 
         /**
          * 内嵌的配置页。
@@ -355,7 +405,7 @@ class ConfigServer(
          * ⚠️ 这是 Kotlin 原始字符串：里面**不能出现美元符号**（会被当成模板变量），
          *    所以 JS 一律用字符串拼接，不用模板字符串。改动前先搜一遍 "$"。
          */
-        val HTML_PAGE = """
+        private val HTML_PAGE = """
 <!doctype html>
 <html lang="zh-CN">
 <head>
