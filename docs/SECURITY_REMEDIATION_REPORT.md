@@ -7,7 +7,7 @@
 - GitHub 源仓库核对为 private。旧发布工作流 `387692952` 在管理端禁用并读回 `disabled_manually`；普通验证工作流保持启用。仓库 secrets 列表及 environments 均为空；普通 CI 只有 read 权限、action 使用固定提交、没有 APK 上传/发布步骤。
 - 在更新本地 checkout 之前，将旧签名库、含凭据的历史配置与经验证的 Git bundle 放入仓库外的 AES-256 加密恢复归档；从维护者 macOS 钥匙串取回恢复口令，实际解密、逐项比对，并在内存中取回旧私钥验证恢复能力；没有执行签名。没有打印私钥或口令。该归档仍在本机，不能等同离线备份。
 - 更新校验拆出可执行 JVM 测试的策略、解析与文件生命周期单元：拒绝空包、错包名、错清单版本、同版本重放、降级、缺失/畸形/不完整 signer 集；缓存同样重验大小与可选摘要；校验/查包失败删除文件，下载失败/取消/重命名失败清理 `.part`，同一 updater 串行写文件。旧清单及别名仍兼容。
-- 更新专用客户端禁止 HTTPS 跨协议重定向，媒体客户端和用户 HTTP 片源保持原行为。既有 HTTP 更新地址仍接受；可选 `sha256` 只是完整性检查，未认证清单及受损旧密钥仍是未关闭风险。
+- 更新专用客户端在每一跳仅拒绝 HTTPS → HTTP 降级并关闭响应，仍允许 HTTP → HTTPS 升级和同协议跳转；媒体客户端和用户 HTTP 片源保持原行为。既有 HTTP 更新地址仍接受；可选 `sha256` 只是完整性检查，未认证清单及受损旧密钥仍是未关闭风险。
 - 根据本轮实际 Lint 输出修复 9 个错误：API 24/25 避免访问 HARDWARE 位图常量；两处 FocusRequester 缓存使用 remember；播放器明确 Media3 unstable API 使用，并通过 LocalActivity 获取 Activity。没有界面改版、SDK/依赖降版、Lint baseline 或规则放宽。
 - 普通 CI 增加 debug 完整组装及 release Lint，读取实际 JUnit XML 数量；推荐源发布脚本也拒绝执行。贡献构建脚本改用已有环境配置，保留自动 APK 检查并传播失败；去除个人路径。依赖共享许可资源改为配置合并；实际 APK 含 8 份 AndroidX LICENSE 文本，AL2.0/LGPL2.1 同名资源未出现，完整 notices 仍待核对。
 
@@ -33,12 +33,12 @@
 | 命令/证据 | 本轮结果 |
 | --- | --- |
 | `python3 -m unittest discover -s scripts/tests -v` | 22 项通过；含导出、index 与 URL userinfo 规则测试 |
-| 更新回归 RED | 16 项 artifact 测试中 7 项先失败；5 项解析测试中 3 项先失败。修复后全套通过 |
-| `:app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintRelease :app:testDebugUnitTest` | 本地完整命令成功；44 项 JVM 测试，0 failure/error/skip；Lint 0 errors、每种 variant 19 warnings，hint 仍报告 |
+| 更新回归 RED | 16 项 artifact 测试中 7 项先失败；5 项解析测试中 3 项先失败。修复后全套通过；另以本机回环复现了 HTTP → HTTPS 被误阻断，补充 3 项传输策略测试 |
+| `:app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintRelease :app:testDebugUnitTest` | 本地完整命令成功；47 项 JVM 测试，0 failure/error/skip；Lint 0 errors、每种 variant 19 warnings，hint 仍报告 |
 | `help -Pcinema.enableReleaseSigning=true` | 非零退出并出现明确 freeze 原因，符合预期拒绝 |
 | aapt2 与 apksigner | debug 包为 `com.ichichuang.cinema.debug`；release 保留 `com.ichichuang.cinema`，unsigned 产物未通过签名验证且原因为无签名；版本均保持 18 |
 | APK 内容 | 两种产物均只含 armeabi-v7a 的 Graphics Path/DataStore 原生库；没有上传或安装 |
-| 独立代码复核 | 发现 Windows wrapper 移除自动 APK 检查的回归，已恢复检查调用和失败传播；未发现其他 Important/Critical 新回归。Windows 无可用 PowerShell，执行验收仍待该平台 |
+| 独立代码复核 | 发现 Windows wrapper 移除自动 APK 检查的回归，已恢复检查调用和失败传播；当时候选未发现其他 Important/Critical 新回归；此后传输兼容收尾由回环 RED/GREEN 与单元测试覆盖。Windows 无可用 PowerShell，执行验收仍待该平台 |
 | 原位升级/播放/遥控/性能 | 本轮无设备结果；没有扫描网络、连接电视或改变电视设置 |
 
 离线基线先因既有 JUnit 缓存缺项失败，之后联网解析原有版本再验证。当前 AGP 未注册 `testReleaseUnitTest`，没有用任务名冒充测试执行。完整 Lint 已跑时，Gradle 的 lintVital 汇总可能显示 SKIPPED；它不代表完整 Lint 或 JUnit 被跳过。

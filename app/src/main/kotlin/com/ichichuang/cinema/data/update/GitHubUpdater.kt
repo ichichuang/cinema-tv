@@ -51,8 +51,8 @@ class GitHubUpdater(
     private val settings: CinemaSettings,
 ) : Updater {
 
-    // Update redirects must not switch HTTPS to HTTP. Media clients keep their existing policy.
-    private val updateClient = http.newBuilder().followSslRedirects(false).build()
+    // Only update downgrades are blocked; HTTP-to-HTTPS upgrades and media clients remain compatible.
+    private val updateClient = UpdateTransportPolicy.client(http)
     private val downloadMutex = Mutex()
 
     /** 下载专用：不设总时限（按读写超时兜底），复用共用 client 的连接池 */
