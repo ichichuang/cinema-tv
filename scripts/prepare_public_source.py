@@ -20,7 +20,7 @@ def git(root: Path, *args: str) -> bytes:
 
 
 def prepare(root: Path, output: Path, ref: str) -> dict:
-    root = root.resolve()
+    root = Path(git(root.resolve(), 'rev-parse', '--show-toplevel').decode().strip()).resolve()
     output = output.resolve()
     if output == root or root in output.parents or output.exists():
         raise ValueError('Destination must be a new directory outside the source repository.')
@@ -36,7 +36,8 @@ def prepare(root: Path, output: Path, ref: str) -> dict:
         path = name.decode('utf-8')
         item = PurePosixPath(path)
         if (mode not in {'100644', '100755'} or kind != 'blob' or item.is_absolute()
-                or '..' in item.parts or '.git' in item.parts or path == 'SOURCE_HISTORY.md'):
+                or '..' in item.parts or any(part.casefold() == '.git' for part in item.parts)
+                or item.parts[0].casefold() == 'source_history.md'):
             raise ValueError('Unsupported entry in source snapshot.')
         data = git(root, 'cat-file', 'blob', sha)
         rules = guard.scan_path(path, data)
@@ -66,7 +67,8 @@ def prepare(root: Path, output: Path, ref: str) -> dict:
         target.chmod(0o755 if mode == '100755' else 0o644)
         if hashlib.sha256(target.read_bytes()).digest() != hashlib.sha256(data).digest():
             raise ValueError('Export content verification failed; do not publish the partial snapshot.')
-    (output / 'SOURCE_HISTORY.md').write_bytes(attribution)
+    with (output / 'SOURCE_HISTORY.md').open('xb') as stream:
+        stream.write(attribution)
     return {'status': 'local-review-only', 'source_commit': revision,
             'source_files': len(entries), 'attributed_contributors': len(authors),
             'historical_objects_exported': False, 'remote_changes': False}

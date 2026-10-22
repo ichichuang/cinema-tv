@@ -53,3 +53,8 @@
 | 原生界面改进 | 未开始 | 按顺序等待安全门；没有把 Lint 修复表述为界面完成或性能提升 |
 
 [迁移评审材料](SIGNING_MIGRATION.md)与[第三方材料审计](THIRD_PARTY_NOTICES.md)给出可审阅的具体方案。`prepare_public_source.py` 只制作本地 review snapshot，不改变现有远端。已经针对 `7c3c260a3edf69ddc8286f2067c2c65924e49d13` 实际导出 121 个源文件，另生成归属说明；无私有目录/签名配置、无远端，独立 Gitleaks 与 index guard 通过。隔离目录初始化后仅 1 个本地根提交，旧源提交对象不存在。复用现有公共工具/依赖缓存，移除签名环境输入并禁用 Gradle 构建缓存后，完整 debug、unsigned release、两种 Lint 及 JVM 测试共 99 个 actionable tasks 实际执行成功；JUnit XML 为 44 项、0 failure/error/skip。该本地实验不是公开、历史删除或正式发布。
+# 检查点后安全复审补记
+
+2026-10-23，重新复核 `885cb0b59e7b17ba67f0134d072d2314edb523c0` 的缓存校验、取消与清理、Koin 单例与互斥、逐跳更新传输、完整 current-signer 比较、Gradle/Windows/Actions 冻结和隔离源码导出。确认两项 P2 导出缺陷：大小写不敏感卷上的 `source_history.md` 会被归属文件覆盖；`--root` 为子目录时可向真实仓库内导出。两例均先用合成仓库回归复现，再通过真实 Git 顶层规范化、保留名称大小写折叠检查和归属文件排他创建修复。Python 全套由 22 增为 24 项，全部通过。
+
+本轮复审未发现其余所审路径的新增确定性缺陷；这不是全面安全认证。阻塞网络调用期间的 Android 取消、杀进程、存储故障和 Windows PowerShell 执行未验证。缓存/新下载共用 verifier、实际装配的实例级 Mutex 和完整 signer 集的源码审阅，不代替这些运行时证据。既有发布工作流在管理端仍为 `disabled_manually`，PR #1 保持草稿，private、正式签名/发布冻结与分发只读继续有效。
