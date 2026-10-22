@@ -40,7 +40,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0"
+          test -r "$ANDROID_HOME/platforms/android-37.0/android.jar"
       - name: Compile, lint, and test without release credentials
         run: bash ./gradlew :app:assembleRelease :app:lintDebug :app:testDebugUnitTest --no-daemon --no-configuration-cache --console=plain
       - name: Require the unsigned release artifact
