@@ -30,7 +30,7 @@ When the migration is approved, supply the reviewed signer through ignored local
 
 ## Update protocol and outstanding work
 
-The legacy updater reads the first parseable update manifest, compares versionCode, downloads APK bytes, checks package/version/signing information, then asks the system installer for confirmation. Existing manifests use versionCode, versionName, apkUrl, sizeBytes, notes, and optional mirrorUrl. The old implementation allowed missing signing fingerprints and did not authenticate a manifest or enforce an APK SHA-256 field. These are separate security work items, not solved by removing the Gradle password.
+The legacy updater reads the first parseable update manifest, compares versionCode, downloads APK bytes, checks package/version/signing information, then asks the system installer for confirmation. Existing manifests use versionCode, versionName, apkUrl, sizeBytes, notes, and optional mirrorUrl. The current verifier rejects missing, empty, malformed, or mismatching signer sets and compares every current signer rather than only the first certificate. It also rejects APK parsing failures. This fixes a fail-open validation defect but does not accept rotated signers or revoke the compromised old key. Manifest authentication, update-only transport hardening, and an independently trusted APK digest remain separate security work items; they are not solved by removing the Gradle password.
 
 A digest received from the same untrusted manifest is not independent authenticity. A successful match against the compromised old certificate also does not prove that the publisher is legitimate. Do not describe transport hardening or certificate comparison alone as remediation of the compromised key.
 

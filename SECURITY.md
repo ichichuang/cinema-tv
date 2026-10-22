@@ -13,6 +13,7 @@ Release signing and publishing are frozen. This is containment, not incident clo
 - The external signing configuration accepts ignored local properties or environment variables only after the freeze is reviewed and lifted. It has no credential defaults and requires a keystore outside the checkout.
 - Ordinary CI receives no release credentials, has read-only repository permissions, uses pinned actions, and does not upload APKs or publish releases.
 - Debug builds use a separate application ID. The production ID, version code, data model, and installed application are not changed by this containment work.
+- The updater rejects missing or mismatching complete current-signer sets; it does not treat an unverifiable signature as an acceptable update. This is not key rotation or compromised-key revocation.
 - The repository guard checks indexed blobs and reports rule names, not matched secrets. It is a targeted regression guard, not an exhaustive secret scanner or a history scan.
 
 ## Required evidence before reopening or releasing

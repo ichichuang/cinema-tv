@@ -42,6 +42,17 @@ jobs:
           set -euo pipefail
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0"
           test -r "$ANDROID_HOME/platforms/android-37.0/android.jar"
+      - name: Verify release signing remains frozen
+        shell: bash
+        run: |
+          set -euo pipefail
+          freeze_log="$RUNNER_TEMP/cinema-signing-freeze.log"
+          trap 'rm -f "$freeze_log"' EXIT
+          if bash ./gradlew help -Pcinema.enableReleaseSigning=true --no-daemon --no-configuration-cache --console=plain > "$freeze_log" 2>&1; then
+            echo '::error::The release-signing freeze did not reject an explicit signing request.'
+            exit 1
+          fi
+          grep -F 'Release signing is frozen.' "$freeze_log" > /dev/null
       - name: Compile, lint, and test without release credentials
         run: bash ./gradlew :app:assembleRelease :app:lintDebug :app:testDebugUnitTest --no-daemon --no-configuration-cache --console=plain
       - name: Require the unsigned release artifact

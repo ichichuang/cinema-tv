@@ -116,7 +116,7 @@ class GitHubUpdater(
             for (raw in candidates) {
                 val url = normalizeBaseUrl(raw)
                 if (url == null) {
-                    lastError = SourceException("下载地址格式不对：$raw")
+                    lastError = SourceException("下载地址格式不对，请检查更新清单")
                     continue
                 }
                 if (attempt > 0) onProgress(0f) // 换线路，进度条从头来
@@ -259,7 +259,7 @@ class GitHubUpdater(
         val pm = context.packageManager
         val flags = archiveFlags()
 
-        val archive = pm.getPackageArchiveInfo(apk.absolutePath, flags)
+        val archive = runCatching { pm.getPackageArchiveInfo(apk.absolutePath, flags) }.getOrNull()
         if (archive == null) {
             apk.delete()
             throw SourceException("下载下来的文件不是有效的安装包，已丢弃")
@@ -275,11 +275,11 @@ class GitHubUpdater(
             throw SourceException("安装包版本对不上（清单说 ${info.versionCode}，包里是 $archiveCode），已丢弃")
         }
 
-        val mine = runCatching { fingerprint(pm.getPackageInfo(context.packageName, flags)) }.getOrNull()
-        val theirs = fingerprint(archive)
-        if (mine != null && theirs != null && mine != theirs) {
+        val mine = runCatching { fingerprints(pm.getPackageInfo(context.packageName, flags)) }.getOrNull()
+        val theirs = runCatching { fingerprints(archive) }.getOrNull()
+        if (!UpdateSignaturePolicy.matches(mine, theirs)) {
             apk.delete()
-            throw SourceException("安装包签名和当前应用不一致，出于安全已丢弃")
+            throw SourceException("无法确认安装包签名与当前应用一致，出于安全已丢弃")
         }
         return apk
     }
@@ -300,16 +300,19 @@ class GitHubUpdater(
             info.versionCode.toLong()
         }
 
-    /** 签名证书的 SHA-256（十六进制）。取不到返回 null（老系统/异常包），此时不阻断安装。 */
-    private fun fingerprint(info: PackageInfo): String? {
-        val cert = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            info.signingInfo?.apkContentsSigners?.firstOrNull()
+    /** Return every current signer, not the signing history. Missing signers fail closed. */
+    private fun fingerprints(info: PackageInfo): Set<String>? {
+        val certs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.signingInfo?.apkContentsSigners
         } else {
             @Suppress("DEPRECATION")
-            info.signatures?.firstOrNull()
+            info.signatures
         } ?: return null
-        val digest = MessageDigest.getInstance("SHA-256").digest(cert.toByteArray())
-        return digest.joinToString("") { "%02x".format(it) }
+        if (certs.isEmpty()) return null
+        return certs.map { cert ->
+            val digest = MessageDigest.getInstance("SHA-256").digest(cert.toByteArray())
+            digest.joinToString("") { "%02x".format(it) }
+        }.toSet()
     }
 
     private companion object {
