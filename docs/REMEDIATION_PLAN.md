@@ -23,7 +23,7 @@
 - [x] 历史发布准备：新增可离线验证的 clean-history 导出程序及测试；验证文件内容与归属说明保留、无旧 refs、无私有产物；不推送导出树。
 - [x] 开源准备：核对原创权属、依赖 POM、图像/字体/资源与 notices，更新 `README.md`、`docs/DEVELOPMENT.md`、`docs/RELEASE.md`、`docs/OPEN_SOURCE_READINESS.md`、`SECURITY.md`、贡献说明和模板。提出许可证建议，未经维护者决定不新增 LICENSE。
 - [x] 迁移评审：对照 Android 官方文档及本机 `apksigner` 帮助，记录 Android 11/旧系统差异、已安装 updater 的证书限制、独立信任引导与逐设备原位升级验收；没有实际授权设备时标明阻断。
-- [ ] Git 收尾：明确路径分批暂存、检查候选、中文提交并推送专用分支；核对新 SHA 的 CI 终态。公开、正式发布与界面工作保持门控。
+- [x] Git 收尾（起点轮次已于 885cb0b 与 CI 39825608612 验证，不代表本轮候选）：明确路径分批暂存、检查候选、中文提交并推送专用分支；核对新 SHA 的 CI 终态。公开、正式发布与界面工作保持门控。
 
 ## 验证入口
 
@@ -35,10 +35,12 @@
 
 依据维护者继续执行指令：本轮只做迁移预验证、生产关闭的认证更新候选和开源材料；不合并 PR、不改 main、不公开、不生成生产密钥、不连接电视。实现直接在本会话完成，按下列独立边界提交。
 
-- [ ] 安全复审：复核缓存验证、取消/清理、下载互斥、逐跳重定向、完整当前 signer、发布冻结、源码导出；发现问题先加入失败回归。只对实际覆盖范围作结论。
-- [ ] 迁移夹具：`tools/migration-fixture/` 保存独立包名的纯 Java 合成数据应用和可重复实验脚本；密钥、lineage、APK 仅生成在仓库外。使用已有 SDK/apksigner，显式 rotation-min-sdk=28、旧钥 rollback=false。API 30 emulator 可用才安装并验证 UID/数据/current signer、B 后续更新、A-only 和 A→C 拒绝；不可用即阻断。API 24–27 不宣称恢复安全。
-- [ ] 更新认证：`data/update/auth/` 为无网络、无 Android 适配依赖的隔离模块；固定 ASCII 签名载荷和 RSA/SHA-256，信任根只能由独立引导提供。明确长度/字段限制、未知根拒绝、时钟失败、持久化 sequence 与同载荷重试；生产常量关闭且无现有 updater 调用。不改旧清单或 HTTP 媒体。真实 JCA 签名、重放、文件摘要/签名身份和重试测试先红后绿。
-- [ ] 开源材料：从实际 resolved artifact 与 APK 检查生成可复查组件清单、哈希、资源/许可文本映射，区分 runtime/build/test；保留 Apache-2.0 建议及权属待决。集中记录离线备份、密钥保管、bootstrap、电视授权、历史/caches 与公开路线；仅提出缓存检查/删除方案，不执行缓存。
-- [ ] 最终验证与交付：Python、index guard、全部 JVM、两种构建/Lint、显式 freeze；对最终 SHA 的隔离源码导出检查归属/内容/旧对象并验证构建。分批中文提交、推送、等确切 SHA 的 CI 终态；分别报告代码/合并、安全事件、公开和发布准备度。
+- [x] 安全复审：复核缓存验证、取消/清理、下载互斥、逐跳重定向、完整当前 signer、发布冻结、源码导出；发现问题先加入失败回归。只对实际覆盖范围作结论。
+- [x] 迁移夹具：`tools/migration-fixture/` 保存独立包名的纯 Java 合成数据应用和可重复实验脚本；密钥、lineage、APK 仅生成在仓库外。使用已有 SDK/apksigner，显式 rotation-min-sdk=28、旧钥 rollback=false。API 30 emulator 可用才安装并验证 UID/数据/current signer、B 后续更新、A-only 和 A→C 拒绝；不可用即阻断。API 24–27 不宣称恢复安全。
+- [x] 更新认证：`data/update/auth/` 为无网络、无 Android 适配依赖的隔离模块；固定 ASCII 签名载荷和 RSA/SHA-256，信任根只能由独立引导提供。明确长度/字段限制、未知根拒绝、时钟失败、持久化 sequence 与同载荷重试；生产常量关闭且无现有 updater 调用。不改旧清单或 HTTP 媒体。真实 JCA 签名、重放、文件摘要/签名身份和重试测试先红后绿。
+- [x] 开源材料：从实际 resolved artifact 与 APK 检查生成可复查组件清单、哈希、资源/许可文本映射，区分 runtime/build/test；保留 Apache-2.0 建议及权属待决。集中记录离线备份、密钥保管、bootstrap、电视授权、历史/caches 与公开路线；仅提出缓存检查/删除方案，不执行缓存。
+- 最终验证与交付的记录入口（确切 SHA、最终导出和 CI 结论见草稿 PR #1）：Python、index guard、全部 JVM、两种构建/Lint、显式 freeze；对最终 SHA 的隔离源码导出检查归属/内容/旧对象并验证构建。分批中文提交、推送、等确切 SHA 的 CI 终态；分别报告代码/合并、安全事件、公开和发布准备度。
 
 设计边界：认证失败不能降级到 legacy；最高 sequence 在授权下载前持久化，下载中断仅允许完全相同载荷重试，安装确认后拒绝重放。损坏/丢失的持久化记录与回退的时钟均拒绝，不从候选包学习信任。实验 lineage 只证明测试平台兼容性，不能证明替换密钥的合法所有权。
+
+本轮两次独立复核共确认并修复五项 P2：导出器两项、夹具缺包与数据重建两项、认证下载文件所有权一项。对应失败回归均已先红后绿。最终本地 Python 32、应用 JVM 75（候选28+原有47）及夹具逻辑3项通过；两种构建和 Lint 完成，20 warnings/1 hint 每种、0 error，99任务全执行。API30 emulator/电视矩阵仍阻断，公开/发布门未关闭。

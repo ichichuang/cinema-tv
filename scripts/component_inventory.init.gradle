@@ -1,0 +1,29 @@
+// Read-only dependency resolution for the existing graph; no signing or APK publication.
+import groovy.json.JsonOutput
+allprojects { p ->
+  afterEvaluate {
+    def taskName = p == rootProject ? "collectBuildComponents" : "collectRuntimeComponents"
+    tasks.register(taskName) {
+      doLast {
+        def cache = new File(gradle.gradleUserHomeDir, "caches/modules-2/files-2.1").canonicalFile.toPath()
+        def entries = []
+        def capture = { label, cfg ->
+          cfg.resolvedConfiguration.resolvedArtifacts.each { a ->
+            def f = a.file.canonicalFile
+            if (!f.toPath().startsWith(cache)) { if (a.moduleVersion.id.group != "cinema-tv") throw new GradleException("Non-module third-party artifact requires manual review"); return }
+            entries << [scope:label, coordinate:a.moduleVersion.id.toString(), type:a.type,
+              file:a.file.name, classifier:a.classifier, cache_path:cache.relativize(f.toPath()).toString()]
+          }
+        }
+        if (p == rootProject) capture("build", buildscript.configurations.getByName("classpath"))
+        else {
+          capture("runtime", configurations.getByName("releaseRuntimeClasspath"))
+          capture("test", configurations.getByName("debugUnitTestRuntimeClasspath"))
+        }
+        def out = new File(rootDir, ".local/remediation/component-inputs-" + (p == rootProject ? "build" : "app") + ".json")
+        out.text = JsonOutput.prettyPrint(JsonOutput.toJson(entries))
+        println("Component artifact occurrences: " + entries.size())
+      }
+    }
+  }
+}

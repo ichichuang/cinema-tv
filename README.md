@@ -39,5 +39,7 @@ bash ./gradlew :app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintR
 | [整改计划](docs/REMEDIATION_PLAN.md) / [审计结果](docs/SECURITY_REMEDIATION_REPORT.md) | 本轮范围、已执行验证与尚未通过的门槛 |
 | [签名迁移评审](docs/SIGNING_MIGRATION.md) | Android 11、独立信任引导及逐设备原位升级要求 |
 | [第三方材料](docs/THIRD_PARTY_NOTICES.md) / [贡献说明](CONTRIBUTING.md) | 权属证据、许可证建议与开发约束 |
+| [认证更新候选](docs/AUTHENTICATED_UPDATES.md) | 固定签名字节、重放/时钟/重试规则；生产关闭 |
+| [维护者待决事项](docs/OWNER_DECISIONS.md) | 许可、权属、离线保管、迁移与公开路线的集中决策 |
 
 `cinema-tv-releases` 是既有分发仓库；此次整改不更改其 APK、标签或清单。`.local/` 为被忽略的本地工具与私有证据，不能随源码发布。仓库内 FongMi 技能属于独立运维工作流，cinema-tv 不依赖 FongMi 或第三方桌面。

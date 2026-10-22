@@ -1,0 +1,37 @@
+Third-party software notices for cinema-tv
+
+Original cinema-tv code and artwork: owner approval remains pending; no project license grant is made by this file.
+
+The resolved runtime component inventory, archive SHA-256 values, source notices and APK-presence evidence are in docs/evidence/component-inventory.json.
+Build tools and test-only JUnit/Hamcrest are inventoried separately and are not shipped as runtime dependencies.
+
+Runtime libraries are predominantly Apache-2.0. AndroidX DataStore external protobuf carries BSD-3-Clause.
+Kotlin stdlib also incorporates ThreeTenBP (BSD-3-Clause) and Boost-licensed math code; their upstream license texts are included below.
+Boost-derived math attribution as recorded by the Kotlin upstream index: Copyright Eric Ford & Hubert Holin 2001.
+Kotlin upstream evidence: https://github.com/JetBrains/kotlin/blob/v2.4.20/license/README.md
+
+Included license and attribution files:
+AndroidX-Apache-2.0.txt SHA-256 809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0
+AndroidX-Protobuf-BSD-3-Clause.txt SHA-256 a01b712fbb30f80b86851468b6fa58e80eab68f69f325e88bbc7ddf47cf1b063
+COPYRIGHTS.txt SHA-256 d6ccf183ec63f1ed6e4a497bef6eeef7c0e3480936668c25ddd3439ad5d8d097
+coil.txt SHA-256 d44a18f12b0f5a494ddc3ba0e980ae8b0936d938c611a518e80f2f1405098893
+coroutines.txt SHA-256 b1febe6399dffb10d19d35e7663ab16300c93cb0476a94115df1cc0097a8ffd8
+kotlin-boost.txt SHA-256 8d8291caf1cee26d23acf3eb67c9f9a2d58f1c681b16a4fbe8cbfb9e3c0b5a9b
+kotlin-copyright.txt SHA-256 8f1a1700adb5490604c6094fb137bf73f6c28d3ee554b58f3ff8ef975a79672d
+kotlin-threetenbp.txt SHA-256 d1bc53b493a3ab387b42717ed5c4b1976a5048996f81154278100bff86d39331
+okhttp.txt SHA-256 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+protobuf.txt SHA-256 6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d
+stately.txt SHA-256 b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1
+
+Upstream supplementary files (copyright is preserved as published):
+kotlin-copyright: https://raw.githubusercontent.com/JetBrains/kotlin/v2.4.20/license/COPYRIGHT.txt SHA-256 8f1a1700adb5490604c6094fb137bf73f6c28d3ee554b58f3ff8ef975a79672d
+coroutines: https://raw.githubusercontent.com/Kotlin/kotlinx.coroutines/1.10.2/LICENSE.txt SHA-256 b1febe6399dffb10d19d35e7663ab16300c93cb0476a94115df1cc0097a8ffd8
+coil: https://raw.githubusercontent.com/coil-kt/coil/3.6.3/LICENSE.txt SHA-256 d44a18f12b0f5a494ddc3ba0e980ae8b0936d938c611a518e80f2f1405098893
+stately: https://raw.githubusercontent.com/touchlab/Stately/2.1.0/LICENSE.txt SHA-256 b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1
+okhttp: https://raw.githubusercontent.com/square/okhttp/parent-5.5.0/LICENSE.txt SHA-256 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+protobuf: https://raw.githubusercontent.com/protocolbuffers/protobuf/v3.25.5/LICENSE SHA-256 6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d
+kotlin-threetenbp: https://raw.githubusercontent.com/JetBrains/kotlin/v2.4.20/license/third_party/threetenbp_license.txt SHA-256 d1bc53b493a3ab387b42717ed5c4b1976a5048996f81154278100bff86d39331
+kotlin-boost: https://raw.githubusercontent.com/JetBrains/kotlin/v2.4.20/license/third_party/boost_LICENSE.txt SHA-256 8d8291caf1cee26d23acf3eb67c9f9a2d58f1c681b16a4fbe8cbfb9e3c0b5a9b
+
+The protobuf upstream license is supplied as a copyright supplement to the exact AndroidX BSD resource; its upstream version is not asserted to be the version shaded into DataStore.
+No code was copied from caches into a privileged environment or executed during this inventory.

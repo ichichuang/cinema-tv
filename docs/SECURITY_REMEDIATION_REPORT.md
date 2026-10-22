@@ -58,3 +58,16 @@
 2026-10-23，重新复核 `885cb0b59e7b17ba67f0134d072d2314edb523c0` 的缓存校验、取消与清理、Koin 单例与互斥、逐跳更新传输、完整 current-signer 比较、Gradle/Windows/Actions 冻结和隔离源码导出。确认两项 P2 导出缺陷：大小写不敏感卷上的 `source_history.md` 会被归属文件覆盖；`--root` 为子目录时可向真实仓库内导出。两例均先用合成仓库回归复现，再通过真实 Git 顶层规范化、保留名称大小写折叠检查和归属文件排他创建修复。Python 全套由 22 增为 24 项，全部通过。
 
 本轮复审未发现其余所审路径的新增确定性缺陷；这不是全面安全认证。阻塞网络调用期间的 Android 取消、杀进程、存储故障和 Windows PowerShell 执行未验证。缓存/新下载共用 verifier、实际装配的实例级 Mutex 和完整 signer 集的源码审阅，不代替这些运行时证据。既有发布工作流在管理端仍为 `disabled_manually`，PR #1 保持草稿，private、正式签名/发布冻结与分发只读继续有效。
+
+## 限定续轮的交付证据
+
+从 885cb0b 继续，只读复核后修复两项导出器 P2；最终候选复核再修复夹具 PM 缺包探测、升级重建合成数据的假阳性，以及认证模块跨实例/旧 permit 清理别的成功文件，共五项 P2。每项先有失败回归；限定复核确认原问题闭环，未再发现阻断。它没有执行 Android 网络取消/杀进程/存储故障或电视验收。
+
+- [迁移夹具与五包结果](../tools/migration-fixture/README.md)：独立包名、仓库外测试钥、实际 manifest 和 lineage 能力读回，API24–30签名工具验证；API30当前 artifact signer为A/B/B/A/C。没有 emulator，所以真实安装、UID/合成数据、后续 B 更新和高版本 A-only/A→C 的 PM 拒绝原因全部 BLOCKED。夹具 JVM 3项和Python命令边界回归仅验证逻辑。
+- [认证更新协议](AUTHENTICATED_UPDATES.md)：28项候选测试+原有47项JVM，总75，0 failure/error/skip。签名伪造及文件竞争明确先失败再修复。生产常量关闭，无生产根、DI入口、legacy回退或清单变更；不是生产迁移。
+- 本地最终完整 Gradle 命令两种构建/Lint/JVM通过，99个actionable tasks全部执行。Lint每种20 warnings和1 hint，0 error；包括在线依赖/Gradle版本可用性提示，未升级/抑制。另有既有 Kotlin 弃用、Gradle10兼容提示及两份原生库无法strip而原样打包提示。显式正式签名请求按固定错误拒绝。
+- Python 全套32项通过。index guard仍仅检查选定规则；[独立增量扫描分类](evidence/scanner-classification.json)原始exit1/88命中均为83个实际缓存key摘要和5个读回的测试证书指纹，0未复核；没有关闭规则/添加allowlist。相对旧快照的APK变更条目（含DEX字符串和12份新通知）单独扫描16项，exit0/0命中。旧历史暴露面保留，未把这些检查当作全面审计通过。
+- [实际组件/出货证据](evidence/component-inventory.json)和[许可材料](THIRD_PARTY_NOTICES.md)覆盖244份artifact、135份runtime source JAR版权核对、12份随包原文/署名；具体未知项仍保留。源代码/六图权属未批准，无根LICENSE。
+- [缓存元数据](evidence/actions-cache-metadata.json)保留83项、4,684,050,658字节的ID/ref/时间/key摘要；payload未读取、执行或删除。[维护者待决事项](OWNER_DECISIONS.md)集中列明保管、引导、精确电视授权、历史/缓存处置和公开路线。
+
+后续仅对最终已提交树做隔离源码导出与完整验证、最终SHA CI、APK身份及Git收尾，确切提交/导出数量/CI终态在PR #1记录。准备文档不等于已经启用的操作控制；本地干净历史不清理现有远端。代码审阅、合并批准、安全事件关闭、源码公开和正式发布继续分别报告。

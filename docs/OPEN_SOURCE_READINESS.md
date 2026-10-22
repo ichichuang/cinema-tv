@@ -12,7 +12,7 @@ Audit the whole repository, including historical refs and generated release mate
 
 The maintainer has stated an intention to open source the project but has not selected a license in this remediation task. Do not invent third-party ownership or silently relicense imported code. Record original-code ownership, contributor permissions, and every bundled third-party code/artwork/font/license obligation. Select and approve a license, add LICENSE, and preserve required attribution/notices before declaring the repository open source. Dependency metadata and removed META-INF notice files also require review. No license clearance is claimed by this change.
 
-The concrete recommendation is Apache License 2.0 for owner-confirmed original material; the decision remains unapproved. [The materials audit](THIRD_PARTY_NOTICES.md) records source/resource provenance limits and checked dependency metadata. Shared license resources are now merged instead of stripped. Final transitive notices and artwork rights still require clearance.
+The concrete recommendation is Apache License 2.0 for owner-confirmed original material; the decision remains unapproved. [The materials audit](THIRD_PARTY_NOTICES.md) records source/resource provenance limits and checked dependency metadata. Shared license resources are now merged instead of stripped. The artifact-linked inventory, shipped notices and source copyright observations are now available in the materials audit. Original-code/artwork rights and final distribution clearance remain unapproved.
 
 ## Clean-history publication preparation
 
@@ -32,3 +32,7 @@ Keep UI refactoring in separate commits from signing and updater security change
 6. Record build/lint/unit/UI test results and actual TV navigation/playback evidence. Do not call an unrendered code refactor a completed visual redesign.
 
 No redesigned screenshots or device-tested interface changes are delivered by the initial signing-containment commit. This file defines acceptance criteria, not completed work.
+
+## Current decision record
+
+See [OWNER_DECISIONS.md](OWNER_DECISIONS.md) for the consolidated owner decisions, cache proposal and separate review/merge, incident, public-source and release statuses. The [isolated migration fixture](../tools/migration-fixture/README.md) records artifact checks separately from blocked API 30 platform tests. The [authenticated-update candidate](AUTHENTICATED_UPDATES.md) remains disabled in production; existing manifests and the production updater have not been switched.

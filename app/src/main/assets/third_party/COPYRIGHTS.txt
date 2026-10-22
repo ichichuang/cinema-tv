@@ -1,0 +1,955 @@
+Third-party copyright observations
+
+These lines are reproduced from the exact-version published source archives linked in docs/evidence/component-inventory.json.
+They do not grant a license to cinema-tv original code or artwork. Source headers and upstream notices may contain additional third-party attributions.
+
+androidx.activity:activity-compose:1.13.0
+https://dl.google.com/dl/android/maven2/androidx/activity/activity-compose/1.13.0/activity-compose-1.13.0-sources.jar
+Source archive SHA-256: 968cda8fb2bf4c80f952b442d05657773e6e373507700e621d1092d43b6751c5
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.activity:activity:1.13.0
+https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.13.0/activity-1.13.0-sources.jar
+Source archive SHA-256: c7cf1b2e315e08867b10ef4505945d1993d90281445c65b929e81b9420216ce9
+Copyright (C) 2020 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.annotation:annotation-experimental:1.4.1
+https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.1/annotation-experimental-1.4.1-sources.jar
+Source archive SHA-256: 783a221a7c1093ff8932053998a69a24489f7930806a32b55366108146d29c1d
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+
+androidx.annotation:annotation-jvm:1.10.0
+https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-jvm/1.10.0/annotation-jvm-1.10.0-sources.jar
+Source archive SHA-256: 4f093265c2f99d314a5e161d748100588c49663b098a8a031aa173315c530ef7
+Copyright (C) 2013 The Android Open Source Project
+Copyright (C) 2014 The Android Open Source Project
+Copyright (C) 2015 The Android Open Source Project
+Copyright (C) 2016 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2020 The Android Open Source Project
+Copyright (C) 2021 The Android Open Source Project
+Copyright (C) 2022 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.appcompat:appcompat-resources:1.7.1
+https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat-resources/1.7.1/appcompat-resources-1.7.1-sources.jar
+Source archive SHA-256: cacf441fbbec0ebf12b4308bbeeb9a7389387c35a66f13bd2551dc328cf33ead
+Copyright (C) 2014 The Android Open Source Project
+Copyright (C) 2015 The Android Open Source Project
+Copyright (C) 2018 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+Copyright 2016 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+
+androidx.appcompat:appcompat:1.7.1
+https://dl.google.com/dl/android/maven2/androidx/appcompat/appcompat/1.7.1/appcompat-1.7.1-sources.jar
+Source archive SHA-256: d3f8371e7b5b61e36450677af4e911c351c9ec625e9a7fc5b44acbb3fbc3a45d
+Copyright (C) 2006 The Android Open Source Project
+Copyright (C) 2010 The Android Open Source Project
+Copyright (C) 2011 The Android Open Source Project
+Copyright (C) 2012 The Android Open Source Project
+Copyright (C) 2013 The Android Open Source Project
+Copyright (C) 2014 The Android Open Source Project
+Copyright (C) 2015 Google Inc.
+Copyright (C) 2015 The Android Open Source Project
+Copyright (C) 2016 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2021 The Android Open Source Project
+Copyright 2017 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+
+androidx.arch.core:core-common:2.2.0
+https://dl.google.com/dl/android/maven2/androidx/arch/core/core-common/2.2.0/core-common-2.2.0-sources.jar
+Source archive SHA-256: 563d430880d847890029234386ef03adb95403c34f3c9dec3a7002e2f4007ae4
+Copyright 2018 The Android Open Source Project
+
+androidx.arch.core:core-runtime:2.2.0
+https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.2.0/core-runtime-2.2.0-sources.jar
+Source archive SHA-256: 4adaab3a8ab711634d566d2e239e199af8b5ac92c1de85540dc34c7040754e96
+Copyright (C) 2017 The Android Open Source Project
+
+androidx.autofill:autofill:1.0.0
+https://dl.google.com/dl/android/maven2/androidx/autofill/autofill/1.0.0/autofill-1.0.0-sources.jar
+Source archive SHA-256: 05d18219a30b897f96b2eed2480329ce48da34cfba6416ecfde1289674a1f35f
+Copyright 2019 The Android Open Source Project
+
+androidx.collection:collection-jvm:1.5.0
+https://dl.google.com/dl/android/maven2/androidx/collection/collection-jvm/1.5.0/collection-jvm-1.5.0-sources.jar
+Source archive SHA-256: bcc6197ec5fb349e86ae3ba6c94b164d3a9ac5a03d9f9c235d7c4eb24e5878b3
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.compose.animation:animation-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/animation/animation-android/1.12.1/animation-android-1.12.1-sources.jar
+Source archive SHA-256: 4304de567bb8fedb46b266ee3d3b4abfaddf6b7cbb7e6857475ec7b436e47435
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.compose.animation:animation-core-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/animation/animation-core-android/1.12.1/animation-core-android-1.12.1-sources.jar
+Source archive SHA-256: abe91405f6a604c16f50e66677b584faf2018cc64d236ad23ac0f1c154a89301
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.compose.foundation:foundation-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/foundation/foundation-android/1.12.1/foundation-android-1.12.1-sources.jar
+Source archive SHA-256: 5b58cea5db2583142e4b4b39dce10cbd75722bd06ab35161f06f987be90a53f1
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.compose.foundation:foundation-layout-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/foundation/foundation-layout-android/1.12.1/foundation-layout-android-1.12.1-sources.jar
+Source archive SHA-256: 479c11250bf673510788d95e40b971134cdba19599f9d5775d8f14780cfe1b44
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.compose.material3:material3-android:1.4.0
+https://dl.google.com/dl/android/maven2/androidx/compose/material3/material3-android/1.4.0/material3-android-1.4.0-sources.jar
+Source archive SHA-256: 3e3209422a382566a780e2c1410edd866e4474498098fdbcf942c690ade1ddaa
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.compose.material:material-icons-core-android:1.7.8
+https://dl.google.com/dl/android/maven2/androidx/compose/material/material-icons-core-android/1.7.8/material-icons-core-android-1.7.8-sources.jar
+Source archive SHA-256: 14db888d2f698178799a4c18a58bb134b3e98063c6748c443b339044e0145432
+Copyright 2020 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.compose.material:material-ripple-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/material/material-ripple-android/1.12.1/material-ripple-android-1.12.1-sources.jar
+Source archive SHA-256: 65b50cad7a19b27d55e319536478069bef9e7b185c55a5363f8660fcef7bab93
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+
+androidx.compose.runtime:runtime-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/runtime/runtime-android/1.12.1/runtime-android-1.12.1-sources.jar
+Source archive SHA-256: 645edc8a6d5054f3de00cb097d3fc1f6d0d8e5a75a0f21cec04cbeb77c57d989
+Copyright 2016-2019 JetBrains s.r.o.
+Copyright 2016-2020 JetBrains s.r.o.
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.compose.runtime:runtime-annotation-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/runtime/runtime-annotation-android/1.12.1/runtime-annotation-android-1.12.1-sources.jar
+Source archive SHA-256: faddbe6240e43542fcccfb4106f15b36494facbd81dc18e58124c1327dfe4fb1
+Copyright 2019 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.compose.runtime:runtime-retain-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/runtime/runtime-retain-android/1.12.1/runtime-retain-android-1.12.1-sources.jar
+Source archive SHA-256: 6dab377d2582f7a2b7fcea90dda660ef49f6560081b899bb81e0b597cfa01dfc
+Copyright 2025 The Android Open Source Project
+
+androidx.compose.runtime:runtime-saveable-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/runtime/runtime-saveable-android/1.12.1/runtime-saveable-android-1.12.1-sources.jar
+Source archive SHA-256: 305dfb9a5cdad3c53ba6297db6f96ca9c0d9f1856f83874ee12cc7fb7d028699
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.compose.ui:ui-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-android/1.12.1/ui-android-1.12.1-sources.jar
+Source archive SHA-256: 8ddde80690da97cd840c6f8f59c608701f9e42c245f12f0eabc1434db57e0273
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.compose.ui:ui-geometry-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-geometry-android/1.12.1/ui-geometry-android-1.12.1-sources.jar
+Source archive SHA-256: 8b4ab7f4776d1e1d78fbdde46637bfe51f01e365d13d5253b905bf3f0361b0e0
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+
+androidx.compose.ui:ui-graphics-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-graphics-android/1.12.1/ui-graphics-android-1.12.1-sources.jar
+Source archive SHA-256: f488fa1e995113d6acf9011f66d347f8f0fb12db303460adab72f923de747591
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.compose.ui:ui-text-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-text-android/1.12.1/ui-text-android-1.12.1-sources.jar
+Source archive SHA-256: f40f267cc1bbf7315e37916d6baf818dd7791b42db6dc238303a8b48471aa292
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.compose.ui:ui-unit-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-unit-android/1.12.1/ui-unit-android-1.12.1-sources.jar
+Source archive SHA-256: c6e2ea6314bfc45e27c5f28fda333afe2ed76748a004eec95f86cbdab099a6ff
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.compose.ui:ui-util-android:1.12.1
+https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-util-android/1.12.1/ui-util-android-1.12.1-sources.jar
+Source archive SHA-256: 78ecea99219f527b216dc744c4188735fdf5755055d0313f6ea78dcb8f060390
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.concurrent:concurrent-futures:1.2.0
+https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures/1.2.0/concurrent-futures-1.2.0-sources.jar
+Source archive SHA-256: 38b32cece3cce08eb0e3fb27595325f57e7a6272f085d74288f08417daf7b04f
+Copyright 2018 The Android Open Source Project
+
+androidx.core:core-viewtree:1.0.0
+https://dl.google.com/dl/android/maven2/androidx/core/core-viewtree/1.0.0/core-viewtree-1.0.0-sources.jar
+Source archive SHA-256: 7026f2086f667720c43d4ca6bc58ab016d122ae0a404ca94e5fef6a7090e0984
+Copyright 2024 The Android Open Source Project
+
+androidx.core:core:1.19.1
+https://dl.google.com/dl/android/maven2/androidx/core/core/1.19.1/core-1.19.1-sources.jar
+Source archive SHA-256: dabdcce52939de70764cf967c7844da2222830d6a17ae20eefb41b2051964712
+Copyright (C) 2009 The Android Open Source Project
+Copyright (C) 2011 The Android Open Source Project
+Copyright (C) 2012 The Android Open Source Project
+Copyright (C) 2013 The Android Open Source Project
+Copyright (C) 2014 The Android Open Source Project
+Copyright (C) 2015 The Android Open Source Project
+Copyright (C) 2016 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2018 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+Copyright (C) 2021 The Android Open Source Project
+Copyright (C) 2022 The Android Open Source Project
+Copyright (C) 2023 The Android Open Source Project
+Copyright (C) 2024 The Android Open Source Project
+Copyright (C) 2026 The Android Open Source Project
+Copyright 2015 The Android Open Source Project
+Copyright 2017 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.cursoradapter:cursoradapter:1.0.0
+https://dl.google.com/dl/android/maven2/androidx/cursoradapter/cursoradapter/1.0.0/cursoradapter-1.0.0-sources.jar
+Source archive SHA-256: 99b72a3aec8c9edfd9de20f5913ce4c413bca2f0cf9877b504e26aa03ef50323
+Copyright 2018 The Android Open Source Project
+
+androidx.customview:customview-poolingcontainer:1.0.0
+https://dl.google.com/dl/android/maven2/androidx/customview/customview-poolingcontainer/1.0.0/customview-poolingcontainer-1.0.0-sources.jar
+Source archive SHA-256: 0715571baa86e8f7683fcc1d59fe2881c5e8603af9ff212c82423ae098d34c62
+Copyright 2021 The Android Open Source Project
+
+androidx.customview:customview:1.0.0
+https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.0.0/customview-1.0.0-sources.jar
+Source archive SHA-256: 87c910a3c3c5d1e4881ebcc7a8f7fced04fdad6ff1f8e5ff7f100adf62df1787
+Copyright 2018 The Android Open Source Project
+
+androidx.datastore:datastore-android:1.2.1
+https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-android/1.2.1/datastore-android-1.2.1-sources.jar
+Source archive SHA-256: f0a65afc7aa9cf0aeb2104eccf4fbc038302b8d08aaaf88ddbb54278c04e7b58
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+
+androidx.datastore:datastore-core-android:1.2.1
+https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-core-android/1.2.1/datastore-core-android-1.2.1-sources.jar
+Source archive SHA-256: a1afa28704c24bb48d4e9b33aa4456aec8e222d8f7ac4c64ee9441f3eac98886
+Copyright 2020 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.datastore:datastore-core-okio-jvm:1.2.1
+https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-core-okio-jvm/1.2.1/datastore-core-okio-jvm-1.2.1-sources.jar
+Source archive SHA-256: 0c4f2ea799f747175798b8669e1aab83db7ed2344199bd973a6db640c7cdba46
+Copyright 2022 The Android Open Source Project
+
+androidx.datastore:datastore-preferences-android:1.2.1
+https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-preferences-android/1.2.1/datastore-preferences-android-1.2.1-sources.jar
+Source archive SHA-256: f92e40d8468d322742f4e030d256ac1c496437ab6f3c9cf42212cb325f972655
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+
+androidx.datastore:datastore-preferences-core-android:1.2.1
+https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-preferences-core-android/1.2.1/datastore-preferences-core-android-1.2.1-sources.jar
+Source archive SHA-256: 1110e6c688b5f9a59158117b0d934933112cf318e41d2c21b26c1572062a9b7d
+Copyright 2020 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.datastore:datastore-preferences-proto:1.2.1
+https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-preferences-proto/1.2.1/datastore-preferences-proto-1.2.1-sources.jar
+Source archive SHA-256: 99c77605ede131ad7b3babdc5e10baf617003f2d63faa270cbadb6c5db833c54
+Copyright 2020 The Android Open Source Project
+
+androidx.drawerlayout:drawerlayout:1.0.0
+https://dl.google.com/dl/android/maven2/androidx/drawerlayout/drawerlayout/1.0.0/drawerlayout-1.0.0-sources.jar
+Source archive SHA-256: 3702e90acc99c16d192eada8467aea9595d1c3fff3e2155ffe66e5f31e334513
+Copyright 2018 The Android Open Source Project
+
+androidx.emoji2:emoji2-views-helper:1.4.0
+https://dl.google.com/dl/android/maven2/androidx/emoji2/emoji2-views-helper/1.4.0/emoji2-views-helper-1.4.0-sources.jar
+Source archive SHA-256: 7c813c4fc93038ef7d262fd894c48f960f6d914f79d83407106ede1ab55b92a0
+Copyright 2021 The Android Open Source Project
+
+androidx.emoji2:emoji2:1.4.0
+https://dl.google.com/dl/android/maven2/androidx/emoji2/emoji2/1.4.0/emoji2-1.4.0-sources.jar
+Source archive SHA-256: 5db44eec9cee653ba403f0e88a02ce41ab6301a0b7dd7cb35fc32f9747f2228b
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+
+androidx.exifinterface:exifinterface:1.4.2
+https://dl.google.com/dl/android/maven2/androidx/exifinterface/exifinterface/1.4.2/exifinterface-1.4.2-sources.jar
+Source archive SHA-256: dc69c04f03e72ad38ed43774554e6612dd9ffe7299eacaab62a38df8ac2c7767
+Copyright 2018 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+
+androidx.fragment:fragment-ktx:1.8.9
+https://dl.google.com/dl/android/maven2/androidx/fragment/fragment-ktx/1.8.9/fragment-ktx-1.8.9-sources.jar
+Source archive SHA-256: 6c9da4629e5057aa9f7caf9c2f6f77da387b0dec681d3dd65662d33c0871f7ca
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+
+androidx.fragment:fragment:1.8.9
+https://dl.google.com/dl/android/maven2/androidx/fragment/fragment/1.8.9/fragment-1.8.9-sources.jar
+Source archive SHA-256: d05d9153d389e15266a9502c578eb4145ae63318c758dd952127244c34491a21
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+
+androidx.graphics:graphics-path:1.0.1
+https://dl.google.com/dl/android/maven2/androidx/graphics/graphics-path/1.0.1/graphics-path-1.0.1-sources.jar
+Source archive SHA-256: 9f1b5995b9577a8876525c3411ebb2a49f9ef0e875f6aec3059e807596dc6ca6
+Copyright 2022 The Android Open Source Project
+
+androidx.interpolator:interpolator:1.0.0
+https://dl.google.com/dl/android/maven2/androidx/interpolator/interpolator/1.0.0/interpolator-1.0.0-sources.jar
+Source archive SHA-256: fa13ada71fe7bd9461f622f418e7c16a18e85da7708fb505c75229a9b8830345
+Copyright 2018 The Android Open Source Project
+
+androidx.lifecycle:lifecycle-common-jvm:2.11.0
+https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-common-jvm/2.11.0/lifecycle-common-jvm-2.11.0-sources.jar
+Source archive SHA-256: 5865f0584cd7b3d5769a46b4d0ad2486a73ca681450997cea45a574dae5865fc
+Copyright (C) 2017 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.lifecycle:lifecycle-livedata-core:2.11.0
+https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core/2.11.0/lifecycle-livedata-core-2.11.0-sources.jar
+Source archive SHA-256: 2a7e7f5ac6c3716d214cbeb2b6459c3d9de74e4fa169f99c198210626c701cba
+Copyright (C) 2017 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+
+androidx.lifecycle:lifecycle-livedata:2.11.0
+https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata/2.11.0/lifecycle-livedata-2.11.0-sources.jar
+Source archive SHA-256: 17b5c634db9da69c4d0d50d4d23ec83961a119aa5eb8ae7fce2d75ca9bbd2e89
+Copyright (C) 2017 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+
+androidx.lifecycle:lifecycle-process:2.11.0
+https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-process/2.11.0/lifecycle-process-2.11.0-sources.jar
+Source archive SHA-256: c6b0698468374c6f26b817726d85f32ff8b3a4068d7872a9fe88bf85ed856aa4
+Copyright (C) 2017 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+
+androidx.lifecycle:lifecycle-runtime-android:2.11.0
+https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-android/2.11.0/lifecycle-runtime-android-2.11.0-sources.jar
+Source archive SHA-256: 2606b753031b51b71d7a5f36ff6596fd410e886bda4ef3487a7ee2bd2bdfab34
+Copyright (C) 2017 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.lifecycle:lifecycle-runtime-compose-android:2.11.0
+https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-compose-android/2.11.0/lifecycle-runtime-compose-android-2.11.0-sources.jar
+Source archive SHA-256: cf5f16f185038e6a7b6df511d383713658a6faa2548ca9fded349506cefc0fb9
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.lifecycle:lifecycle-viewmodel-android:2.11.0
+https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-android/2.11.0/lifecycle-viewmodel-android-2.11.0-sources.jar
+Source archive SHA-256: 3ba1dccabb890c96053b81817f92065a309ea979e2ef77e4168c4596d966392b
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2024 The Android Open Source Project
+Copyright 2017 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.lifecycle:lifecycle-viewmodel-compose-android:2.11.0
+https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-compose-android/2.11.0/lifecycle-viewmodel-compose-android-2.11.0-sources.jar
+Source archive SHA-256: 1197bae93e66a8c55ab6ff29a2c5a6b30a8d64ad563de874c28a2c0054630dce
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.lifecycle:lifecycle-viewmodel-savedstate-android:2.11.0
+https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-savedstate-android/2.11.0/lifecycle-viewmodel-savedstate-android-2.11.0-sources.jar
+Source archive SHA-256: 9382c25fea183f742ce34ebce119436e36eb911d60c3a999409831a2941f7b14
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.loader:loader:1.0.0
+https://dl.google.com/dl/android/maven2/androidx/loader/loader/1.0.0/loader-1.0.0-sources.jar
+Source archive SHA-256: efcbafaac8fc06bd5b162b57ac1e146d11919b79dea2202339470c931cecdc67
+Copyright 2018 The Android Open Source Project
+
+androidx.media3:media3-common-ktx:1.11.1
+https://dl.google.com/dl/android/maven2/androidx/media3/media3-common-ktx/1.11.1/media3-common-ktx-1.11.1-sources.jar
+Source archive SHA-256: 5a6f3dc015b819da31759af5486f2ac9077ebd5cf117dde18333b8d9487d8fda
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.media3:media3-common:1.11.1
+https://dl.google.com/dl/android/maven2/androidx/media3/media3-common/1.11.1/media3-common-1.11.1-sources.jar
+Source archive SHA-256: c9a67ff8d485c9aeb77229a53ae91e39acdf9f591c9c8aff358307a4da031f21
+Copyright (C) 2010 Bill Cox, Sonic Library
+Copyright (C) 2014 The Android Open Source Project
+Copyright (C) 2016 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2018 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+Copyright (C) 2020 The Android Open Source Project
+Copyright (C) 2021 The Android Open Source Project
+Copyright (C) 2022 The Android Open Source Project
+Copyright (C) 2023 The Android Open Source Project
+Copyright (C) 2024 The Android Open Source Project
+Copyright (C) 2026 The Android Open Source Project
+Copyright 2017 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.media3:media3-container:1.11.1
+https://dl.google.com/dl/android/maven2/androidx/media3/media3-container/1.11.1/media3-container-1.11.1-sources.jar
+Source archive SHA-256: 655d0a470126610cceeec1122665d87b041d36942be4eaaab1e01ceb4504fdbd
+Copyright (C) 2016 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+Copyright (C) 2020 The Android Open Source Project
+Copyright (C) 2023 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.media3:media3-database:1.11.1
+https://dl.google.com/dl/android/maven2/androidx/media3/media3-database/1.11.1/media3-database-1.11.1-sources.jar
+Source archive SHA-256: 1baca4ff0a32e76d08b92ed5d33e0278aa34a9e9c537edbc2fd39573e8ec46a3
+Copyright (C) 2018 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+
+androidx.media3:media3-datasource:1.11.1
+https://dl.google.com/dl/android/maven2/androidx/media3/media3-datasource/1.11.1/media3-datasource-1.11.1-sources.jar
+Source archive SHA-256: a54ddd9858ed2de57e07c5461dcebdae7a53d92a60210a2a3f5bf501398a5e4a
+Copyright (C) 2016 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2018 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+Copyright (C) 2021 The Android Open Source Project
+Copyright (C) 2023 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.media3:media3-decoder:1.11.1
+https://dl.google.com/dl/android/maven2/androidx/media3/media3-decoder/1.11.1/media3-decoder-1.11.1-sources.jar
+Source archive SHA-256: 1570e072a3c4a8b9915f95bada24f0e4955e4fc4343d738adbb2794d9539d9c5
+Copyright (C) 2016 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+
+androidx.media3:media3-exoplayer-hls:1.11.1
+https://dl.google.com/dl/android/maven2/androidx/media3/media3-exoplayer-hls/1.11.1/media3-exoplayer-hls-1.11.1-sources.jar
+Source archive SHA-256: 27f36d1714018c7b2a17656f8b5fbf3e93b6bec72aac82990c9ae0fab34a3160
+Copyright (C) 2016 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2018 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+Copyright (C) 2020 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.media3:media3-exoplayer:1.11.1
+https://dl.google.com/dl/android/maven2/androidx/media3/media3-exoplayer/1.11.1/media3-exoplayer-1.11.1-sources.jar
+Source archive SHA-256: a13b3e52cf278f147020d9b98f29ebd5a19e1dc0798f02595c6849291eb33233
+Copyright (C) 2016 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2018 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+Copyright (C) 2020 The Android Open Source Project
+Copyright (C) 2021 The Android Open Source Project
+Copyright (C) 2022 The Android Open Source Project
+Copyright (C) 2023 The Android Open Source Project
+Copyright (C) 2024 The Android Open Source Project
+Copyright (C) 2025 The Android Open Source Project
+Copyright (C) 2026 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.media3:media3-extractor:1.11.1
+https://dl.google.com/dl/android/maven2/androidx/media3/media3-extractor/1.11.1/media3-extractor-1.11.1-sources.jar
+Source archive SHA-256: 547129d7df7ef9cc3d2622036d3880ab205e5fe3241095049b39c6632c64bc4a
+Copyright (C) 2016 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+Copyright (C) 2018 The Android Open Source Project
+Copyright (C) 2019 The Android Open Source Project
+Copyright (C) 2020 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.media3:media3-ui-compose:1.11.1
+https://dl.google.com/dl/android/maven2/androidx/media3/media3-ui-compose/1.11.1/media3-ui-compose-1.11.1-sources.jar
+Source archive SHA-256: 5695ee332ea56d65571105fb6511c6b7505a55338173adede335fbe0f1dd6916
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.navigation:navigation-common-android:2.10.2
+https://dl.google.com/dl/android/maven2/androidx/navigation/navigation-common-android/2.10.2/navigation-common-android-2.10.2-sources.jar
+Source archive SHA-256: 655908c1e630abe26842b2a209ce2dc60073a35c1dbbb2930bb80361a628c40c
+Copyright (C) 2017 The Android Open Source Project
+Copyright 2017 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.navigation:navigation-compose-android:2.10.2
+https://dl.google.com/dl/android/maven2/androidx/navigation/navigation-compose-android/2.10.2/navigation-compose-android-2.10.2-sources.jar
+Source archive SHA-256: 0796675d1640a356e8065f69410d9e7c75747cd38f067fd03ea1816f0192a416
+Copyright 2020 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.navigation:navigation-runtime-android:2.10.2
+https://dl.google.com/dl/android/maven2/androidx/navigation/navigation-runtime-android/2.10.2/navigation-runtime-android-2.10.2-sources.jar
+Source archive SHA-256: bbf09fc4da041b29c915dd19c3d046602b09aec899d54aaee715ce217a4a9b1e
+Copyright (C) 2017 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.navigationevent:navigationevent-android:1.1.2
+https://dl.google.com/dl/android/maven2/androidx/navigationevent/navigationevent-android/1.1.2/navigationevent-android-1.1.2-sources.jar
+Source archive SHA-256: f089d4ea9953c8db3b00829a751c4997300685cb597d604444952ff3ff130ffe
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.navigationevent:navigationevent-compose-android:1.1.2
+https://dl.google.com/dl/android/maven2/androidx/navigationevent/navigationevent-compose-android/1.1.2/navigationevent-compose-android-1.1.2-sources.jar
+Source archive SHA-256: d643f7507fcc2ebe67c98bdce1d4b37582154960bf53f0b4ac9c70881e52cdc1
+Copyright 2025 The Android Open Source Project
+
+androidx.profileinstaller:profileinstaller:1.4.1
+https://dl.google.com/dl/android/maven2/androidx/profileinstaller/profileinstaller/1.4.1/profileinstaller-1.4.1-sources.jar
+Source archive SHA-256: a20b963dad2bf9de25c5d043d4dc50d01353e3ee1580e1813ebdfe8587acf899
+Copyright (C) 2021 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+
+androidx.resourceinspection:resourceinspection-annotation:1.0.1
+https://dl.google.com/dl/android/maven2/androidx/resourceinspection/resourceinspection-annotation/1.0.1/resourceinspection-annotation-1.0.1-sources.jar
+Source archive SHA-256: cdca7861ae17115f8d74f9f197d1a4f8b0217ca035a3990da2e2c1ca1fa7f822
+Copyright 2021 The Android Open Source Project
+
+androidx.savedstate:savedstate-android:1.5.0
+https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate-android/1.5.0/savedstate-android-1.5.0-sources.jar
+Source archive SHA-256: 683756e88459e2795bf0742603ce02637a9a1d8348c95d901698fc009156782c
+Copyright 2018 The Android Open Source Project
+Copyright 2019 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+Copyright 2026 The Android Open Source Project
+
+androidx.savedstate:savedstate-compose-android:1.5.0
+https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate-compose-android/1.5.0/savedstate-compose-android-1.5.0-sources.jar
+Source archive SHA-256: cbafb104e2d82ab3ac6c747bd525b1b25ecfc439fba6203cdfacff408f4e7d23
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.startup:startup-runtime:1.2.0
+https://dl.google.com/dl/android/maven2/androidx/startup/startup-runtime/1.2.0/startup-runtime-1.2.0-sources.jar
+Source archive SHA-256: 4b0fbeeb2255823f16a70315c64159d41ed6a752d823ff68e0132fd749c36f82
+Copyright 2020 The Android Open Source Project
+
+androidx.tracing:tracing:1.2.0
+https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.2.0/tracing-1.2.0-sources.jar
+Source archive SHA-256: 3daf3a210e213f1675e6ea9ae2a9c0b9c837b42805835b65d999eca58fbddc90
+Copyright 2020 The Android Open Source Project
+
+androidx.tv:tv-material:1.1.0
+https://dl.google.com/dl/android/maven2/androidx/tv/tv-material/1.1.0/tv-material-1.1.0-sources.jar
+Source archive SHA-256: 89d965260c2635f7a58b1381ec071ded2031b49f64189cc38b73b38c22daa184
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+androidx.vectordrawable:vectordrawable-animated:1.1.0
+https://dl.google.com/dl/android/maven2/androidx/vectordrawable/vectordrawable-animated/1.1.0/vectordrawable-animated-1.1.0-sources.jar
+Source archive SHA-256: a3880c595965c55fd1bdee0554b99c66e9c28d3311b7ce6242189fc1f554fcf1
+Copyright (C) 2015 The Android Open Source Project
+Copyright (C) 2017 The Android Open Source Project
+
+androidx.vectordrawable:vectordrawable:1.1.0
+https://dl.google.com/dl/android/maven2/androidx/vectordrawable/vectordrawable/1.1.0/vectordrawable-1.1.0-sources.jar
+Source archive SHA-256: a1ae4fccc4ab76a734c10f79adf39262517658a79084bad467c4c6f41c478187
+Copyright (C) 2015 The Android Open Source Project
+
+androidx.versionedparcelable:versionedparcelable:1.1.1
+https://dl.google.com/dl/android/maven2/androidx/versionedparcelable/versionedparcelable/1.1.1/versionedparcelable-1.1.1-sources.jar
+Source archive SHA-256: 135016af471acf4cd9583d36ceb779710c6b46812ccaaef7c526d5d60eae6b0b
+Copyright 2018 The Android Open Source Project
+
+androidx.viewpager:viewpager:1.0.0
+https://dl.google.com/dl/android/maven2/androidx/viewpager/viewpager/1.0.0/viewpager-1.0.0-sources.jar
+Source archive SHA-256: d4f9a044ab8c23392b12a3f2930d5fd6b5982421a746f2f2a812e9619431fbfd
+Copyright 2018 The Android Open Source Project
+
+androidx.window:window-core-android:1.5.0
+https://dl.google.com/dl/android/maven2/androidx/window/window-core-android/1.5.0/window-core-android-1.5.0-sources.jar
+Source archive SHA-256: df2d830a33d04300574b65d7a87904458a910b879af3d13022def0a627a22df6
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+
+androidx.window:window:1.5.0
+https://dl.google.com/dl/android/maven2/androidx/window/window/1.5.0/window-1.5.0-sources.jar
+Source archive SHA-256: 37d85fa5e68b3bc28c88b05dc2b0d5d7caf0af3d7692bd0bc0c56a8dc6ca6a33
+Copyright (C) 2024 The Android Open Source Project
+Copyright 2021 The Android Open Source Project
+Copyright 2022 The Android Open Source Project
+Copyright 2023 The Android Open Source Project
+Copyright 2024 The Android Open Source Project
+Copyright 2025 The Android Open Source Project
+
+co.touchlab:stately-concurrency-jvm:2.1.0
+https://repo.maven.apache.org/maven2/co/touchlab/stately-concurrency-jvm/2.1.0/stately-concurrency-jvm-2.1.0-sources.jar
+Source archive SHA-256: 1981bcea839e608ecce520237561ba640948be7e46316098d4fcfb7d9d19ca99
+Copyright (C) 2018 Touchlab, Inc.
+
+co.touchlab:stately-strict-jvm:2.1.0
+https://repo.maven.apache.org/maven2/co/touchlab/stately-strict-jvm/2.1.0/stately-strict-jvm-2.1.0-sources.jar
+Source archive SHA-256: 19cfdf3e5662c563c602f26e9a09abb39cb4186474143a4fa64d9b5eb30d9187
+Copyright (C) 2018 Touchlab, Inc.
+Copyright (C) 2021 Touchlab, Inc.
+
+com.google.accompanist:accompanist-drawablepainter:0.37.3
+https://repo.maven.apache.org/maven2/com/google/accompanist/accompanist-drawablepainter/0.37.3/accompanist-drawablepainter-0.37.3-sources.jar
+Source archive SHA-256: d6a6406beed220e9e599f6868daa84409d8f6dfbc5ef16b9fb9e58b54cf1d2fc
+Copyright 2021 The Android Open Source Project
+
+com.google.guava:failureaccess:1.0.2
+https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2-sources.jar
+Source archive SHA-256: dd3bfa5e2ec5bc5397efb2c3cef044c192313ff77089573667ff97a60c6978e0
+Copyright (C) 2018 The Guava Authors
+
+com.google.guava:guava:33.3.1-android
+https://repo.maven.apache.org/maven2/com/google/guava/guava/33.3.1-android/guava-33.3.1-android-sources.jar
+Source archive SHA-256: 1933a9fb7ee8535749600d7298fa9511589631010e90907db8459797c31238ca
+Copyright (C) 2005 The Guava Authors
+Copyright (C) 2006 The Guava Authors
+Copyright (C) 2007 The Guava Authors
+Copyright (C) 2008 The Guava Authors
+Copyright (C) 2009 The Guava Authors
+Copyright (C) 2010 The Guava Authors
+Copyright (C) 2011 The Guava Authors
+Copyright (C) 2011 The Guava Authors.
+Copyright (C) 2012 The Guava Authors
+Copyright (C) 2013 The Guava Authors
+Copyright (C) 2014 The Guava Authors
+Copyright (C) 2015 The Guava Authors
+Copyright (C) 2016 The Guava Authors
+Copyright (C) 2017 The Guava Authors
+Copyright (C) 2018 The Guava Authors
+Copyright (C) 2019 The Guava Authors
+Copyright (C) 2020 The Guava Authors
+Copyright (C) 2021 The Guava Authors
+Copyright (C) 2023 The Guava Authors
+Copyright (C) 2024 The Guava Authors
+Copyright 2011 Google Inc. All Rights Reserved.
+Copyright 2019 The Guava Authors
+
+com.google.zxing:core:3.5.3
+https://repo.maven.apache.org/maven2/com/google/zxing/core/3.5.3/core-3.5.3-sources.jar
+Source archive SHA-256: f983454400d73652ad5236413ba7eba48072e042982a84b10e1468506f4b28ae
+Copyright (C) 2010 ZXing authors
+Copyright (C) 2012 ZXing authors
+Copyright 2006 Jeremias Maerki
+Copyright 2006 Jeremias Maerki in part, and ZXing Authors in part
+Copyright 2006 Jeremias Maerki.
+Copyright 2006-2007 Jeremias Maerki.
+Copyright 2007 Jeremias Maerki.
+Copyright 2007 ZXing authors
+Copyright 2008 ZXing authors
+Copyright 2009 ZXing authors
+Copyright 2010 ZXing authors
+Copyright 2011 ZXing authors
+Copyright 2012 ZXing authors
+Copyright 2013 ZXing authors
+Copyright 2014 ZXing authors
+Copyright 2015 ZXing authors
+Copyright 2021 ZXing authors
+Copyright 2022 ZXing authors
+
+com.squareup.okhttp3:okhttp-android:5.5.0
+https://repo.maven.apache.org/maven2/com/squareup/okhttp3/okhttp-android/5.5.0/okhttp-android-5.5.0-sources.jar
+Source archive SHA-256: a6f0fb39a3af37cc6ef02126466fd03c59437d75e2b175598d9b733c1e31afbf
+Copyright (C) 2010 The Android Open Source Project
+Copyright (C) 2011 The Android Open Source Project
+Copyright (C) 2012 Square, Inc.
+Copyright (C) 2012 The Android Open Source Project
+Copyright (C) 2013 Square, Inc.
+Copyright (C) 2014 Square, Inc.
+Copyright (C) 2015 Square, Inc.
+Copyright (C) 2016 Square, Inc.
+Copyright (C) 2017 Square, Inc.
+Copyright (C) 2018 Square, Inc.
+Copyright (C) 2019 Square, Inc.
+Copyright (C) 2020 Square, Inc.
+Copyright (C) 2021 Square, Inc.
+Copyright (C) 2022 Block, Inc.
+Copyright (C) 2022 Square, Inc.
+Copyright (C) 2023 Block, Inc.
+Copyright (C) 2023 Square, Inc.
+Copyright (C) 2024 Block, Inc.
+Copyright (C) 2024 Square, Inc.
+Copyright (C) 2025 Block, Inc.
+Copyright (C) 2025 Square, Inc.
+Copyright (c) 2022 Square, Inc.
+Copyright (c) 2025 Block, Inc.
+Copyright (c) 2026 OkHttp Authors
+Copyright 2013 Twitter, Inc.
+
+com.squareup.okio:okio-jvm:3.18.1
+https://repo.maven.apache.org/maven2/com/squareup/okio/okio-jvm/3.18.1/okio-jvm-3.18.1-sources.jar
+Source archive SHA-256: 967a2e30e8504e48c2de60acfc96d091d2fd44671def26875896a37a1624a0f4
+Copyright (C) 2014 Square, Inc.
+Copyright (C) 2015 Square, Inc.
+Copyright (C) 2016 Square, Inc.
+Copyright (C) 2017 Square, Inc.
+Copyright (C) 2018 Square, Inc.
+Copyright (C) 2019 Square, Inc.
+Copyright (C) 2020 Square, Inc.
+Copyright (C) 2020 Square, Inc. and others.
+Copyright (C) 2021 Square, Inc.
+Copyright (C) 2023 Square, Inc.
+Copyright (C) 2024 Square, Inc.
+Copyright (C) 2025 Square, Inc.
+Copyright (c) 2026 Okio Authors
+Copyright 2014 Square Inc.
+
+io.coil-kt.coil3:coil-core-android:3.6.3
+https://repo.maven.apache.org/maven2/io/coil-kt/coil3/coil-core-android/3.6.3/coil-core-android-3.6.3-sources.jar
+Source archive SHA-256: 06e9c9fa5dd76221ad3bbc936c6681288185bfeae012ff84cc5600658d213e2c
+Copyright (C) 2011 The Android Open Source Project
+
+io.coil-kt.coil3:coil-network-okhttp-android:3.6.3
+https://repo.maven.apache.org/maven2/io/coil-kt/coil3/coil-network-okhttp-android/3.6.3/coil-network-okhttp-android-3.6.3-sources.jar
+Source archive SHA-256: 387b39468c43d7e5972d212ae58c6fd18553b182a0e7963ce46a53234207b789
+Copyright (c) 2022 Square, Inc.
+
+io.insert-koin:koin-android:4.2.2
+https://repo.maven.apache.org/maven2/io/insert-koin/koin-android/4.2.2/koin-android-4.2.2-sources.jar
+Source archive SHA-256: 44fd4eb9407fbb605de75129d2ba0ed10522492ed2f3618312c81a8148116f23
+Copyright 2017-present the original author or authors.
+
+io.insert-koin:koin-androidx-compose:4.2.2
+https://repo.maven.apache.org/maven2/io/insert-koin/koin-androidx-compose/4.2.2/koin-androidx-compose-4.2.2-sources.jar
+Source archive SHA-256: ce5ff6554a7e96b4ab7afa14ac60d622c4c394de9170daef778cb6e4ccb73196
+Copyright 2017-present the original author or authors.
+
+io.insert-koin:koin-compose-android:4.2.2
+https://repo.maven.apache.org/maven2/io/insert-koin/koin-compose-android/4.2.2/koin-compose-android-4.2.2-sources.jar
+Source archive SHA-256: 9d161da837755dfd63fd97cff60797719ca0f4fd198899570aa7adc1a50b2386
+Copyright 2017-present the original author or authors.
+
+io.insert-koin:koin-compose-viewmodel-android:4.2.2
+https://repo.maven.apache.org/maven2/io/insert-koin/koin-compose-viewmodel-android/4.2.2/koin-compose-viewmodel-android-4.2.2-sources.jar
+Source archive SHA-256: d956b2f7995e5e8347bc491315a112324cc253fd49b459ca43153d8c9c3a8fcb
+Copyright 2017-present the original author or authors.
+
+io.insert-koin:koin-core-jvm:4.2.2
+https://repo.maven.apache.org/maven2/io/insert-koin/koin-core-jvm/4.2.2/koin-core-jvm-4.2.2-sources.jar
+Source archive SHA-256: d031c7f7c39671bdfd656347311b8c5501f93d85396968c46fcac700c70b76c9
+Copyright 2017-2020 the original author or authors.
+Copyright 2017-Present the original author or authors.
+Copyright 2017-present the original author or authors.
+
+io.insert-koin:koin-core-viewmodel-android:4.2.2
+https://repo.maven.apache.org/maven2/io/insert-koin/koin-core-viewmodel-android/4.2.2/koin-core-viewmodel-android-4.2.2-sources.jar
+Source archive SHA-256: 2ec02219685b0ca2ca42fd6313c7cfea1dd418f21547a066e2dae5cb0f33d2e7
+Copyright 2017-Present the original author or authors.
+Copyright 2017-present the original author or authors.
+
+org.jetbrains.kotlin:kotlin-stdlib:2.4.20
+https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.20/kotlin-stdlib-2.4.20-sources.jar
+Source archive SHA-256: 9a2ce1266925b3cb0ff361392b91c3e288d3e78ca0961bb39e33e27aa6d1749a
+Copyright (c) 2007-present, Stephen Colebourne & Michael Nascimento Santos
+Copyright 2007 Google Inc.
+Copyright 2010-2015 JetBrains s.r.o.
+Copyright 2010-2016 JetBrains s.r.o.
+Copyright 2010-2017 JetBrains s.r.o.
+Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
+Copyright 2010-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
+Copyright 2011 The Guava Authors
+
+org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.11.0
+https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-core-jvm/1.11.0/kotlinx-serialization-core-jvm-1.11.0-sources.jar
+Source archive SHA-256: 9c9b7d4aabc03e671b5297ca5d50931f7c961f3d7e36a67ce945921b08a7be40
+Copyright 2017-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2017-2020 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2017-2021 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2017-2022 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2017-2023 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2017-2024 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2025-2025 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+
+org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.11.0
+https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-json-jvm/1.11.0/kotlinx-serialization-json-jvm-1.11.0-sources.jar
+Source archive SHA-256: 8a0eae6ac1a42a0fbe1b850ea4e21ad71d2a8aa896ee2257b1492b471bd5c5fe
+Copyright 2017-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2017-2020 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2017-2021 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2017-2022 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2017-2023 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2017-2024 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+Copyright 2017-2026 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license.
+
+org.jetbrains:annotations:23.0.0
+https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0-sources.jar
+Source archive SHA-256: ff2309b42f7584520497bb48bc609aca04c9886cf48708f14be83f00423ec144
+Copyright 2000-2020 JetBrains s.r.o.
+Copyright 2000-2021 JetBrains s.r.o.
+
+org.jspecify:jspecify:1.0.0
+https://repo.maven.apache.org/maven2/org/jspecify/jspecify/1.0.0/jspecify-1.0.0-sources.jar
+Source archive SHA-256: adf0898191d55937fb3192ba971826f4f294292c4a960740f3c27310e7b70296
+Copyright 2018-2020 The JSpecify Authors.
+Copyright 2022 The JSpecify Authors.
+
