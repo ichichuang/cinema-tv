@@ -1,51 +1,19 @@
-name: Build TV APK
+name: Release signing frozen
 
+# Incident containment: do not sign or upload APKs from this workflow.
+# Historical reruns are not disabled by this file. Do not rerun old builds.
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  release-freeze:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 2
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: '9.8.1'
-
-      - name: Ensure Android SDK platform
+      - name: Block release signing
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" > /dev/null 2>&1 \
-            || echo "sdkmanager 调用失败，交给 AGP 自动下载（已接受许可）"
-
-      - name: Fix gradlew permission
-        run: chmod +x ./gradlew
-
-      - name: Build release APK
-        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
-
-      - name: TV 红线自动检查
-        run: bash scripts/check-apk.sh
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v7
-        with:
-          name: cinema-tv-apk
-          path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
-          retention-days: 30
+          echo '::error::Release signing is frozen pending credential migration and Android 11 in-place upgrade verification.'
+          exit 1
