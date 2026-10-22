@@ -1,0 +1,4 @@
+interface:
+  display_name: "FongMi 影视 TV 配置"
+  short_description: "安装、维护与整理 FongMi 中文家庭直播，保留现有电视环境"
+  default_prompt: "使用 $fongmi-tv-setup 为我提供的电视 IP 安装或复用 FongMi，整理中文家庭直播并进行少量抽查，保留现有桌面、网络和其他应用。"

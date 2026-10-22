@@ -19,3 +19,6 @@ replay_pid*.log
 # GitHub 发布 token（绝不能进仓库；放 %USERPROFILE%\.github_token）
 .github_token
 github_token.txt
+
+# 本机 SDK、私有验证材料和迁移清单；不得提交或发布
+/.local/
