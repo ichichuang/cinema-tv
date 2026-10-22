@@ -290,7 +290,9 @@ internal fun DeviceDiagnosticsOverlay(
 
                                     is DiagnosticRow.Action -> DiagnosticActionRow(
                                         target = row.target,
-                                        focusRequester = actionFocus.getOrPut(row.key) { FocusRequester() },
+                                        focusRequester = remember(row.key) {
+                                            actionFocus.getOrPut(row.key) { FocusRequester() }
+                                        },
                                         focusUp = focusUp,
                                         focusDown = focusDown,
                                         onActivate = {

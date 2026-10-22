@@ -1,8 +1,9 @@
 package com.ichichuang.cinema.feature.player
 
-import android.app.Activity
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
+import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -61,7 +62,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,6 +69,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.common.util.UnstableApi
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.Motion
@@ -100,6 +101,7 @@ import org.koin.androidx.compose.koinViewModel
  *  - 菜单键 = 播放设置面板；返回 = 收面板 / 退出
  */
 @Composable
+@OptIn(UnstableApi::class)
 fun PlayerScreen(
     movieId: String,
     title: String,
@@ -115,8 +117,8 @@ fun PlayerScreen(
     LaunchedEffect(movieId, origin) { vm.start(movieId, title, origin) }
 
     // 播放时不许熄屏（电视上最烦的就是看一半黑屏）
-    val activity = LocalContext.current as? Activity
-    DisposableEffect(Unit) {
+    val activity = LocalActivity.current
+    DisposableEffect(activity) {
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         onDispose {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

@@ -1,6 +1,7 @@
 package com.ichichuang.cinema.core.ui
 
 import android.graphics.Bitmap
+import android.os.Build
 import android.util.LruCache
 
 /**
@@ -40,7 +41,7 @@ internal object TextCoverGuard {
      */
     fun detect(image: Bitmap): Boolean = runCatching {
         // Coil 默认解码成硬件位图，getPixels/copy 前先落成软件位图
-        val soft = if (image.config == Bitmap.Config.HARDWARE) {
+        val soft = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && image.config == Bitmap.Config.HARDWARE) {
             image.copy(Bitmap.Config.ARGB_8888, false)
         } else {
             image

@@ -1,11 +1,13 @@
 package com.ichichuang.cinema.feature.player
 
 import android.content.Context
+import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -75,6 +77,7 @@ data class PlayerUiState(
  *  - OK = 播放/暂停（长按 = 呼出播放设置，兜底没有菜单键的遥控器）
  *  - 菜单键 = 播放设置面板：步长 / 线路 / 选集
  */
+@OptIn(UnstableApi::class)
 class PlayerViewModel(
     private val repository: MovieRepository,
     private val progress: PlaybackProgress,
