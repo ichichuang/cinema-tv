@@ -23,6 +23,8 @@ data class UpdateInfo(
      * 用途很现实：国内直连 GitHub 的下载域名有时会断 —— 主地址下不动就自动换这条。
      */
     val mirrorUrl: String? = null,
+    /** Optional legacy-compatible integrity check, not independent publisher authentication. */
+    val sha256: String? = null,
 ) {
     fun isNewerThan(currentVersionCode: Int): Boolean = versionCode > currentVersionCode
 

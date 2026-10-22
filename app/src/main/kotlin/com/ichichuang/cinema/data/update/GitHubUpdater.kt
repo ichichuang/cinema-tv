@@ -6,8 +6,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import com.ichichuang.cinema.data.remote.DEFAULT_UA
 import com.ichichuang.cinema.data.remote.SourceException
-import com.ichichuang.cinema.data.remote.asInt
-import com.ichichuang.cinema.data.remote.asText
 import com.ichichuang.cinema.data.remote.getText
 import com.ichichuang.cinema.data.remote.normalizeBaseUrl
 import com.ichichuang.cinema.data.settings.CinemaSettings
@@ -15,10 +13,13 @@ import com.ichichuang.cinema.domain.model.UpdateInfo
 import com.ichichuang.cinema.domain.repository.Updater
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -50,8 +51,12 @@ class GitHubUpdater(
     private val settings: CinemaSettings,
 ) : Updater {
 
+    // Update redirects must not switch HTTPS to HTTP. Media clients keep their existing policy.
+    private val updateClient = http.newBuilder().followSslRedirects(false).build()
+    private val downloadMutex = Mutex()
+
     /** 下载专用：不设总时限（按读写超时兜底），复用共用 client 的连接池 */
-    private val downloadClient: OkHttpClient = http.newBuilder()
+    private val downloadClient: OkHttpClient = updateClient.newBuilder()
         .callTimeout(0, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -64,7 +69,9 @@ class GitHubUpdater(
     override suspend fun check(currentVersionCode: Int, force: Boolean): UpdateInfo? =
         withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
-            if (!force && now - lastCheckAt < CHECK_INTERVAL_MS) return@withContext lastResult
+            if (!force && now - lastCheckAt < CHECK_INTERVAL_MS) {
+                return@withContext lastResult?.takeIf { it.isNewerThan(currentVersionCode) }
+            }
 
             // 候选清单地址依次试：国内网络对 GitHub 各子域的通断经常变，
             // 多写一条候选，比"连不上就重新发一版"划算得多
@@ -79,7 +86,7 @@ class GitHubUpdater(
                     continue
                 }
                 try {
-                    val info = parseManifest(http.getText(url))
+                    val info = UpdateManifestParser.parse(updateClient.getText(url), json)
                     lastCheckAt = now
                     lastResult = info.takeIf { it.isNewerThan(currentVersionCode) }
                     return@withContext lastResult
@@ -96,157 +103,103 @@ class GitHubUpdater(
 
     override suspend fun download(info: UpdateInfo, onProgress: (Float) -> Unit): File =
         withContext(Dispatchers.IO) {
-            val dir = File(context.cacheDir, "update").apply { mkdirs() }
-            val target = File(dir, "cinema-${info.versionCode}.apk")
-
-            // 之前下过就直接用（几十兆没必要重下），但仍然要重新校验一遍
-            if (target.exists() && target.length() > 0L) {
-                onProgress(1f)
-                return@withContext verify(target, info)
-            }
-
-            // 主地址 + 镜像依次试：国内网络下"下载域名断掉"是常态，不是意外
-            val candidates = (listOf(info.apkUrl) + listOfNotNull(info.mirrorUrl))
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .distinct()
-
-            var lastError: Exception? = null
-            var attempt = 0
-            for (raw in candidates) {
-                val url = normalizeBaseUrl(raw)
-                if (url == null) {
-                    lastError = SourceException("下载地址格式不对，请检查更新清单")
-                    continue
-                }
-                if (attempt > 0) onProgress(0f) // 换线路，进度条从头来
-                attempt++
-                val file = try {
-                    fetch(url, target, info, onProgress)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // 只留第一条错误：主地址的失败原因比镜像的更有信息量
-                    if (lastError == null) lastError = e
-                    continue
-                }
-                // 校验失败（包名/版本/签名不符）是硬失败 —— 不换镜像重试，直接报错
-                return@withContext verify(file, info)
-            }
-            throw lastError ?: SourceException("没有可用的下载地址")
+            downloadMutex.withLock { downloadLocked(info, onProgress) }
         }
 
+    private suspend fun downloadLocked(info: UpdateInfo, onProgress: (Float) -> Unit): File {
+        val dir = File(context.cacheDir, "update").apply { mkdirs() }
+        val target = File(dir, "cinema-${info.versionCode}.apk")
+
+        // 之前下过就直接用（几十兆没必要重下），但仍然要重新校验一遍
+        if (target.exists() && target.length() > 0L) {
+            val verified = verify(target, info)
+            onProgress(1f)
+            return verified
+        }
+
+        // 主地址 + 镜像依次试：国内网络下"下载域名断掉"是常态，不是意外
+        val candidates = (listOf(info.apkUrl) + listOfNotNull(info.mirrorUrl))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+
+        var lastError: Exception? = null
+        var attempt = 0
+        for (raw in candidates) {
+            val url = normalizeBaseUrl(raw)
+            if (url == null) {
+                lastError = SourceException("下载地址格式不对，请检查更新清单")
+                continue
+            }
+            if (attempt > 0) onProgress(0f) // 换线路，进度条从头来
+            attempt++
+            val file = try {
+                fetch(url, target, info, onProgress)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // 只留第一条错误：主地址的失败原因比镜像的更有信息量
+                if (lastError == null) lastError = e
+                continue
+            }
+            // 校验失败（包名/版本/签名不符）是硬失败 —— 不换镜像重试，直接报错
+            return verify(file, info)
+        }
+        throw lastError ?: SourceException("没有可用的下载地址")
+    }
+
     /** 真正搬字节：流式写盘 + 按整数百分比回调进度 */
-    private fun fetch(
+    private suspend fun fetch(
         url: HttpUrl,
         target: File,
         info: UpdateInfo,
         onProgress: (Float) -> Unit,
     ): File {
-        val tmp = File(target.parentFile, "${target.nameWithoutExtension}.part")
-        tmp.delete()
-        try {
-            val request = Request.Builder()
-                .url(url)
-                .header("User-Agent", DEFAULT_UA)
-                .build()
-            downloadClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    throw SourceException("下载失败（HTTP ${response.code}）")
-                }
-                val body = response.body
-                // contentLength 是权威值；没有就退回清单里写的大小
-                val total = body.contentLength().takeIf { it > 0 } ?: info.sizeBytes
-                body.byteStream().use { input ->
-                    tmp.outputStream().use { output ->
-                        val buf = ByteArray(64 * 1024)
-                        var read = 0L
-                        var lastPct = -1
-                        while (true) {
-                            val n = input.read(buf)
-                            if (n < 0) break
-                            output.write(buf, 0, n)
-                            read += n
-                            if (total > 0) {
-                                // 只在整数百分比变化时回调，避免每秒上百次重组
-                                val pct = (read * 100 / total).toInt()
-                                if (pct != lastPct) {
-                                    lastPct = pct
-                                    onProgress((read.toFloat() / total).coerceIn(0f, 1f))
+        val coroutineContext = currentCoroutineContext()
+        return UpdateDownloadFiles.write(target, info.sizeBytes) { tmp ->
+            try {
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", DEFAULT_UA)
+                    .build()
+                downloadClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        throw SourceException("下载失败（HTTP ${response.code}）")
+                    }
+                    val body = response.body
+                    // contentLength 是权威值；没有就退回清单里写的大小
+                    val total = body.contentLength().takeIf { it > 0 } ?: info.sizeBytes
+                    body.byteStream().use { input ->
+                        tmp.outputStream().use { output ->
+                            val buf = ByteArray(64 * 1024)
+                            var read = 0L
+                            var lastPct = -1
+                            while (true) {
+                                coroutineContext.ensureActive()
+                                val n = input.read(buf)
+                                if (n < 0) break
+                                output.write(buf, 0, n)
+                                read += n
+                                if (total > 0) {
+                                    // 只在整数百分比变化时回调，避免每秒上百次重组
+                                    val pct = (read * 100 / total).toInt()
+                                    if (pct != lastPct) {
+                                        lastPct = pct
+                                        onProgress((read.toFloat() / total).coerceIn(0f, 1f))
+                                    }
                                 }
                             }
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SourceException) {
+                throw e
+            } catch (e: Exception) {
+                throw SourceException("下载中断了，检查一下电视的网络再试", e)
             }
-        } catch (e: CancellationException) {
-            tmp.delete()
-            throw e
-        } catch (e: SourceException) {
-            tmp.delete()
-            throw e
-        } catch (e: Exception) {
-            tmp.delete()
-            throw SourceException("下载中断了，检查一下电视的网络再试", e)
         }
-
-        if (info.sizeBytes > 0 && tmp.length() != info.sizeBytes) {
-            tmp.delete()
-            throw SourceException("下载不完整（应该 ${info.sizeText}），已丢弃")
-        }
-        if (!tmp.renameTo(target)) {
-            tmp.delete()
-            throw SourceException("保存安装包失败，电视存储空间可能不够")
-        }
-        return target
-    }
-
-    // ── 清单解析 ──────────────────────────────────────────────
-
-    private fun parseManifest(text: String): UpdateInfo {
-        val obj = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull()
-            ?: throw SourceException("更新清单不是合法 JSON")
-
-        val code = obj["versionCode"].asInt()
-            ?: obj["version_code"].asInt()
-            ?: obj["code"].asInt()
-            ?: throw SourceException("更新清单里缺了版本号")
-
-        val name = obj["versionName"].asText()
-            ?: obj["version_name"].asText()
-            ?: obj["name"].asText()
-            ?: code.toString()
-
-        val apk = obj["apkUrl"].asText()
-            ?: obj["apk_url"].asText()
-            ?: obj["url"].asText()
-            ?: obj["download_url"].asText()
-            ?: throw SourceException("更新清单里没有下载地址")
-
-        val notes = (obj["notes"].asText()
-            ?: obj["changelog"].asText()
-            ?: obj["desc"].asText()
-            ?: obj["description"].asText())
-            ?.replace("\\n", "\n")
-            ?.trim()
-            ?: ""
-
-        // 大小只认纯字节数；写成 "13MB" 这种就当作没写（宁可少显示，不显示错的）
-        val size = (obj["sizeBytes"].asText() ?: obj["size_bytes"].asText())
-            ?.trim()
-            ?.toLongOrNull()
-            ?: 0L
-
-        val mirror = (obj["mirrorUrl"].asText() ?: obj["mirror_url"].asText())?.trim()?.takeIf { it.isNotEmpty() }
-
-        return UpdateInfo(
-            versionCode = code,
-            versionName = name,
-            apkUrl = apk,
-            notes = notes,
-            sizeBytes = size,
-            mirrorUrl = mirror,
-        )
     }
 
     // ── 安全校验 ──────────────────────────────────────────────
@@ -258,30 +211,13 @@ class GitHubUpdater(
     private fun verify(apk: File, info: UpdateInfo): File {
         val pm = context.packageManager
         val flags = archiveFlags()
-
-        val archive = runCatching { pm.getPackageArchiveInfo(apk.absolutePath, flags) }.getOrNull()
-        if (archive == null) {
-            apk.delete()
-            throw SourceException("下载下来的文件不是有效的安装包，已丢弃")
-        }
-        if (archive.packageName != context.packageName) {
-            apk.delete()
-            throw SourceException("安装包包名对不上，已丢弃")
-        }
-
-        val archiveCode = versionCodeOf(archive)
-        if (archiveCode != info.versionCode.toLong()) {
-            apk.delete()
-            throw SourceException("安装包版本对不上（清单说 ${info.versionCode}，包里是 $archiveCode），已丢弃")
-        }
-
-        val mine = runCatching { fingerprints(pm.getPackageInfo(context.packageName, flags)) }.getOrNull()
-        val theirs = runCatching { fingerprints(archive) }.getOrNull()
-        if (!UpdateSignaturePolicy.matches(mine, theirs)) {
-            apk.delete()
-            throw SourceException("无法确认安装包签名与当前应用一致，出于安全已丢弃")
-        }
-        return apk
+        fun identity(pkg: PackageInfo) = UpdatePackageIdentity(
+            pkg.packageName, versionCodeOf(pkg), fingerprints(pkg),
+        )
+        return UpdateArtifactVerifier(
+            readInstalled = { identity(pm.getPackageInfo(context.packageName, flags)) },
+            readArchive = { file -> pm.getPackageArchiveInfo(file.absolutePath, flags)?.let(::identity) },
+        ).verify(apk, info)
     }
 
     private fun archiveFlags(): Int =
