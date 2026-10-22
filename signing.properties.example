@@ -1,0 +1,8 @@
+# Copy to ignored signing.properties only after the release freeze is lifted.
+# Environment variables take precedence. Never put credentials in Gradle CLI arguments.
+# Keep the keystore outside the repository. Values intentionally have no defaults.
+storeFile=
+storePassword=
+keyAlias=
+keyPassword=
+storeType=PKCS12

@@ -10,15 +10,27 @@ captures/
 .kotlin/
 *.apk
 *.aab
-!keystore/*.jks
+*.idsig
 
-# JVM / Gradle 崩溃日志（出现过一次，别让它进仓库）
-hs_err_pid*.log
-replay_pid*.log
-
-# GitHub 发布 token（绝不能进仓库；放 %USERPROFILE%\.github_token）
+# Private signing material must never be committed.
+/keystore/
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pk8
+*.key
+signing.properties
+keystore.properties
+.env
+.env.*
+!.env.example
 .github_token
 github_token.txt
 
-# 本机 SDK、私有验证材料和迁移清单；不得提交或发布
+# Local tools, evidence, credentials, and caches.
 /.local/
+__pycache__/
+*.pyc
+hs_err_pid*.log
+replay_pid*.log
