@@ -55,5 +55,26 @@ class RepositorySecurityTests(unittest.TestCase):
     def test_nonsecret_binary_is_allowed(self):
         self.assertEqual([], security.scan_path('gradle/wrapper/gradle-wrapper.jar', b'\x00\xff'))
 
+    def test_personal_filesystem_paths_are_rejected(self):
+        for path in ('/' + 'Users/example/project', 'C:' + '\\Users\\example\\project'):
+            with self.subTest(path=path):
+                self.assertIn('personal-path', security.scan_path('script.txt', path.encode()))
+
+    def test_environment_based_paths_are_allowed(self):
+        self.assertEqual([], security.scan_path('script.ps1', b'$env:ANDROID_HOME; $env:USERPROFILE'))
+
+    def test_credential_urls_are_rejected_without_echoing_values(self):
+        url = ('https://example.invalid/?to' + 'ken=synthetic-private-value').encode()
+        result = security.scan_path('config.txt', url)
+        self.assertIn('credential-url', result)
+        self.assertNotIn(url.decode(), str(result))
+
+    def test_url_userinfo_is_rejected(self):
+        url = ('https://' + 'member:synthetic-private-value@example.invalid/resource').encode()
+        self.assertIn('credential-url', security.scan_path('config.txt', url))
+
+    def test_public_urls_without_credentials_are_allowed(self):
+        self.assertEqual([], security.scan_path('config.txt', b'https://example.invalid/resource?mode=public'))
+
 if __name__ == '__main__':
     unittest.main()

@@ -15,6 +15,9 @@ Release signing and publishing are frozen. This is containment, not incident clo
 - Debug builds use a separate application ID. The production ID, version code, data model, and installed application are not changed by this containment work.
 - The updater rejects missing or mismatching complete current-signer sets; it does not treat an unverifiable signature as an acceptable update. This is not key rotation or compromised-key revocation.
 - The repository guard checks indexed blobs and reports rule names, not matched secrets. It is a targeted regression guard, not an exhaustive secret scanner or a history scan.
+- Legacy release workflow ID `387692952` was disabled in GitHub workflow management and read back as `disabled_manually`; ordinary verification remains active. Recheck that administrator state before changing release policy.
+- An encrypted local recovery archive outside the repository was decrypted and compared against the historical keystore, signing configuration and verified Git bundle. Its recovery secret was retrieved from the owner's macOS Keychain; the historical keystore opened successfully. An offline copy is not established by this local check.
+- Cached and newly downloaded APKs reject replay/downgrade and recheck size, optional SHA-256 integrity, package/version and all current signers. Interrupted downloads clean partial files. These tests do not establish independent publisher authentication or key migration.
 
 ## Required evidence before reopening or releasing
 
@@ -26,7 +29,7 @@ Release signing and publishing are frozen. This is containment, not incident clo
 6. Audit original-code ownership and third-party code, artwork, fonts, dependencies, notices, and media-source configuration. Obtain an explicit license decision and add LICENSE plus required notices before claiming the project is open source.
 7. Complete build tests, updater security tests, and TV focus/navigation regression checks. Record tested commits, tool versions, APK hashes, and actual device results without credentials or personal paths.
 
-No fresh device verification, encrypted offline key backup, credential rotation, Git-history sanitization, or license approval is established by the containment commit.
+No fresh device verification, offline key-backup copy, signing migration, service-credential rotation, remote Git-history sanitization, or license approval is established. See the [current audit](docs/SECURITY_REMEDIATION_REPORT.md), [migration review](docs/SIGNING_MIGRATION.md) and [source-publication preparation](docs/OPEN_SOURCE_READINESS.md). A local clean snapshot does not erase remote historical objects or third-party copies.
 
 ## Handling reports
 
