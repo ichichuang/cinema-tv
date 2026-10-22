@@ -21,7 +21,7 @@
 | Gradle wrapper | JAR 内含 LICENSE | 保留现有 JAR 与内置许可 |
 | JUnit 4.13.2 | Eclipse Public License 1.0 | 仅 testImplementation，不视为随 APK 分发；若另行分发需重审 |
 
-构建原先排除了 `META-INF/AL2.0` 和 `META-INF/LGPL2.1`；现改为合并保留，防止主动删除依赖许可。此改动不能代替完整、与最终发行产物逐项对应的 SBOM/版权通知核对。不能以文件名出现 LGPL 推断本应用采用 LGPL，或以当前表格替代依赖自身条款。
+构建原先排除了 `META-INF/AL2.0` 和 `META-INF/LGPL2.1`；现改为合并保留，防止主动删除依赖许可。复验实际 APK 含 8 份 AndroidX LICENSE 文本，没有 AL2.0/LGPL2.1 同名资源；不能仅凭配置声称所有许可已经装入 APK。此改动不能代替完整、与最终发行产物逐项对应的 SBOM/版权通知核对。不能以文件名出现 LGPL 推断本应用采用 LGPL，或以当前表格替代依赖自身条款。
 
 ## 具体许可证建议
 

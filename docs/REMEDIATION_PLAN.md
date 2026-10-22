@@ -20,7 +20,7 @@
 - [x] 安全回归：`data/update/GitHubUpdater.kt`、相关纯 Kotlin 校验/文件生命周期单元及 `app/src/test/.../update/`。先复现版本、包名、签名、篡改、缓存与失败清理缺口，再修复并跑 JUnit；不放宽签名历史信任。
 - [x] 构建修复：从实际 Lint 报告确定 `app/src/main/` 的兼容性错误；只修复阻断项。验证 debug 和 unsigned release、两种 variant 的 Lint 与单元测试、显式签名请求拒绝及 APK 身份。
 - [x] 扩展审计：`scripts/check_repository_security.py` 仍仅是 index 回归检查；另用扫描工具/审计脚本检查 reachable blobs、branches/tags、可访问 PR refs、日志、artifacts、caches、release assets 和文档。只输出位置及类别，记录权限和覆盖边界；不得删除证据。
-- [ ] 历史发布准备：新增可离线验证的 clean-history 导出程序及测试；验证文件内容与归属说明保留、无旧 refs、无私有产物；不推送导出树。
+- [x] 历史发布准备：新增可离线验证的 clean-history 导出程序及测试；验证文件内容与归属说明保留、无旧 refs、无私有产物；不推送导出树。
 - [x] 开源准备：核对原创权属、依赖 POM、图像/字体/资源与 notices，更新 `README.md`、`docs/DEVELOPMENT.md`、`docs/RELEASE.md`、`docs/OPEN_SOURCE_READINESS.md`、`SECURITY.md`、贡献说明和模板。提出许可证建议，未经维护者决定不新增 LICENSE。
 - [x] 迁移评审：对照 Android 官方文档及本机 `apksigner` 帮助，记录 Android 11/旧系统差异、已安装 updater 的证书限制、独立信任引导与逐设备原位升级验收；没有实际授权设备时标明阻断。
 - [ ] Git 收尾：明确路径分批暂存、检查候选、中文提交并推送专用分支；核对新 SHA 的 CI 终态。公开、正式发布与界面工作保持门控。
