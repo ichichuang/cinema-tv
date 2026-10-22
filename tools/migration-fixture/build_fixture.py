@@ -26,11 +26,13 @@ def build(sdk, output):
     sdk = sdk.resolve()
     tools = sdk / 'build-tools/36.0.0'
     android = sdk / 'platforms/android-37.0/android.jar'
-    if not android.is_file() or not all((tools / tool).is_file() for tool in ['aapt2', 'd8', 'apksigner', 'zipalign']):
+    if not android.is_file() or not all((tools / tool).is_file() for tool in ['aapt', 'aapt2', 'd8', 'apksigner', 'zipalign']):
         raise ValueError('Existing Android 37 platform and Build Tools 36.0.0 are required.')
     java = Path(os.environ['JAVA_HOME']) / 'bin'
     output.mkdir(mode=0o700)
-    env = {k: v for k, v in os.environ.items() if not k.startswith(('SIGNING_', 'CINEMA_SIGNING_'))}
+    env = {k: v for k, v in os.environ.items() if k in {
+        'JAVA_HOME', 'PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'LANG', 'LC_ALL', 'TZ', 'SystemRoot',
+    }}
     env['MIGRATION_FIXTURE_PASSWORD'] = secrets.token_urlsafe(48)
 
     def run(*command):
@@ -50,11 +52,21 @@ def build(sdk, output):
         key.chmod(0o600)
         keys[label] = ['--ks', key, '--ks-key-alias', 'fixture', '--ks-pass', 'env:MIGRATION_FIXTURE_PASSWORD']
     # Explicitly do not grant the old key rollback, shared-UID, permission or auth capabilities.
+    lineage_evidence = []
     for newer in ['b', 'c']:
         run(tools / 'apksigner', 'rotate', '--out', output / ('a-to-' + newer + '.lineage'),
             '--old-signer', *keys['a'], '--set-installed-data', 'true', '--set-rollback', 'false',
             '--set-shared-uid', 'false', '--set-permission', 'false', '--set-auth', 'false',
             '--new-signer', *keys[newer])
+        readback = run(tools / 'apksigner', 'lineage', '--in', output / ('a-to-' + newer + '.lineage'), '--print-certs')
+        old = readback.split('Signer #2')[0]
+        capabilities = {name.strip(): value == 'true' for name, value in
+                        re.findall(r'Has ([A-Za-z ]+) capability\s*:\s*(true|false)', old)}
+        if capabilities != {'installed data': True, 'shared UID': False, 'permission': False,
+                            'rollback': False, 'auth': False}:
+            raise ValueError('Unexpected old-signer lineage capabilities.')
+        lineage_evidence.append(dict(lineage='a-to-' + newer, old_signer_capabilities=capabilities,
+                                     verified_by='apksigner lineage --print-certs'))
     classes = output / 'classes'
     classes.mkdir()
     run(java / 'javac', '-source', '17', '-target', '17', '-classpath', android, '-d', classes,
@@ -92,9 +104,14 @@ def build(sdk, output):
         if len(hashes) != 1:
             raise ValueError('Cannot identify the API 30 artifact signer.')
         run(tools / 'apksigner', 'verify', '--min-sdk-version', '24', '--max-sdk-version', '30', signed)
+        manifest_info = run(tools / 'aapt', 'dump', 'badging', signed)
+        if (not re.search(r"^package: name='" + re.escape(PACKAGE) + r"' versionCode='" + str(version) + "'", manifest_info, re.M)
+                or "sdkVersion:'24'" not in manifest_info or "targetSdkVersion:'28'" not in manifest_info):
+            raise ValueError('Unexpected fixture manifest identity or SDK settings.')
         artifacts.append(dict(file=signed.name, version=version, current_signer_api30=hashes[0],
                               sha256=hashlib.sha256(signed.read_bytes()).hexdigest(),
-                              verified_api24_to30=True, native_libraries=False))
+                              verified_api24_to30=True, native_libraries=False,
+                              manifest_readback=dict(package=PACKAGE, version=version, min_sdk=24, target_sdk=28)))
     if not (artifacts[0]['current_signer_api30'] == artifacts[3]['current_signer_api30']
             and artifacts[1]['current_signer_api30'] == artifacts[2]['current_signer_api30']
             and len({item['current_signer_api30'] for item in artifacts}) == 3):
@@ -102,6 +119,7 @@ def build(sdk, output):
     report = dict(package=PACKAGE, compile_sdk=37, min_sdk=24, target_sdk=28, java_target=17,
                   production_abi='armeabi-v7a', fixture_abi='DEX only; emulator ABI independent',
                   rotation_min_sdk=28, old_key_rollback=False, artifact_evidence=artifacts,
+                  lineage_readback=lineage_evidence,
                   platform_evidence='BLOCKED until explicitly targeted API 30 emulator run',
                   keys='disposable, outside repository; no production key used')
     (output / 'artifact-report.json').write_text(json.dumps(report, indent=2) + '\n')

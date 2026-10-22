@@ -27,7 +27,8 @@ def run(adb, serial, artifacts):
         raise ValueError('Target is not a ready local emulator.')
     if shell('getprop', 'ro.build.version.sdk') != '30':
         raise ValueError('API 30 is required; another platform cannot stand in for this experiment.')
-    if shell('pm', 'path', PACKAGE):
+    installed = shell('pm', 'list', 'packages', '--user', '0', PACKAGE).splitlines()
+    if 'package:' + PACKAGE in installed:
         raise ValueError('Fixture already exists. Use a fresh explicitly selected emulator; do not clear data.')
     report = json.loads((artifacts / 'artifact-report.json').read_text())
     if report['package'] != PACKAGE:

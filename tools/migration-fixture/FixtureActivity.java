@@ -19,14 +19,11 @@ public final class FixtureActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         try {
-            android.content.SharedPreferences prefs = getSharedPreferences("synthetic", MODE_PRIVATE);
-            if (!prefs.contains("marker")) {
-                if (!prefs.edit().putString("marker", "migration-synthetic-data")
-                        .putLong("progress", 12345L).commit()) throw new IllegalStateException("write failed");
-            }
             PackageInfo info = getPackageManager().getPackageInfo(getPackageName(),
                     Build.VERSION.SDK_INT >= 28 ? PackageManager.GET_SIGNING_CERTIFICATES
                             : PackageManager.GET_SIGNATURES);
+            android.content.SharedPreferences prefs = getSharedPreferences("synthetic", MODE_PRIVATE);
+            seedInitialData(prefs, info.versionCode);
             Signature[] current = Build.VERSION.SDK_INT >= 28
                     ? info.signingInfo.getApkContentsSigners() : info.signatures;
             Signature[] history = Build.VERSION.SDK_INT >= 28
@@ -43,6 +40,13 @@ public final class FixtureActivity extends Activity {
             throw new IllegalStateException("Fixture observation failed", error);
         }
         finish();
+    }
+
+    static void seedInitialData(android.content.SharedPreferences prefs, int versionCode) {
+        if (versionCode == 1001 && !prefs.contains("marker")) {
+            if (!prefs.edit().putString("marker", "migration-synthetic-data")
+                    .putLong("progress", 12345L).commit()) throw new IllegalStateException("write failed");
+        }
     }
 
     private static String hashes(Signature[] signatures) throws Exception {

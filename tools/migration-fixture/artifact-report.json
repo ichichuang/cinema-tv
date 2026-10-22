@@ -12,47 +12,101 @@
     {
       "file": "initial-a.apk",
       "version": 1001,
-      "current_signer_api30": "4ad404df3e0da2ce82467778ddb01d0bb5b33bb5f4b987a036e1c4422ced3e9b",
-      "sha256": "5f3b4bdedf16749f7c4a48cba4c692aa2667ec9dfc7d337d65e6093155f05221",
+      "current_signer_api30": "e91fea474cdc0121033c3f4da0be4fdcb46cd82a25cb8bb4e322353d257177c7",
+      "sha256": "0679754081aa08f5326aeafaeec890224080208aabc8d5946dba3cf965a93cb7",
       "verified_api24_to30": true,
-      "native_libraries": false
+      "native_libraries": false,
+      "manifest_readback": {
+        "package": "com.ichichuang.cinema.migrationfixture",
+        "version": 1001,
+        "min_sdk": 24,
+        "target_sdk": 28
+      }
     },
     {
       "file": "a-to-b.apk",
       "version": 1002,
-      "current_signer_api30": "69217c487ff04bb61b6a7578d879c6122ad97cb8e67a3f1d1883fd4035b5c790",
-      "sha256": "b3e4fa2999737f3cc27d26540ba0d1828a93771bf868ed412167a3d670498d25",
+      "current_signer_api30": "73af0c6336ca315bf2f9f2b52bebf101f100fc39c02d685278502a332b588b29",
+      "sha256": "07b6e93223c4a245e66a5eeceb0d82d5a364df7c9cbfce6956379334fc0ea797",
       "verified_api24_to30": true,
-      "native_libraries": false
+      "native_libraries": false,
+      "manifest_readback": {
+        "package": "com.ichichuang.cinema.migrationfixture",
+        "version": 1002,
+        "min_sdk": 24,
+        "target_sdk": 28
+      }
     },
     {
       "file": "next-b.apk",
       "version": 1003,
-      "current_signer_api30": "69217c487ff04bb61b6a7578d879c6122ad97cb8e67a3f1d1883fd4035b5c790",
-      "sha256": "76715fc7db13fb2caf7e897a61180cc6664298b83d9aaba917f80c5bed760236",
+      "current_signer_api30": "73af0c6336ca315bf2f9f2b52bebf101f100fc39c02d685278502a332b588b29",
+      "sha256": "f8476d4052e53077f22c5a7025b08d9a8644d7782d16ef8c19d97bddda89ea70",
       "verified_api24_to30": true,
-      "native_libraries": false
+      "native_libraries": false,
+      "manifest_readback": {
+        "package": "com.ichichuang.cinema.migrationfixture",
+        "version": 1003,
+        "min_sdk": 24,
+        "target_sdk": 28
+      }
     },
     {
       "file": "old-a-only.apk",
       "version": 1004,
-      "current_signer_api30": "4ad404df3e0da2ce82467778ddb01d0bb5b33bb5f4b987a036e1c4422ced3e9b",
-      "sha256": "ce299980bc5ef0d49812ebe06c387751372ff506c13144c70c23da7eb01a3fa2",
+      "current_signer_api30": "e91fea474cdc0121033c3f4da0be4fdcb46cd82a25cb8bb4e322353d257177c7",
+      "sha256": "201fad04f8f77e745448730b2ac2fda9902f5ca3eb42030fe26cf40ce8a425db",
       "verified_api24_to30": true,
-      "native_libraries": false
+      "native_libraries": false,
+      "manifest_readback": {
+        "package": "com.ichichuang.cinema.migrationfixture",
+        "version": 1004,
+        "min_sdk": 24,
+        "target_sdk": 28
+      }
     },
     {
       "file": "competing-a-to-c.apk",
       "version": 1005,
-      "current_signer_api30": "31181f52d97dcbe0daa443d6c9eb55633314995af7e454b634bddebb88436603",
-      "sha256": "f57cb13b43256bd37e94a525074dbf34846eb2a90a75b3e7ef138126b18786bc",
+      "current_signer_api30": "4388d1c68cfcd901b6705af3934af435955db7d2a88ec487ca26b5f8d5faca47",
+      "sha256": "c2aefb2f21562f650d85c5eaa1aba49229300e34349277c1fe729b3de9373100",
       "verified_api24_to30": true,
-      "native_libraries": false
+      "native_libraries": false,
+      "manifest_readback": {
+        "package": "com.ichichuang.cinema.migrationfixture",
+        "version": 1005,
+        "min_sdk": 24,
+        "target_sdk": 28
+      }
+    }
+  ],
+  "lineage_readback": [
+    {
+      "lineage": "a-to-b",
+      "old_signer_capabilities": {
+        "installed data": true,
+        "shared UID": false,
+        "permission": false,
+        "rollback": false,
+        "auth": false
+      },
+      "verified_by": "apksigner lineage --print-certs"
+    },
+    {
+      "lineage": "a-to-c",
+      "old_signer_capabilities": {
+        "installed data": true,
+        "shared UID": false,
+        "permission": false,
+        "rollback": false,
+        "auth": false
+      },
+      "verified_by": "apksigner lineage --print-certs"
     }
   ],
   "platform_evidence": "BLOCKED until explicitly targeted API 30 emulator run",
   "keys": "disposable, outside repository; no production key used",
-  "apksigner_version": "0.9",
   "date": "2026-10-23",
+  "apksigner_version": "0.9",
   "platform_blocker": "No emulator binary, system image or configured AVD in the available Android SDK; no emulator installation attempted."
 }

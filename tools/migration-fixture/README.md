@@ -29,3 +29,5 @@ SDK 设置匹配生产 compile 37 / min 24 / target 28、Java target 17。夹具
 API 24–27 不识别 v3 lineage。为测试兼容而存在于 A→B 包内的旧平台 A 签名，不构成在旧平台摆脱受损 A 的安全方案；工具验证通过也不等于该平台已迁移。生产 minSdk 仍为 24，维护者须明确决定旧平台是停止安全更新、采用经批准的重新安装迁移，还是其他有证据的政策；本轮不默默提高 minSdk、不保留旧钥作为未披露的正式方案。
 
 [AOSP v3 文档](https://source.android.com/docs/security/features/apksigning/v3) 当前还明确不推荐 Android 12/API 31 及更早系统的密钥轮换；这使 API 30 实验与厂商电视验收更必要，而不是允许宣称兼容。lineage 只表达密钥链的技术关系，不证明合法所有权。生产根仍须独立引导，电视固件上的启动/播放/数据/后续更新/旧钥拒绝均待单独授权和验证。
+
+复审修复了 fresh emulator 的缺包探测：使用成功返回空集合的 `pm list packages --user 0`，包存在、查询异常或非 emulator 均拒绝。合成数据只允许初装 versionCode 1001 初始化，后续缺失保持缺失使矩阵失败，不自动重建。`check_fixture_state.py` 使用既有 JDK/SDK 和内存偏好代理对真实 seeding 方法执行 3 项 JVM 逻辑检查；Python 工具边界测试也不连接设备。这些测试不能替代 PackageManager 安装或数据保留的真实平台证据。
