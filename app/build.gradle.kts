@@ -74,7 +74,8 @@ android {
     }
     buildFeatures { compose = true }
     lint { disable += "ExpiredTargetSdkVersion" }
-    packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
+    // Retain dependency license texts when several dependencies contribute the same name.
+    packaging { resources { merges += listOf("/META-INF/AL2.0", "/META-INF/LGPL2.1") } }
 }
 
 dependencies {

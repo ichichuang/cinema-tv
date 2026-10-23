@@ -42,6 +42,8 @@ jobs:
           set -euo pipefail
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0"
           test -r "$ANDROID_HOME/platforms/android-37.0/android.jar"
+      - name: Test disposable fixture state policy without a device
+        run: python3 tools/migration-fixture/check_fixture_state.py
       - name: Verify release signing remains frozen
         shell: bash
         run: |
@@ -54,7 +56,23 @@ jobs:
           fi
           grep -F 'Release signing is frozen.' "$freeze_log" > /dev/null
       - name: Compile, lint, and test without release credentials
-        run: bash ./gradlew :app:assembleRelease :app:lintDebug :app:testDebugUnitTest --no-daemon --no-configuration-cache --console=plain
+        run: bash ./gradlew :app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintRelease :app:testDebugUnitTest --no-daemon --no-configuration-cache --console=plain
       - name: Require the unsigned release artifact
         run: test -f app/build/outputs/apk/release/app-release-unsigned.apk
+      - name: Report executed unit tests
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          reports = list(Path('app/build/test-results/testDebugUnitTest').glob('TEST-*.xml'))
+          totals = dict(tests=0, failures=0, errors=0, skipped=0)
+          for report in reports:
+              suite = ET.parse(report).getroot()
+              for key in totals:
+                  totals[key] += int(suite.get(key, '0'))
+          print('JUnit totals:', totals)
+          assert totals['tests'] > totals['skipped'], 'No unit tests executed.'
+          assert totals['failures'] == totals['errors'] == 0, 'Unit tests failed.'
+          PY
       # Do not upload APKs, expose signing secrets, or publish releases in this workflow.

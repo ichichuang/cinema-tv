@@ -18,7 +18,9 @@ param([string]$ApkPath)
 $ErrorActionPreference = 'Continue'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$sdk  = 'C:\Users\cc\Tools\android-sdk'
+$sdk = $env:ANDROID_HOME
+if (-not $sdk) { $sdk = $env:ANDROID_SDK_ROOT }
+if (-not $sdk) { throw '请先配置 ANDROID_HOME 或 ANDROID_SDK_ROOT。' }
 $repo = Split-Path $PSScriptRoot -Parent
 $fail = 0
 
@@ -28,7 +30,7 @@ if (-not $ApkPath) {
 }
 if (-not $ApkPath -or -not (Test-Path $ApkPath)) { Write-Output '✗ 找不到 APK'; exit 1 }
 
-Write-Output "APK : $ApkPath"
+Write-Output ("APK : " + (Split-Path $ApkPath -Leaf))
 $sizeMB = [math]::Round((Get-Item $ApkPath).Length / 1MB, 2)
 Write-Output ("大小: {0} MB" -f $sizeMB)
 if ($sizeMB -gt 30) { Write-Output '! 超过 30MB，后面要考虑开 isMinifyEnabled' }

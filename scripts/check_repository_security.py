@@ -18,6 +18,8 @@ CONTENT_RULES = (
     ('literal-signing-password', re.compile(r'''\b(?:storePassword|keyPassword)\s*(?:=|\()\s*["'][^"'\r\n]+["']''')),
     ('private-key-content', re.compile(r'-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----')),
     ('github-token', re.compile(r'\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{40,})\b')),
+    ('personal-path', re.compile(r'(?:/(?:Users|home)/[^/\s]+|[A-Za-z]:\\Users\\[^\\\s]+)')),
+    ('credential-url', re.compile(r'''https?://(?:[^/\s"'<>:@]+:[^/\s"'<>@]+@|[^\s"'<>]*[?&](?:token|key|password|pass|auth|secret|access_token)=)''', re.IGNORECASE)),
 )
 
 

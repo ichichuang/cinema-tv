@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-23",
+  "scanner": "Gitleaks 8.26.0 default rules, redact=100",
+  "scanner_exit": 1,
+  "raw_findings": 88,
+  "reviewed_categories": {
+    "current_signer_api30": 5,
+    "key_sha256": 83
+  },
+  "evidence": [
+    "83 cache-key SHA-256 values recomputed against current read-only Actions metadata by ID",
+    "5 disposable public signer certificate hashes re-read using apksigner API30 verification"
+  ],
+  "unreviewed_findings": 0,
+  "rules_disabled": false,
+  "allowlist_added": false,
+  "secret_values_published": false,
+  "historical_exposures": "Retained private history was not rescanned or sanitized in this round."
+}

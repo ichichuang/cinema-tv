@@ -2,6 +2,15 @@
 
 ## Release hold
 
+## Single-repository distribution target (not active)
+
+The only intended long-term GitHub repository is `ichichuang/cinema-tv`, with `main` as its sole branch. Source and update metadata live at `main/update/version.json` and `main/update/sources.json`; approved, signed installation packages belong in **this repository's GitHub Releases** as immutable version-tagged assets (`releases/download/vX.Y.Z/cinema-tv-X.Y.Z.apk`). Keep release APK binaries out of Git-tracked source files. A future signed manifest must reference the verified release asset and record its exact size, SHA-256, version and authenticated publisher metadata. No such new release is authorized or available yet.
+
+The existing installed 0.9.8 APK is a separate compatibility constraint: it reads default manifests and source catalogs from `ichichuang/cinema-tv-releases` and checks the current APK signer. Changing Kotlin defaults in source cannot change an APK that is already installed. The old distribution repository remains an unchanged **temporary bridge**, not a second long-term product repository; do not delete it before an independently trusted migration has been completed and its old-client impact has been accepted. Releasing an APK signed by a replacement key alone would not pass the already-installed legacy updater's certificate policy. Do not silently break Android 11 in-place upgrades, remove historical artifacts, move tags, or permit the compromised identity to sign future production updates.
+
+The original source repository also still contains sensitive Git history and PR references. Moving `main` or deleting the remediation branch is not sufficient history sanitization; keep private until its reachable and GitHub-retained references have been remediated and verified with an approved procedure. A root license and third-party asset rights must be approved before public publication. The present changes only prepare the one-repository layout; they do **not** authorize publishing, deleting, replacing, or making any repository public.
+
+
 Release signing and publishing are frozen because the former release keystore and its credentials were publicly exposed. The current tree is being hardened for a future open-source launch. Removing a tracked key is not revocation, migration, or history sanitization. See [SECURITY.md](../SECURITY.md).
 
 The production package remains com.ichichuang.cinema, versionCode 18, versionName 0.9.8. No new version is declared by this remediation. The existing distribution repository, APKs, tags, and update manifests are unchanged.
@@ -30,13 +39,15 @@ When the migration is approved, supply the reviewed signer through ignored local
 
 ## Update protocol and outstanding work
 
-The legacy updater reads the first parseable update manifest, compares versionCode, downloads APK bytes, checks package/version/signing information, then asks the system installer for confirmation. Existing manifests use versionCode, versionName, apkUrl, sizeBytes, notes, and optional mirrorUrl. The current verifier rejects missing, empty, malformed, or mismatching signer sets and compares every current signer rather than only the first certificate. It also rejects APK parsing failures. This fixes a fail-open validation defect but does not accept rotated signers or revoke the compromised old key. Manifest authentication, update-only transport hardening, and an independently trusted APK digest remain separate security work items; they are not solved by removing the Gradle password.
+The legacy updater reads the first parseable update manifest, compares versionCode, downloads APK bytes, checks package/version/signing information, then asks the system installer for confirmation. Existing fields and aliases remain compatible. Optional `sha256` is checked when present; malformed values fail rather than falling back to legacy mode. Both downloaded and cached files are rechecked for size, package, exact manifest version, strictly newer installed version and complete current-signer equality. Missing metadata/signers, failed verification and interrupted partial files are rejected/cleaned; downloads are serialized. This does not accept rotated signers or revoke the compromised old key.
+
+The updater uses a separate client that rejects only HTTPS-to-HTTP downgrades before each redirect hop. HTTP-to-HTTPS upgrades and same-scheme redirects remain compatible, and HTTP media playback is unchanged. Existing explicitly configured HTTP update URLs remain accepted for compatibility and are still an exposure. Independently authenticated metadata/artifacts and the migration bootstrap are designed together in [SIGNING_MIGRATION.md](SIGNING_MIGRATION.md), pending review and owner-controlled trust material.
 
 A digest received from the same untrusted manifest is not independent authenticity. A successful match against the compromised old certificate also does not prove that the publisher is legitimate. Do not describe transport hardening or certificate comparison alone as remediation of the compromised key.
 
 ## Publishing controls
 
-publish-to-repo.ps1 and publish-update.ps1 now fail before modifying files, reading credentials, pushing Git refs, or contacting a release API. Their old force-tagging, force-pushing, and attachment-replacement behavior is no longer available in the current scripts. Do not run historical copies. The separate source-catalog publisher is not a release-signing workflow and still requires explicit review before use.
+publish-to-repo.ps1, publish-update.ps1 and publish-sources.ps1 all fail before modifying files, reading credentials, pushing Git refs, or contacting a release API. Their old publication behavior is unavailable during the freeze. Do not run historical copies. GitHub workflow ID `387692952` is disabled in workflow management; ordinary verification remains active. Existing remote artifacts, tags and manifests are preserved as evidence.
 
 When publication is eventually approved, use a new monotonically increasing versionCode, immutable new tags, a reviewed manifest, signature verification, APK SHA-256 and size checks, and read-back verification of every distributed artifact. Never move old release tags or overwrite an existing release asset.
 

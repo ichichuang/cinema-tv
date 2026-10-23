@@ -1,0 +1,765 @@
+{
+  "package": "com.ichichuang.cinema.migrationfixture",
+  "compile_sdk": 37,
+  "min_sdk": 24,
+  "target_sdk": 28,
+  "java_target": 17,
+  "production_abi": "armeabi-v7a",
+  "fixture_abi": "DEX only; emulator ABI independent",
+  "rotation_min_sdk": 28,
+  "old_key_rollback": false,
+  "artifact_evidence": [
+    {
+      "file": "initial-a.apk",
+      "version": 1001,
+      "current_signer_api30": "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c",
+      "sha256": "ada94d7a82089bd233e6ffdb39f066c93ef2e30d30b24cdf2c0778e70a56326c",
+      "verified_api24_to30": true,
+      "native_libraries": false,
+      "manifest_readback": {
+        "package": "com.ichichuang.cinema.migrationfixture",
+        "version": 1001,
+        "min_sdk": 24,
+        "target_sdk": 28
+      }
+    },
+    {
+      "file": "a-to-b.apk",
+      "version": 1002,
+      "current_signer_api30": "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada",
+      "sha256": "8f491be86431d2629ff549d79aa353f77ca711224b43d83370b2fa115360be1d",
+      "verified_api24_to30": true,
+      "native_libraries": false,
+      "manifest_readback": {
+        "package": "com.ichichuang.cinema.migrationfixture",
+        "version": 1002,
+        "min_sdk": 24,
+        "target_sdk": 28
+      }
+    },
+    {
+      "file": "next-b.apk",
+      "version": 1003,
+      "current_signer_api30": "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada",
+      "sha256": "ce4b73c940b9d9f73b7c567f947182267cd88de21ee1f1d9274c25f436f335cb",
+      "verified_api24_to30": true,
+      "native_libraries": false,
+      "manifest_readback": {
+        "package": "com.ichichuang.cinema.migrationfixture",
+        "version": 1003,
+        "min_sdk": 24,
+        "target_sdk": 28
+      }
+    },
+    {
+      "file": "old-a-only.apk",
+      "version": 1004,
+      "current_signer_api30": "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c",
+      "sha256": "eaef287a2d1644a4190d10ba07dfaf63f132df99ccaf642e8fd967208ce2eca2",
+      "verified_api24_to30": true,
+      "native_libraries": false,
+      "manifest_readback": {
+        "package": "com.ichichuang.cinema.migrationfixture",
+        "version": 1004,
+        "min_sdk": 24,
+        "target_sdk": 28
+      }
+    },
+    {
+      "file": "competing-a-to-c.apk",
+      "version": 1005,
+      "current_signer_api30": "d77c98077aba7f1792c2e8f04ccf951118747becb38cf14bb608169aa0a35331",
+      "sha256": "2e2b6d0d63e6d8f78a8080660cba8ded0247f72f55eb395b02d24a5a0169a858",
+      "verified_api24_to30": true,
+      "native_libraries": false,
+      "manifest_readback": {
+        "package": "com.ichichuang.cinema.migrationfixture",
+        "version": 1005,
+        "min_sdk": 24,
+        "target_sdk": 28
+      }
+    }
+  ],
+  "lineage_readback": [
+    {
+      "lineage": "a-to-b",
+      "old_signer_capabilities": {
+        "installed data": true,
+        "shared UID": false,
+        "permission": false,
+        "rollback": false,
+        "auth": false
+      },
+      "verified_by": "apksigner lineage --print-certs"
+    },
+    {
+      "lineage": "a-to-c",
+      "old_signer_capabilities": {
+        "installed data": true,
+        "shared UID": false,
+        "permission": false,
+        "rollback": false,
+        "auth": false
+      },
+      "verified_by": "apksigner lineage --print-certs"
+    }
+  ],
+  "platform_evidence": "PASS: actual API 30 PackageManager matrix; not television acceptance",
+  "keys": "disposable, outside repository; no production key used",
+  "date": "2026-10-23",
+  "source_baseline": "ecdef5ce094e05641ca4d1cc96a475eaecdab92a",
+  "apksigner_version": "0.9",
+  "environment": {
+    "host_architecture": "arm64",
+    "host_os": "macOS 27.0 (26A428)",
+    "free_space_preflight_gib": 358,
+    "kern_hv_support": 1,
+    "acceleration": "Hypervisor.Framework OS X Version 27.0; emulator -accel-check exit 0",
+    "emulator_version": "37.2.12.0 (build_id 16428233)",
+    "system_image_package": "system-images;android-30;default;arm64-v8a",
+    "system_image_package_revision": "2",
+    "system_image_source_properties_revision": "1 (upstream archive field; package.xml revision is 2)",
+    "system_image_archive": "arm64-v8a-30_r02.zip",
+    "system_image_archive_sha1": "e96298145a5e0bfd6da4816f51b06c520d8dba72",
+    "license": "existing android-sdk-license record reused unchanged; stdin DEVNULL, no new agreement accepted",
+    "adb": "existing platform-tools 37.0.1; isolated server port 5047; verified serial emulator-5580",
+    "shared_sdk_upgraded": false,
+    "physical_devices_discovered_or_modified": false
+  },
+  "platform_matrix": [
+    {
+      "platform": "Android 11 / API 30 emulator",
+      "serial": "emulator-5580",
+      "scenario": "migration",
+      "emulator_abi": "arm64-v8a",
+      "production_abi": "armeabi-v7a",
+      "fingerprint": "Android/sdk_phone_arm64/emulator_arm64:11/RSR1.210722.013.A4/10160917:userdebug/test-keys",
+      "package": "com.ichichuang.cinema.migrationfixture",
+      "results": [
+        {
+          "file": "initial-a.apk",
+          "version": 1001,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "0cd476cb4a741e4cf1c6bf037a8dcf46",
+            "uid": 10130,
+            "version": 1001,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "a-to-b.apk",
+          "version": 1002,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "b9a973e4dc44c7bfb0b3b15c0018db05",
+            "uid": 10130,
+            "version": 1002,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c",
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "next-b.apk",
+          "version": 1003,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "bb507c808f7b4bc3053fa1e5e6b8e002",
+            "uid": 10130,
+            "version": 1003,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        }
+      ],
+      "television_evidence": false,
+      "status": "PASS",
+      "avd_name": "cinema-api30-v5rvu_8h-matrix-migration"
+    },
+    {
+      "platform": "Android 11 / API 30 emulator",
+      "serial": "emulator-5580",
+      "scenario": "rotation-old-a",
+      "emulator_abi": "arm64-v8a",
+      "production_abi": "armeabi-v7a",
+      "fingerprint": "Android/sdk_phone_arm64/emulator_arm64:11/RSR1.210722.013.A4/10160917:userdebug/test-keys",
+      "package": "com.ichichuang.cinema.migrationfixture",
+      "results": [
+        {
+          "file": "initial-a.apk",
+          "version": 1001,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "e8ffd1d45e451a21c73438642657d96a",
+            "uid": 10130,
+            "version": 1001,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "a-to-b.apk",
+          "version": 1002,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "8edb6b825dad0952efb40056a3bde224",
+            "uid": 10130,
+            "version": 1002,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c",
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "old-a-only.apk",
+          "version": 1004,
+          "exit": 1,
+          "package_manager_reason": "INSTALL_FAILED_UPDATE_INCOMPATIBLE: Package com.ichichuang.cinema.migrationfixture signatures do not match previously installed version; ignoring!",
+          "observation": {
+            "nonce": "e824de72c1f961b5e070a72d01390549",
+            "uid": 10130,
+            "version": 1002,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c",
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        }
+      ],
+      "television_evidence": false,
+      "status": "PASS",
+      "avd_name": "cinema-api30-v5rvu_8h-matrix-rotation-old-a"
+    },
+    {
+      "platform": "Android 11 / API 30 emulator",
+      "serial": "emulator-5580",
+      "scenario": "rotation-competing",
+      "emulator_abi": "arm64-v8a",
+      "production_abi": "armeabi-v7a",
+      "fingerprint": "Android/sdk_phone_arm64/emulator_arm64:11/RSR1.210722.013.A4/10160917:userdebug/test-keys",
+      "package": "com.ichichuang.cinema.migrationfixture",
+      "results": [
+        {
+          "file": "initial-a.apk",
+          "version": 1001,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "025e264ed3c9eb93451ba5a2b7152fb6",
+            "uid": 10130,
+            "version": 1001,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "a-to-b.apk",
+          "version": 1002,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "06baaba208e4e3fabad5838b8a2624af",
+            "uid": 10130,
+            "version": 1002,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c",
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "competing-a-to-c.apk",
+          "version": 1005,
+          "exit": 1,
+          "package_manager_reason": "INSTALL_FAILED_UPDATE_INCOMPATIBLE: Package com.ichichuang.cinema.migrationfixture signatures do not match previously installed version; ignoring!",
+          "observation": {
+            "nonce": "62e0475f05e3e9b02eaa1cfc5b90af97",
+            "uid": 10130,
+            "version": 1002,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c",
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        }
+      ],
+      "television_evidence": false,
+      "status": "PASS",
+      "avd_name": "cinema-api30-v5rvu_8h-matrix-rotation-competing"
+    },
+    {
+      "platform": "Android 11 / API 30 emulator",
+      "serial": "emulator-5580",
+      "scenario": "followup-old-a",
+      "emulator_abi": "arm64-v8a",
+      "production_abi": "armeabi-v7a",
+      "fingerprint": "Android/sdk_phone_arm64/emulator_arm64:11/RSR1.210722.013.A4/10160917:userdebug/test-keys",
+      "package": "com.ichichuang.cinema.migrationfixture",
+      "results": [
+        {
+          "file": "initial-a.apk",
+          "version": 1001,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "3afc6bc4ba18cc0eb13eaa88e597c82a",
+            "uid": 10130,
+            "version": 1001,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "a-to-b.apk",
+          "version": 1002,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "b20a4a21fc9f76a1f8c2261b8c3cee85",
+            "uid": 10130,
+            "version": 1002,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c",
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "next-b.apk",
+          "version": 1003,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "0436ac346a48b42898f4091c2997f989",
+            "uid": 10130,
+            "version": 1003,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "old-a-only.apk",
+          "version": 1004,
+          "exit": 1,
+          "package_manager_reason": "INSTALL_FAILED_UPDATE_INCOMPATIBLE: Package com.ichichuang.cinema.migrationfixture signatures do not match previously installed version; ignoring!",
+          "observation": {
+            "nonce": "678ef0c25f0d484e3d9d22405fa20e5f",
+            "uid": 10130,
+            "version": 1003,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        }
+      ],
+      "television_evidence": false,
+      "status": "PASS",
+      "avd_name": "cinema-api30-v5rvu_8h-matrix-followup-old-a"
+    },
+    {
+      "platform": "Android 11 / API 30 emulator",
+      "serial": "emulator-5580",
+      "scenario": "followup-competing",
+      "emulator_abi": "arm64-v8a",
+      "production_abi": "armeabi-v7a",
+      "fingerprint": "Android/sdk_phone_arm64/emulator_arm64:11/RSR1.210722.013.A4/10160917:userdebug/test-keys",
+      "package": "com.ichichuang.cinema.migrationfixture",
+      "results": [
+        {
+          "file": "initial-a.apk",
+          "version": 1001,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "51a7f47d0cb7c9d95fc905ebbefc229f",
+            "uid": 10130,
+            "version": 1001,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "a-to-b.apk",
+          "version": 1002,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "a7e43b685c1820d3d90ef27c023ec704",
+            "uid": 10130,
+            "version": 1002,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c",
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "next-b.apk",
+          "version": 1003,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "fd937bfeef3237a34028957d4ea131de",
+            "uid": 10130,
+            "version": 1003,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "competing-a-to-c.apk",
+          "version": 1005,
+          "exit": 1,
+          "package_manager_reason": "INSTALL_FAILED_UPDATE_INCOMPATIBLE: Package com.ichichuang.cinema.migrationfixture signatures do not match previously installed version; ignoring!",
+          "observation": {
+            "nonce": "724fcad1d359d9bcbfe6ab559b1a1dba",
+            "uid": 10130,
+            "version": 1003,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ],
+            "history": [
+              "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+            ]
+          },
+          "postconditions_verified": true
+        }
+      ],
+      "television_evidence": false,
+      "status": "PASS",
+      "avd_name": "cinema-api30-v5rvu_8h-matrix-followup-competing"
+    },
+    {
+      "platform": "Android 11 / API 30 emulator",
+      "serial": "emulator-5580",
+      "scenario": "control-old-a",
+      "emulator_abi": "arm64-v8a",
+      "production_abi": "armeabi-v7a",
+      "fingerprint": "Android/sdk_phone_arm64/emulator_arm64:11/RSR1.210722.013.A4/10160917:userdebug/test-keys",
+      "package": "com.ichichuang.cinema.migrationfixture",
+      "results": [
+        {
+          "file": "initial-a.apk",
+          "version": 1001,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "aa482874b683e19567dd1a84fa23db48",
+            "uid": 10130,
+            "version": 1001,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "old-a-only.apk",
+          "version": 1004,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "f5879627e5ab7d9d9a9ddbe299210809",
+            "uid": 10130,
+            "version": 1004,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ]
+          },
+          "postconditions_verified": true
+        }
+      ],
+      "television_evidence": false,
+      "status": "PASS",
+      "avd_name": "cinema-api30-v5rvu_8h-matrix-control-old-a"
+    },
+    {
+      "platform": "Android 11 / API 30 emulator",
+      "serial": "emulator-5580",
+      "scenario": "control-competing",
+      "emulator_abi": "arm64-v8a",
+      "production_abi": "armeabi-v7a",
+      "fingerprint": "Android/sdk_phone_arm64/emulator_arm64:11/RSR1.210722.013.A4/10160917:userdebug/test-keys",
+      "package": "com.ichichuang.cinema.migrationfixture",
+      "results": [
+        {
+          "file": "initial-a.apk",
+          "version": 1001,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "2b620a711499b5e30c43aa5e084f9cb7",
+            "uid": 10130,
+            "version": 1001,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c"
+            ]
+          },
+          "postconditions_verified": true
+        },
+        {
+          "file": "competing-a-to-c.apk",
+          "version": 1005,
+          "exit": 0,
+          "package_manager_reason": "Success",
+          "observation": {
+            "nonce": "cf99ea68382bd2e5af87f2cfeec665d1",
+            "uid": 10130,
+            "version": 1005,
+            "marker": "migration-synthetic-data",
+            "progress": 12345,
+            "current": [
+              "d77c98077aba7f1792c2e8f04ccf951118747becb38cf14bb608169aa0a35331"
+            ],
+            "history": [
+              "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c",
+              "d77c98077aba7f1792c2e8f04ccf951118747becb38cf14bb608169aa0a35331"
+            ]
+          },
+          "postconditions_verified": true
+        }
+      ],
+      "television_evidence": false,
+      "status": "PASS",
+      "avd_name": "cinema-api30-v5rvu_8h-matrix-control-competing"
+    }
+  ],
+  "platform_summary": {
+    "independent_fresh_avds": 7,
+    "installation_attempts": 21,
+    "successful_installs": 17,
+    "signer_incompatibility_rejections": 4,
+    "uninstall_or_data_reset": false,
+    "old_key_rollback_capability": false
+  },
+  "android_authentication": {
+    "status": "PASS",
+    "runtime_checks": 9,
+    "reports": [
+      {
+        "status": "PASS",
+        "phase": "prepare",
+        "pid": 2190,
+        "checks": [
+          "android-jca-valid-signature-and-persisted-permit",
+          "authentication-failure-stops-before-transfer-production-entry-disabled",
+          "envelope-limit-before-buffering-declared-and-streamed",
+          "controlled-network-interruption-cleans-partial-and-retains-pending"
+        ],
+        "details": {
+          "current_signers": [
+            "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+          ],
+          "signing_history": [
+            "1ff3e4ec2da623e129d487069f8f7c1d9f31a5109b45d5e3902cca66e3db4e9c",
+            "66d6b9cce7055685a7bc8786c58de0b73408ba25d83dee3393abd0de6402fada"
+          ],
+          "jca_provider": "AndroidOpenSSL",
+          "installed_fixture_version": 1001,
+          "maximum_oversize_buffered_bytes": 16384
+        },
+        "production_protection": false
+      },
+      {
+        "status": "PASS",
+        "phase": "restart",
+        "pid": 2282,
+        "checks": [
+          "actual-process-restart-retains-floor-and-identical-pending-retry",
+          "interrupted-download-retry-real-apk-current-signer-extraction",
+          "signed-lower-sequence-and-changed-pending-payload-rejected",
+          "history-certificates-cannot-stand-in-for-current-signer-set",
+          "injected-storage-write-failure-fails-closed"
+        ],
+        "details": {
+          "prepare_pid": 2190,
+          "restart_pid": 2282,
+          "storage_failure": "injected path collision; no device storage fault or disk exhaustion"
+        },
+        "production_protection": false
+      }
+    ],
+    "endpoints": {
+      "/fixture.apk?inspect": 1,
+      "/envelope:POST": 1,
+      "/envelope": 1,
+      "/tampered": 1,
+      "/oversized": 1,
+      "/oversized-stream": 1,
+      "/fixture.apk": 3
+    },
+    "candidate_classes_sha256": "4bc05dd48d627d27ba062afaf92cb525427ff8dd4dd8b07ca135007937492ef9",
+    "serial": "emulator-5580",
+    "avd_name": "cinema-api30-v5rvu_8h-auth-9d71c3",
+    "production_protection": false,
+    "fingerprint": "Android/sdk_phone_arm64/emulator_arm64:11/RSR1.210722.013.A4/10160917:userdebug/test-keys"
+  },
+  "diagnostic_limitations": [
+    "An initial partial migration run was preserved separately: am start -W hung after the finishing Activity; no security property failed. Final matrix uses fresh keys/AVDs and nonce-bound observations.",
+    "Build Tools 36.0.0 D8 emitted Kotlin 2.4 metadata rewriting warnings in the test harness. DEX creation, installation and all nine non-reflection runtime assertions succeeded; application toolchain was not upgraded.",
+    "Runtime trust roots/TLS adapters live only in the external test APK. No production network adapter, DI registration, trust provisioning or activation.",
+    "Storage failure is an injected path collision, not an observed device storage fault. Power-loss durability and API 24-27 runtime remain unverified.",
+    "Vendor television installation, native ARM32 libraries, UI/playback and production bootstrap remain owner-controlled and unverified."
+  ],
+  "local_validation": {
+    "python_tests": 38,
+    "fixture_jvm_checks": 3,
+    "application_jvm_tests": 75,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "gradle_actionable_tasks_executed": 99,
+    "debug_and_unsigned_release": "built",
+    "lint_debug": {
+      "errors": 0,
+      "fatal": 0,
+      "warnings": 20
+    },
+    "lint_release": {
+      "errors": 0,
+      "fatal": 0,
+      "warnings": 20
+    },
+    "explicit_release_signing": "rejected: Release signing is frozen.",
+    "production_controls": "disabled/frozen; no production app/toolchain/source-set change",
+    "changed_files_and_logs_secret_scan": {
+      "changed_files": 11,
+      "logs": 44,
+      "redaction": "100 percent",
+      "raw_findings": 15,
+      "classification": "all 15 are current_signer_api30 public test certificate SHA-256 values, independently verified against actual APK certificates",
+      "confirmed_credentials": 0,
+      "rules_or_allowlists_changed": false
+    }
+  }
+}

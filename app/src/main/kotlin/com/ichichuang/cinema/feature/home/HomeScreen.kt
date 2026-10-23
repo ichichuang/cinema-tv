@@ -646,7 +646,9 @@ private fun PosterGrid(
                         PosterCard(
                             movie = movie,
                             modifier = Modifier.focusRequester(
-                                requesters.getOrPut(movie.uniqueKey) { FocusRequester() },
+                                remember(movie.uniqueKey) {
+                                    requesters.getOrPut(movie.uniqueKey) { FocusRequester() }
+                                },
                             ),
                             onClick = { onClickMovie(movie) },
                             onFocused = { onFocusMovie(movie) },
