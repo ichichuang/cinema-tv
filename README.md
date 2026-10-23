@@ -42,4 +42,4 @@ bash ./gradlew :app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintR
 | [认证更新候选](docs/AUTHENTICATED_UPDATES.md) | 固定签名字节、重放/时钟/重试规则；生产关闭 |
 | [维护者待决事项](docs/OWNER_DECISIONS.md) | 许可、权属、离线保管、迁移与公开路线的集中决策 |
 
-`cinema-tv-releases` 是既有分发仓库；此次整改不更改其 APK、标签或清单。`.local/` 为被忽略的本地工具与私有证据，不能随源码发布。仓库内 FongMi 技能属于独立运维工作流，cinema-tv 不依赖 FongMi 或第三方桌面。
+最终分发采用**唯一 `ichichuang/cinema-tv` 仓库**：`main` 保存源码、`update/version.json` 与 `update/sources.json`，未来经过审批的正式 APK 上传到本仓库的 **GitHub Releases**，使用不可移动版本标签和独立的 SHA-256 校验。独立的 `cinema-tv-releases` 仅作为**旧版 0.9.8 电视应用的临时兼容入口**：已安装版本仍使用其硬编码更新/推荐源地址，直接删除会中断这些入口。仓库合并、历史清理、正式开源与生产签名迁移分别验收；此次只迁移未来源码默认地址，**不发布 APK、不删除旧仓库、不解除签名冻结**。`.local/` 为被忽略的本地工具与私有证据，不能随源码发布。仓库内 FongMi 技能属于独立运维工作流，cinema-tv 不依赖 FongMi 或第三方桌面。

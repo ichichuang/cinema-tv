@@ -2,6 +2,15 @@
 
 ## Release hold
 
+## Single-repository distribution target (not active)
+
+The only intended long-term GitHub repository is `ichichuang/cinema-tv`, with `main` as its sole branch. Source and update metadata live at `main/update/version.json` and `main/update/sources.json`; approved, signed installation packages belong in **this repository's GitHub Releases** as immutable version-tagged assets (`releases/download/vX.Y.Z/cinema-tv-X.Y.Z.apk`). Keep release APK binaries out of Git-tracked source files. A future signed manifest must reference the verified release asset and record its exact size, SHA-256, version and authenticated publisher metadata. No such new release is authorized or available yet.
+
+The existing installed 0.9.8 APK is a separate compatibility constraint: it reads default manifests and source catalogs from `ichichuang/cinema-tv-releases` and checks the current APK signer. Changing Kotlin defaults in source cannot change an APK that is already installed. The old distribution repository remains an unchanged **temporary bridge**, not a second long-term product repository; do not delete it before an independently trusted migration has been completed and its old-client impact has been accepted. Releasing an APK signed by a replacement key alone would not pass the already-installed legacy updater's certificate policy. Do not silently break Android 11 in-place upgrades, remove historical artifacts, move tags, or permit the compromised identity to sign future production updates.
+
+The original source repository also still contains sensitive Git history and PR references. Moving `main` or deleting the remediation branch is not sufficient history sanitization; keep private until its reachable and GitHub-retained references have been remediated and verified with an approved procedure. A root license and third-party asset rights must be approved before public publication. The present changes only prepare the one-repository layout; they do **not** authorize publishing, deleting, replacing, or making any repository public.
+
+
 Release signing and publishing are frozen because the former release keystore and its credentials were publicly exposed. The current tree is being hardened for a future open-source launch. Removing a tracked key is not revocation, migration, or history sanitization. See [SECURITY.md](../SECURITY.md).
 
 The production package remains com.ichichuang.cinema, versionCode 18, versionName 0.9.8. No new version is declared by this remediation. The existing distribution repository, APKs, tags, and update manifests are unchanged.

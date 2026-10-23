@@ -362,24 +362,24 @@ class CinemaSettings(private val context: Context) {
         /**
          * 默认更新清单候选（**依次尝试，哪个能用用哪个**）。
          *
-         * ① gh-proxy 直通发布仓库里的 version.json —— 无缓存，**刚发完的版本立刻能看到**。
+         * ① gh-proxy 读取当前源码仓库 main/update/version.json —— 无缓存，**刚发完的版本立刻能看到**。
          * ② 同一份文件走 jsDelivr —— 国内快且稳，但分支地址有 CDN 缓存（最多十几小时），
          *    所以只当兜底、不当首选。
          */
         val DEFAULT_UPDATE_URLS = listOf(
-            "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/main/version.json",
-            "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@main/version.json",
+            "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv/main/update/version.json",
+            "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv@main/update/version.json",
         )
 
         /**
-         * 「推荐源」清单的候选地址（和更新清单同一套思路：gh-proxy 优先、jsDelivr 兜底）。
+         * 「推荐源」清单在同一源码仓库 main/update/sources.json（与更新清单同一套思路：gh-proxy 优先、jsDelivr 兜底）。
          *
          * 清单本身是发布方维护的一份**公开可改**的 JSON：改源、加源不用重新发版。
          * 拉下来会缓存到本地，之后断网也能翻出列表来选。
          */
         val DEFAULT_CATALOG_URLS = listOf(
-            "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/main/sources.json",
-            "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@main/sources.json",
+            "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv/main/update/sources.json",
+            "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv@main/update/sources.json",
         )
 
         /** 设置页里显示的默认值（第一条） */
