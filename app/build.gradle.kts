@@ -3,6 +3,8 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
+    id("androidx.room")
 }
 
 // Removing this freeze requires review of the signing migration and TV upgrade evidence.
@@ -35,6 +37,7 @@ android {
         targetSdk = 28
         versionCode = 18
         versionName = "0.9.8"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("armeabi-v7a") }
     }
 
@@ -78,8 +81,15 @@ android {
     packaging { resources { merges += listOf("/META-INF/AL2.0", "/META-INF/LGPL2.1") } }
 }
 
+room { schemaDirectory("$projectDir/schemas") }
+
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    implementation("androidx.room:room-runtime:2.8.5")
+    ksp("androidx.room:room-compiler:2.8.5")
+    androidTestImplementation("androidx.test:core:1.7.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
