@@ -14,6 +14,13 @@ spec = importlib.util.spec_from_file_location(
 guard = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(guard)
 
+# These exact files belong to the private incident archive, not to public source.
+# Attribution, dependency inventories and disposable platform fixtures remain public.
+PRIVATE_EVIDENCE = {
+    'docs/evidence/actions-cache-metadata.json': 'private incident cache inventory',
+    'docs/evidence/scanner-classification.json': 'classification of the private historical scan',
+}
+
 
 def git(root: Path, *args: str) -> bytes:
     return subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True).stdout
@@ -28,6 +35,7 @@ def prepare(root: Path, output: Path, ref: str) -> dict:
         raise ValueError('Commit and validate the intended source before exporting; worktree is dirty.')
     revision = git(root, 'rev-parse', '--verify', '--end-of-options', ref + '^{commit}').decode().strip()
     entries = []
+    omitted = []
     for entry in git(root, 'ls-tree', '-rz', '--full-tree', revision).split(b'\0'):
         if not entry:
             continue
@@ -40,6 +48,10 @@ def prepare(root: Path, output: Path, ref: str) -> dict:
                 or item.parts[0].casefold() == 'source_history.md'):
             raise ValueError('Unsupported entry in source snapshot.')
         data = git(root, 'cat-file', 'blob', sha)
+        if path in PRIVATE_EVIDENCE:
+            omitted.append({'path': path, 'reason': PRIVATE_EVIDENCE[path],
+                            'sha256': hashlib.sha256(data).hexdigest()})
+            continue
         rules = guard.scan_path(path, data)
         if rules:
             raise ValueError(f'Source export blocked: {path}: {", ".join(rules)}')
@@ -50,7 +62,8 @@ def prepare(root: Path, output: Path, ref: str) -> dict:
     attribution = (
         '# Source provenance\n\n'
         'Origin: ichichuang/cinema-tv.\n\n'
-        f'Private recovery reference: `{revision}`. Historical Git objects are intentionally absent.\n\n'
+        'Historical Git objects and private incident evidence are intentionally absent.\n'
+        'The source mapping is retained in the owner-controlled export manifest.\n\n'
         'Recorded contributors (this records attribution, not a license grant or ownership clearance):\n\n'
         + ''.join(f'- {name}\n' for name in authors)
         + '\nThis snapshot is for local review. Publication, license clearance, and signing migration remain gated.\n'
@@ -71,6 +84,9 @@ def prepare(root: Path, output: Path, ref: str) -> dict:
         stream.write(attribution)
     return {'status': 'local-review-only', 'source_commit': revision,
             'source_files': len(entries), 'attributed_contributors': len(authors),
+            'files': [{'path': path, 'mode': mode, 'sha256': hashlib.sha256(data).hexdigest()}
+                      for path, mode, data in entries],
+            'omitted_files': omitted,
             'historical_objects_exported': False, 'remote_changes': False}
 
 

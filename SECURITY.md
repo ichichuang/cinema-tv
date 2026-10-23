@@ -29,7 +29,7 @@ Release signing and publishing are frozen. This is containment, not incident clo
 6. Audit original-code ownership and third-party code, artwork, fonts, dependencies, notices, and media-source configuration. Obtain an explicit license decision and add LICENSE plus required notices before claiming the project is open source.
 7. Complete build tests, updater security tests, and TV focus/navigation regression checks. Record tested commits, tool versions, APK hashes, and actual device results without credentials or personal paths.
 
-No fresh device verification, offline key-backup copy, signing migration, service-credential rotation, remote Git-history sanitization, or license approval is established. See the [current audit](docs/SECURITY_REMEDIATION_REPORT.md), [migration review](docs/SIGNING_MIGRATION.md) and [source-publication preparation](docs/OPEN_SOURCE_READINESS.md). A local clean snapshot does not erase remote historical objects or third-party copies.
+The owner approved Apache-2.0 and confirmed code/image redistribution rights on 2026-10-23; see [LICENSE](LICENSE) and [asset provenance](docs/ASSET_PROVENANCE.md). Fresh device verification, an independent offline key-backup copy, production signing migration, service-credential rotation and remote history sanitization are still unverified. See the [historical audit](docs/SECURITY_REMEDIATION_REPORT.md), [migration review](docs/SIGNING_MIGRATION.md) and [source-publication procedure](docs/OPEN_SOURCE_READINESS.md). A local clean snapshot does not erase remote historical objects or third-party copies.
 
 ## Handling reports
 

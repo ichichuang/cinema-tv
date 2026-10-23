@@ -6,7 +6,7 @@
 
 Android 的 [v3 文档](https://source.android.com/docs/security/features/apksigning/v3)说明 API 28 起支持签名轮换，同时明确提醒 Android 12 及以前的兼容性风险。[v3.1 文档](https://source.android.com/docs/security/features/apksigning/v3-1)与 [apksigner 文档](https://developer.android.com/tools/apksigner)说明默认轮换针对 API 33+；默认产物在 API 30 上仍可能使用旧签名身份。不能把“有 lineage”当作 Android 11 已迁移。
 
-早期帮助检查读取了现有 Build Tools 36.0.0 的 `apksigner sign --help`、`rotate --help` 和版本输出，当时仅有工具行为依据，尚无签名实验或安装证据。工具帮助确认：针对旧平台的轮换需要明确审查 `--rotation-min-sdk-version 28`；`--set-installed-data` 关系到原位保留数据；`--set-rollback true` 会让旧签名重新取得控制权，不能作为故障绕行。这个早期状态已由 2026-10-23 的 [1850036 测试钥及平台实验](https://github.com/ichichuang/cinema-tv/blob/18500366838ee71c8c9cd2ac181ea8504bb22936/tools/migration-fixture/README.md)补充；缺失的仍是生产迁移签名、可信引导和实体电视验收。
+早期帮助检查读取了现有 Build Tools 36.0.0 的 `apksigner sign --help`、`rotate --help` 和版本输出，当时仅有工具行为依据，尚无签名实验或安装证据。工具帮助确认：针对旧平台的轮换需要明确审查 `--rotation-min-sdk-version 28`；`--set-installed-data` 关系到原位保留数据；`--set-rollback true` 会让旧签名重新取得控制权，不能作为故障绕行。这个早期状态已由 2026-10-23 的[测试钥及平台实验](../tools/migration-fixture/README.md)补充；缺失的仍是生产迁移签名、可信引导和实体电视验收。
 
 API 24–27 不支持 v3 轮换。在“原包名、保留数据、替换受损身份”三个约束下，没有已经验证可通用实施的升级方案；需单独决定旧设备支持策略，不能静默抬高 minSdk 或以换包/卸载解决。
 

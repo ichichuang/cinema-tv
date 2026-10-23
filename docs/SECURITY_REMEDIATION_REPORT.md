@@ -1,6 +1,6 @@
 # 安全整改证据与未通过门槛
 
-日期：2026-10-23；历史起点 `8204cc0709a03743422a065eaf2457771889f6f3`，工作分支 `security/remediation`。本文记录本轮实际证据；最终提交号及对应 CI 终态以交付报告和 GitHub run 为准。
+日期：2026-10-23；历史起点 `8204cc0709a03743422a065eaf2457771889f6f3`，工作分支 `security/remediation`。本文保留整改阶段的历史证据，计数、Draft 与许可状态均以当时为限；当前合并、许可证、分支和门槛统一见 [维护者决定](OWNER_DECISIONS.md)，最终提交及 CI 见交付证据。
 
 ## 已实施
 
@@ -66,8 +66,8 @@
 - [迁移夹具与五包结果](../tools/migration-fixture/README.md)：2026-10-23 补齐官方 API 30 arm64 emulator 的实际证据。7 个独立全新 AVD、21 次 PM 安装尝试覆盖 A→B→B-only、B/1002 与 B/1003 两状态的四次签名不兼容拒绝及两个 A 状态正对照；逐次 UID/合成数据/current/history 读回已记录。独立测试根的 9 项 Android 认证运行时检查也通过。生产包/根、厂商电视与 API 24–27 政策仍未验收；详见既有夹具 JSON 和维护者决策表。夹具 JVM 与 Python 测试继续作为单独逻辑证据。
 - [认证更新协议](AUTHENTICATED_UPDATES.md)：28项候选测试+原有47项JVM，总75，0 failure/error/skip。签名伪造及文件竞争明确先失败再修复。生产常量关闭，无生产根、DI入口、legacy回退或清单变更；不是生产迁移。
 - 本地最终完整 Gradle 命令两种构建/Lint/JVM通过，99个actionable tasks全部执行。Lint每种20 warnings和1 hint，0 error；包括在线依赖/Gradle版本可用性提示，未升级/抑制。另有既有 Kotlin 弃用、Gradle10兼容提示及两份原生库无法strip而原样打包提示。显式正式签名请求按固定错误拒绝。
-- Python 全套32项通过。index guard仍仅检查选定规则；[独立增量扫描分类](evidence/scanner-classification.json)原始exit1/88命中均为83个实际缓存key摘要和5个读回的测试证书指纹，0未复核；没有关闭规则/添加allowlist。相对旧快照的APK变更条目（含DEX字符串和12份新通知）单独扫描16项，exit0/0命中。旧历史暴露面保留，未把这些检查当作全面审计通过。
+- Python 全套32项通过。index guard仍仅检查选定规则；保存在私有恢复归档中的独立增量扫描分类原始exit1/88命中均为83个实际缓存key摘要和5个读回的测试证书指纹，0未复核；没有关闭规则/添加allowlist。相对旧快照的APK变更条目（含DEX字符串和12份新通知）单独扫描16项，exit0/0命中。旧历史暴露面保留，未把这些检查当作全面审计通过。
 - [实际组件/出货证据](evidence/component-inventory.json)和[许可材料](THIRD_PARTY_NOTICES.md)覆盖244份artifact、135份runtime source JAR版权核对、12份随包原文/署名；具体未知项仍保留。源代码/六图权属未批准，无根LICENSE。
-- [缓存元数据](evidence/actions-cache-metadata.json)保留83项、4,684,050,658字节的ID/ref/时间/key摘要；payload未读取、执行或删除。[维护者待决事项](OWNER_DECISIONS.md)集中列明保管、引导、精确电视授权、历史/缓存处置和公开路线。
+- 保存在私有恢复归档中的缓存元数据保留83项、4,684,050,658字节的ID/ref/时间/key摘要；payload未读取、执行或删除。[维护者待决事项](OWNER_DECISIONS.md)集中列明保管、引导、精确电视授权、历史/缓存处置和公开路线。
 
 后续仅对最终已提交树做隔离源码导出与完整验证、最终SHA CI、APK身份及Git收尾，确切提交/导出数量/CI终态在PR #1记录。准备文档不等于已经启用的操作控制；本地干净历史不清理现有远端。代码审阅、合并批准、安全事件关闭、源码公开和正式发布继续分别报告。

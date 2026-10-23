@@ -6,7 +6,8 @@ This repository is being prepared for open source. Public documentation must des
 | --- | --- |
 | Application source, build configuration, documentation | Tracked here; subject to security and license review |
 | Repository-local FongMi setup skill | .agents/skills/fongmi-tv-setup; independent of the application |
-| Existing published APKs and version manifests | cinema-tv-releases distribution repository; unchanged by this remediation |
+| Approved future APK releases | GitHub Releases in ichichuang/cinema-tv only; no approved asset is currently available |
+| Existing legacy APKs and manifests | cinema-tv-releases temporary old-client bridge; 14 APKs are tracked Git files, not GitHub Release assets; unchanged |
 | Android SDK and local tool state | Ignored .local/toolchain or the developer's configured SDK directory |
 | Local audit evidence and migration manifests | Ignored .local/evidence and .local/consolidation; never publish raw contents |
 | Signing keystore and credentials | Outside the checkout and encrypted offline storage; backup verification remains outstanding |

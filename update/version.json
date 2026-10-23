@@ -1,8 +1,6 @@
 {
-    "versionCode": 18,
-    "versionName": "0.9.8",
-    "apkUrl": "https://cdn.jsdelivr.net/gh/ichichuang/cinema-tv-releases@v0.9.8/cinema-tv-0.9.8.apk",
-    "sizeBytes": 14093455,
-    "notes": "1. 设备诊断「设置组件」页的打开动作改为独占整行、排在说明字段之前；遥控器上下键能直接选中，不再需要把焦点挪到标题右侧的小按钮\n2. TCL 设置主页面候选移到「设置组件」页最前，标准「系统设置」入口保持首位；没有可打开目标的条目不会留下空焦点\n3. 标签页、内容区和页脚之间补充确定的上下焦点落点；加载时动作行不生成，避免焦点停在随后被禁用的控件上\n4. 从系统设置页返回后，焦点和滚动位置回到刚才触发的那一行；该行已不存在时回到当前标签\n5. 一次确认键只提交一次打开请求；方向键、焦点变化、重组和长按不会打开设置。只读信息仍可用遥控器逐行浏览\n6. 入口复核、权限检查与打开记录保持不变；不启用 ADB、不修改电视设置，不影响现有播放和在线更新",
-    "mirrorUrl": "https://gh-proxy.com/https://raw.githubusercontent.com/ichichuang/cinema-tv-releases/v0.9.8/cinema-tv-0.9.8.apk"
+  "status": "frozen",
+  "versionCode": 18,
+  "versionName": "0.9.8",
+  "reason": "签名迁移与设备验收尚未完成，暂无获准分发的本仓库 Release APK。此文件不提供可安装更新。"
 }

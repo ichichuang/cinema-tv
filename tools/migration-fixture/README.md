@@ -63,4 +63,4 @@ Build Tools 36.0.0 的 D8 对 Kotlin 2.4 元数据重写有警告；DEX、安装
 
 API 24–27 不识别 v3 lineage。测试包内旧平台的 A 签名不构成在旧平台摆脱受损 A 的安全方案；生产 minSdk 仍为 24。旧设备支持政策待维护者明确，不能静默提高 minSdk 或继续把受损 A 当作安全恢复。
 
-[AOSP v3 文档](https://source.android.com/docs/security/features/apksigning/v3) 仍不推荐 API 31 及更早系统的密钥轮换。本次 emulator 结果限于上述官方镜像。lineage 不证明合法所有权；独立信任引导、生产密钥保管、离线恢复和厂商电视上的安装/数据/后续更新/旧钥拒绝/启动播放均待维护者分别批准与验证。PR 保持 Draft、未合并，正式签名和发布冻结；本轮不关闭安全事件。
+[AOSP v3 文档](https://source.android.com/docs/security/features/apksigning/v3) 仍不推荐 API 31 及更早系统的密钥轮换。本次 emulator 结果限于上述官方镜像。lineage 不证明合法所有权；独立信任引导、生产密钥保管、离线恢复和厂商电视上的安装/数据/后续更新/旧钥拒绝/启动播放均待维护者分别批准与验证。PR #1 已合并到 main，正式签名和发布继续冻结；合并不关闭安全事件。

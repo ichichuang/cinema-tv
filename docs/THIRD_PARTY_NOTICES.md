@@ -23,11 +23,11 @@
 
 构建原先排除了 `META-INF/AL2.0` 和 `META-INF/LGPL2.1`；现改为合并保留，防止主动删除依赖许可。复验实际 APK 含 8 份 AndroidX LICENSE 文本，没有 AL2.0/LGPL2.1 同名资源；不能仅凭配置声称所有许可已经装入 APK。此改动不能代替完整、与最终发行产物逐项对应的 SBOM/版权通知核对。不能以文件名出现 LGPL 推断本应用采用 LGPL，或以当前表格替代依赖自身条款。
 
-## 具体许可证建议
+## 许可证决定
 
-建议维护者在确认原创源码及图标/横幅授权后，为原创部分选择 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)，并保留第三方各自声明与通知。它与已检查的大多数 Android 依赖的许可处理方式一致，并包含明确的专利授权条款。已读 POM 未为原创代码提供授权；测试依赖也不能决定项目许可证。
+维护者于 2026-10-23 明确批准原创部分采用 [Apache License 2.0](../LICENSE)，并确认代码及六张图片的再分发权。根 LICENSE 使用 Apache 官方原文。第三方材料保留各自声明和通知；已读 POM 不为原创代码提供授权，项目许可证也不替代第三方条款。
 
-当前没有维护者的许可证批准，也没有图像来源证明，因此本轮不新增 `LICENSE`、不修改源文件的归属声明、不宣布可公开发行。最终传递依赖/资源权属、NOTICE 完整性及维护者许可决定仍是源码公开与正式发布的验收门。
+原创许可与再分发确认已经取得；未编造图片作者、外部代码作者或变更第三方归属。现有依赖调查及通知继续复用，最终发行产物仍需核对实际组件与通知。历史清理、密钥恢复、生产迁移及公开批准仍是独立门槛。
 
 ## 检查点后的产物关联清单与通知
 
@@ -39,7 +39,7 @@
 
 进一步核对 Kotlin 2.4.20 官方第三方索引发现 stdlib 的 ThreeTenBP 派生时间代码适用 BSD-3-Clause，JVM 数学派生代码适用 Boost Software License 1.0，不能仅根据 POM 的 Apache 声明遗漏；相应原文及署名已随包补齐。依据固定版本的 [Kotlin 索引](https://github.com/JetBrains/kotlin/blob/v2.4.20/license/README.md)。DataStore 内 shaded protobuf 的确切上游版本本轮未证明；补充的 Google 版权文本标记为 supplement，不把其来源版本推定为内嵌版本。
 
-生产仍无 LICENSE 批准，源码及六个图像的权属见 [ASSET_PROVENANCE.md](ASSET_PROVENANCE.md)，操作和批准集中于 [OWNER_DECISIONS.md](OWNER_DECISIONS.md)。当前 notices 是实际检查所得材料，不宣布所有法务或发行义务已经完成。
+许可证和六图再分发声明见 [ASSET_PROVENANCE.md](ASSET_PROVENANCE.md)，操作和批准集中于 [OWNER_DECISIONS.md](OWNER_DECISIONS.md)。当前 notices 是实际检查所得材料，不宣布所有法务或发行义务已经完成。
 
 ## 再核对方法
 

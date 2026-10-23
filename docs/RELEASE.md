@@ -1,14 +1,12 @@
 # Release signing and distribution
 
-## Release hold
-
 ## Single-repository distribution target (not active)
 
-The only intended long-term GitHub repository is `ichichuang/cinema-tv`, with `main` as its sole branch. Source and update metadata live at `main/update/version.json` and `main/update/sources.json`; approved, signed installation packages belong in **this repository's GitHub Releases** as immutable version-tagged assets (`releases/download/vX.Y.Z/cinema-tv-X.Y.Z.apk`). Keep release APK binaries out of Git-tracked source files. A future signed manifest must reference the verified release asset and record its exact size, SHA-256, version and authenticated publisher metadata. No such new release is authorized or available yet.
+The only intended long-term GitHub repository is `ichichuang/cinema-tv`, with `main` as its sole branch. Source and update metadata live at `main/update/version.json` and `main/update/sources.json`; approved, signed installation packages belong in **this repository's GitHub Releases** as immutable version-tagged assets (`releases/download/vX.Y.Z/cinema-tv-X.Y.Z.apk`). Keep release APK binaries out of Git-tracked source files. A future signed manifest must reference the verified release asset and record its exact size, SHA-256, version and independently authenticated publisher metadata. The present version.json is a non-installable frozen status with no APK URL; it deliberately fails the legacy installable-manifest parser. sources.json contains no real media services. No such new release is authorized or available yet.
 
 The existing installed 0.9.8 APK is a separate compatibility constraint: it reads default manifests and source catalogs from `ichichuang/cinema-tv-releases` and checks the current APK signer. Changing Kotlin defaults in source cannot change an APK that is already installed. The old distribution repository remains an unchanged **temporary bridge**, not a second long-term product repository; do not delete it before an independently trusted migration has been completed and its old-client impact has been accepted. Releasing an APK signed by a replacement key alone would not pass the already-installed legacy updater's certificate policy. Do not silently break Android 11 in-place upgrades, remove historical artifacts, move tags, or permit the compromised identity to sign future production updates.
 
-The original source repository also still contains sensitive Git history and PR references. Moving `main` or deleting the remediation branch is not sufficient history sanitization; keep private until its reachable and GitHub-retained references have been remediated and verified with an approved procedure. A root license and third-party asset rights must be approved before public publication. The present changes only prepare the one-repository layout; they do **not** authorize publishing, deleting, replacing, or making any repository public.
+The original source repository also still contains sensitive Git history and PR references. Moving `main` or deleting the remediation branch is not sufficient history sanitization; keep private until its reachable and GitHub-retained references have been remediated and verified with an approved procedure. The owner has approved Apache-2.0 and code/image redistribution rights; the remaining security and compatibility gates still block publication. The present changes only prepare the one-repository layout; they do **not** authorize publishing, deleting, replacing, or making any repository public.
 
 
 Release signing and publishing are frozen because the former release keystore and its credentials were publicly exposed. The current tree is being hardened for a future open-source launch. Removing a tracked key is not revocation, migration, or history sanitization. See [SECURITY.md](../SECURITY.md).
@@ -50,6 +48,27 @@ A digest received from the same untrusted manifest is not independent authentici
 publish-to-repo.ps1, publish-update.ps1 and publish-sources.ps1 all fail before modifying files, reading credentials, pushing Git refs, or contacting a release API. Their old publication behavior is unavailable during the freeze. Do not run historical copies. GitHub workflow ID `387692952` is disabled in workflow management; ordinary verification remains active. Existing remote artifacts, tags and manifests are preserved as evidence.
 
 When publication is eventually approved, use a new monotonically increasing versionCode, immutable new tags, a reviewed manifest, signature verification, APK SHA-256 and size checks, and read-back verification of every distributed artifact. Never move old release tags or overwrite an existing release asset.
+
+## Offline release preflight and publishing gate
+
+`scripts/verify_release_candidate.py` verifies a locally staged, independently signed candidate without network access, installation or private keys. It requires an exact versioned asset URL in this repository, the actual production package/version, strictly increasing versionCode and publisher sequence, exact bytes and SHA-256, the complete independently approved current signer set, and an AUTHUPD1 signature verified with a separately pinned public RSA key. It rejects the compromised old APK signer. Public inputs and the previously approved version/sequence floors must come from the maintainer's independent release record; never take them from the candidate itself.
+
+```sh
+python3 scripts/verify_release_candidate.py \
+  --apk "$REVIEWED_APK" --manifest "$REVIEWED_VERSION_JSON" \
+  --previous-version-code "$PREVIOUS_APPROVED_VERSION_CODE" \
+  --previous-sequence "$PREVIOUS_APPROVED_SEQUENCE" \
+  --expected-signer "$APPROVED_APK_CERT_SHA256" \
+  --aapt2 "$ANDROID_BUILD_TOOLS/aapt2" --apksigner "$ANDROID_BUILD_TOOLS/apksigner" \
+  --publisher-envelope "$REVIEWED_AUTH_ENVELOPE" \
+  --publisher-public-key "$INDEPENDENT_PUBLIC_PEM" \
+  --publisher-public-key-sha256 "$APPROVED_SPKI_DER_SHA256" \
+  --publisher-key-id "$APPROVED_PUBLISHER_KEY_ID"
+```
+
+Repeat `--expected-signer` for every approved current signer. The manifest uses `versionCode`, `versionName`, `apkUrl`, `sizeBytes`, `sha256`, `sequence`, `publisherKeyId` and the sorted `signers` array; the corresponding authenticated fields must agree exactly. AUTHUPD1 bytes and their bounded protocol are described in [AUTHENTICATED_UPDATES.md](AUTHENTICATED_UPDATES.md). No production key or trust input is selected by this tool. A successful preflight explicitly reports `API30-tools-only`, `publicationAuthorized=false` and the current publishing freeze; it is not device or release approval.
+
+The existing manual release workflow remains disabled in GitHub management, read-only, and stops at the fixed source publishing gate before any signing, upload or network publication. Ordinary verification stays credential-free. This is a frozen preflight entry, not an implemented production promotion path. After independent key custody, trust-design approval and device gates, separately review the production release workflow: keep APK and metadata signing outside ordinary CI; require an independently controlled protected release environment with no self-approval; verify the exact main SHA and successful CI; stage all signed assets and authenticated metadata in a draft in this repository; enable [immutable releases](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases) before publishing; read back the tag/commit, every asset's size/hash/signature and matching main metadata. Do not invent active publishing steps or credentials while those prerequisites are missing.
 
 ## References
 

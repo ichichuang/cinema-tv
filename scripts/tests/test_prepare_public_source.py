@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import pathlib
 import subprocess
 import tempfile
@@ -42,6 +43,45 @@ class PublicSourcePreparationTests(unittest.TestCase):
         self.assertFalse((self.output / '.git').exists())
         self.assertIn('Synthetic Contributor', (self.output / 'SOURCE_HISTORY.md').read_text())
         self.assertNotIn('historical private text', ''.join(p.read_text() for p in self.output.iterdir()))
+
+    def test_private_incident_evidence_is_omitted_without_losing_notices(self):
+        paths = {
+            'sample.txt': b'reviewable source',
+            'docs/evidence/actions-cache-metadata.json': b'{"private_cache_id": 123}',
+            'docs/evidence/scanner-classification.json': b'{"historical_findings": 88}',
+            'docs/evidence/component-inventory.json': b'{"license": "Apache-2.0"}',
+            'app/src/main/assets/third_party/NOTICE.txt': b'Upstream copyright notice',
+        }
+        for path, data in paths.items():
+            target = self.root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        self.git('add', '--', *paths)
+        self.git('commit', '-qm', 'synthetic publication evidence')
+        result = self.prepare()
+        omitted = {item['path'] for item in result.get('omitted_files', [])}
+        self.assertEqual({
+            'docs/evidence/actions-cache-metadata.json',
+            'docs/evidence/scanner-classification.json',
+        }, omitted)
+        actual = {str(path.relative_to(self.output)) for path in self.output.rglob('*') if path.is_file()}
+        self.assertEqual((set(paths) - omitted) | {'SOURCE_HISTORY.md'}, actual)
+        for path in set(paths) - omitted:
+            self.assertEqual(paths[path], (self.output / path).read_bytes())
+
+    def test_private_source_mapping_stays_in_export_manifest(self):
+        (self.root / 'sample.txt').write_text('reviewable source')
+        (self.root / 'sample.txt').chmod(0o755)
+        self.commit()
+        revision = self.git('rev-parse', 'HEAD').stdout.decode().strip()
+        result = self.prepare()
+        self.assertNotIn(revision, (self.output / 'SOURCE_HISTORY.md').read_text())
+        self.assertEqual(revision, result['source_commit'])
+        self.assertEqual([{
+            'path': 'sample.txt', 'mode': '100755',
+            'sha256': hashlib.sha256(b'reviewable source').hexdigest(),
+        }], result['files'])
+        self.assertEqual(0o755, (self.output / 'sample.txt').stat().st_mode & 0o777)
 
     def test_current_signing_material_blocks_export(self):
         (self.root / 'sample.txt').write_text('safe')
