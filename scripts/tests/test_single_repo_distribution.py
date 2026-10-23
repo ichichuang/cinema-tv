@@ -9,7 +9,7 @@ SETTINGS = ROOT / "app/src/main/kotlin/com/ichichuang/cinema/data/settings/Cinem
 
 def defaults(name):
     source = SETTINGS.read_text(encoding="utf-8")
-    match = re.search(r"\\bval\\s+" + re.escape(name) + r"\\s*=\\s*listOf\\((.*?)\\n\\s*\\)", source, re.S)
+    match = re.search(r"\bval\s+" + re.escape(name) + r"\s*=\s*listOf\((.*?)\n\s*\)", source, re.S)
     if match is None:
         raise AssertionError("Missing " + name)
     return re.findall(r'"(https://[^"]+)"', match.group(1))
