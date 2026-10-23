@@ -91,6 +91,29 @@ class CatalogContractTest {
         assertNull(result.knownMatchedCount)
     }
 
+    @Test fun known_total_cannot_be_smaller_than_distinct_returned_works() {
+        val first = CatalogItem(work, "测试资料")
+        val second = CatalogItem(WorkId("work-b"), "另一部测试资料")
+        for (coverage in QueryCoverage.entries) {
+            assertThrows(IllegalArgumentException::class.java) {
+                CatalogResult.create("query-a", listOf(first), coverage, knownMatchedCount = 0)
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                CatalogResult.create("query-a", listOf(first, second), coverage, knownMatchedCount = 1)
+            }
+        }
+    }
+
+    @Test fun total_validation_counts_stable_identities_without_merging_items() {
+        val first = CatalogItem(work, "测试资料")
+        val repeated = first.copy(title = "同一作品的另一条显示记录")
+        val result = CatalogResult.create("query-a", listOf(first, repeated), QueryCoverage.PARTIAL, knownMatchedCount = 1)
+        assertEquals(1L, result.knownMatchedCount)
+        assertEquals(listOf(first, repeated), result.items)
+        val unknown = CatalogResult.create("query-b", listOf(first), QueryCoverage.PARTIAL)
+        assertNull(unknown.knownMatchedCount)
+    }
+
     @Test fun source_failure_is_not_confirmed_no_match() {
         val failed = CatalogResult.create("query-a", emptyList(), QueryCoverage.PARTIAL, failedSourceIds = setOf(source))
         val noMatch = CatalogResult.create("query-b", emptyList(), QueryCoverage.COMPLETE, knownMatchedCount = 0)

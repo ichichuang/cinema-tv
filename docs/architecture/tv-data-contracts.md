@@ -51,7 +51,7 @@
 | hasMore | Boolean | 当前有可继续的加载工作；false 单独不能证明覆盖完成 |
 | snapshotRevision | Long | 同一 queryId 内非负修订号；不跨会话比较 |
 
-`COMPLETE` 要求没有失败来源且 `hasMore=false`。空 `PARTIAL` 可以 `hasMore=true`，也可以因为失败/预算暂停而为 false；都不能表述为已确认无匹配。计数及修订号不得为负。
+`COMPLETE` 要求没有失败来源且 `hasMore=false`。空 `PARTIAL` 可以 `hasMore=true`，也可以因为失败/预算暂停而为 false；都不能表述为已确认无匹配。计数及修订号不得为负；已知总量不得小于 items 中不同 workId 的数量。该检查不合并或修改条目，不把未知总量自动推导为已知总量。
 
 `LoadOutcome` 为 `Loaded`、`Complete`、`Partial(reason: PartialReason)`、`Cancelled`、`Failed(reason: String)`；部分原因是 `BUDGET_EXHAUSTED` 或 `SOURCE_FAILURE`。`Loaded` 只表示有加载进展，当前覆盖状态以观察流为准。失败 reason 是非空白内部错误代码，不能直接作为界面文案或承载原始异常、URL、凭据。
 
@@ -65,7 +65,7 @@
 
 `BrowseSnapshot` 字段：`contextKey: String`、`route: String`、`parentRoute: String?`、`query: CatalogQuery?`、`resultRevision: Long?`、`focusedWorkId: WorkId?`、`anchorWorkId: WorkId?`、`relativeOffset: Float`、`savedAt: Long`。
 
-contextKey 和 route 非空白；parentRoute 非 null 时非空白。query / resultRevision 允许无查询或未知修订，已知修订非负。relativeOffset 是锚点起点相对可用视口起点的滚动主轴偏移除以视口长度；允许负数以表达部分遮挡，必须有限，savedAt 为 Unix 毫秒。焦点/锚点缺失时，未来恢复器优先使用仍存在的稳定焦点、再锚点、再当前结果的第一个可聚焦项；无内容落到对应空/错误状态的合法操作。不实现恢复器或 UI。
+contextKey 和 route 非空白；parentRoute 非 null 时非空白。query / resultRevision 允许无查询或未知修订，已知修订非负。relativeOffset 是锚点起点相对可用视口起点的滚动主轴偏移除以视口长度；允许负数以表达部分遮挡，必须有限，savedAt 为 Unix 毫秒。未来恢复器以稳定焦点及锚点恢复位置；原目标缺失时遵循主规格 4.2 的“相邻有效项 → 当前栏入口 → 页面默认控件”，避免滚到不相关内容。无内容时选择对应空/错误状态的合法操作。本轮不增加邻居字段，也不实现恢复器或 UI。
 
 `CommitResult` 是 `Committed`、`RejectedStale`、`Failed(reason: String)`。只有目标存储实际完成提交才能返回 Committed；RejectedStale 不覆盖新记录；Failed 不谎称已保存。调用取消应向上传播，不能伪装成功或普通失败。值对象及测试不能证明持久性。
 

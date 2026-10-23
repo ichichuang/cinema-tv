@@ -20,6 +20,9 @@ data class CatalogResult private constructor(
         require(queryId.isNotBlank()) { "queryId must not be blank" }
         require(unknownFieldCount >= 0) { "unknownFieldCount must not be negative" }
         require(knownMatchedCount == null || knownMatchedCount >= 0) { "knownMatchedCount must not be negative" }
+        require(knownMatchedCount == null || knownMatchedCount >= items.map { it.workId }.distinct().size) {
+            "Known total must cover distinct returned works"
+        }
         require(snapshotRevision >= 0) { "snapshotRevision must not be negative" }
         require(coverage != QueryCoverage.COMPLETE || (failedSourceIds.isEmpty() && !hasMore)) {
             "Complete coverage must have no failed sources or remaining work"
