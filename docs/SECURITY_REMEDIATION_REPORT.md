@@ -63,7 +63,7 @@
 
 从 885cb0b 继续，只读复核后修复两项导出器 P2；最终候选复核再修复夹具 PM 缺包探测、升级重建合成数据的假阳性，以及认证模块跨实例/旧 permit 清理别的成功文件，共五项 P2。每项先有失败回归；限定复核确认原问题闭环，未再发现阻断。它没有执行 Android 网络取消/杀进程/存储故障或电视验收。
 
-- [迁移夹具与五包结果](../tools/migration-fixture/README.md)：独立包名、仓库外测试钥、实际 manifest 和 lineage 能力读回，API24–30签名工具验证；API30当前 artifact signer为A/B/B/A/C。没有 emulator，所以真实安装、UID/合成数据、后续 B 更新和高版本 A-only/A→C 的 PM 拒绝原因全部 BLOCKED。夹具 JVM 3项和Python命令边界回归仅验证逻辑。
+- [迁移夹具与五包结果](../tools/migration-fixture/README.md)：2026-10-23 补齐官方 API 30 arm64 emulator 的实际证据。7 个独立全新 AVD、21 次 PM 安装尝试覆盖 A→B→B-only、B/1002 与 B/1003 两状态的四次签名不兼容拒绝及两个 A 状态正对照；逐次 UID/合成数据/current/history 读回已记录。独立测试根的 9 项 Android 认证运行时检查也通过。生产包/根、厂商电视与 API 24–27 政策仍未验收；详见既有夹具 JSON 和维护者决策表。夹具 JVM 与 Python 测试继续作为单独逻辑证据。
 - [认证更新协议](AUTHENTICATED_UPDATES.md)：28项候选测试+原有47项JVM，总75，0 failure/error/skip。签名伪造及文件竞争明确先失败再修复。生产常量关闭，无生产根、DI入口、legacy回退或清单变更；不是生产迁移。
 - 本地最终完整 Gradle 命令两种构建/Lint/JVM通过，99个actionable tasks全部执行。Lint每种20 warnings和1 hint，0 error；包括在线依赖/Gradle版本可用性提示，未升级/抑制。另有既有 Kotlin 弃用、Gradle10兼容提示及两份原生库无法strip而原样打包提示。显式正式签名请求按固定错误拒绝。
 - Python 全套32项通过。index guard仍仅检查选定规则；[独立增量扫描分类](evidence/scanner-classification.json)原始exit1/88命中均为83个实际缓存key摘要和5个读回的测试证书指纹，0未复核；没有关闭规则/添加allowlist。相对旧快照的APK变更条目（含DEX字符串和12份新通知）单独扫描16项，exit0/0命中。旧历史暴露面保留，未把这些检查当作全面审计通过。

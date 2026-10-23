@@ -28,7 +28,9 @@ public final class FixtureActivity extends Activity {
                     ? info.signingInfo.getApkContentsSigners() : info.signatures;
             Signature[] history = Build.VERSION.SDK_INT >= 28
                     ? info.signingInfo.getSigningCertificateHistory() : info.signatures;
-            String json = "{\"uid\":" + Process.myUid() + ",\"version\":" + info.versionCode
+            String nonce = getIntent().getStringExtra("observationNonce");
+            if (nonce == null || !nonce.matches("[0-9a-f]{32}")) nonce = "";
+            String json = "{\"nonce\":\"" + nonce + "\",\"uid\":" + Process.myUid() + ",\"version\":" + info.versionCode
                     + ",\"marker\":\"" + prefs.getString("marker", "") + "\",\"progress\":"
                     + prefs.getLong("progress", -1) + ",\"current\":" + hashes(current)
                     + ",\"history\":" + hashes(history) + "}";
