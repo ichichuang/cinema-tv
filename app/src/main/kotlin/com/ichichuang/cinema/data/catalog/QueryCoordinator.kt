@@ -1,6 +1,7 @@
 package com.ichichuang.cinema.data.catalog
 
 import com.ichichuang.cinema.domain.model.catalog.*
+import com.ichichuang.cinema.domain.filter.*
 import com.ichichuang.cinema.domain.repository.CatalogRepository
 import com.ichichuang.cinema.data.local.codec.storageJson
 import java.io.IOException
@@ -25,8 +26,7 @@ internal class QueryCoordinator(private val store: CandidateQueryStore, private 
     private fun validate(query: CatalogQuery) {
         require(query.queryId.length <= 256 && query.enabledSourceIds.size <= budget.maxSources)
         require(query.enabledSourceIds.all { it.value.length <= 256 })
-        require(query.contentKind == null && query.languageScope == LanguageScope.ALL && query.countryIds.isEmpty() &&
-            query.genreIds.isEmpty() && query.sort == CatalogSort.DEFAULT) { "Unsupported candidate filter; full predicates belong to T07" }
+
     }
     private suspend fun activate(query: CatalogQuery): Run = gate.withLock {
         validate(query)
@@ -58,28 +58,46 @@ internal class QueryCoordinator(private val store: CandidateQueryStore, private 
     private fun buildSnapshot(session: StoredQuerySession, evidence: List<QueryCatalogEntry>): CandidateQuerySnapshot {
         val query=session.query
         val groups=evidence.groupBy {it.groupWorkId}
-        val hasYearFilter=query.yearStart!=null || query.yearEnd!=null
-        fun yearOf(members: List<QueryCatalogEntry>): Int? = when(val fact=CatalogClaims.combine(members.map {it.year})) {
+        fun factsOf(members: List<QueryCatalogEntry>): StrictWorkFacts {
+            fun <T> combine(field: (StrictWorkFacts)->FieldEvidence<T>)=CatalogClaims.combine(members.map {field(it.facts)})
+            return StrictWorkFacts(combine {it.year},combine {it.countries},combine {it.genres},
+                combine {it.contentKind},combine {it.originalLanguages},combine {it.completeOriginalLanguages})
+        }
+        val evaluations=groups.mapValues {StrictFilterEvaluator.evaluate(query,factsOf(it.value))}
+        val acceptedGroups=groups.filterKeys {evaluations.getValue(it).verdict==MatchVerdict.MATCH}
+        val accepted=acceptedGroups.values.flatten()
+        val unsorted=acceptedGroups.map { (group,members) -> CatalogItem(group,members.first().title,
+            CatalogClaims.combine(members.map {it.year}),CatalogClaims.combine(members.map {it.originalLanguages}),CatalogClaims.combine(members.map {it.countries})) }
+        fun year(item:CatalogItem):Int?=when(val fact=item.year) {
             is FieldEvidence.SourceReported -> fact.value
             is FieldEvidence.Confirmed -> fact.value
             else -> null
         }
-        val acceptedGroups=groups.filterValues { members ->
-            if(!hasYearFilter) true else {
-                val year=yearOf(members)
-                year!=null && (query.yearStart==null || year>=query.yearStart) && (query.yearEnd==null || year<=query.yearEnd)
-            }
+        val chronological=Comparator<CatalogItem> {left,right ->
+            val a=year(left);val b=year(right)
+            val ordered=when {a==null && b==null->0;a==null->1;b==null->-1
+                query.sort==CatalogSort.YEAR_DESCENDING->b.compareTo(a);else->a.compareTo(b)}
+            if(ordered!=0) ordered else compareValuesBy(left,right,{it.title},{it.workId.value})
         }
-        val accepted=acceptedGroups.values.flatten()
-        val items=acceptedGroups.map { (group,members) -> CatalogItem(group,members.first().title,
-            CatalogClaims.combine(members.map {it.year}),CatalogClaims.combine(members.map {it.originalLanguages}),CatalogClaims.combine(members.map {it.countries})) }
+        val items=if(query.sort==CatalogSort.DEFAULT) unsorted else unsorted.sortedWith(chronological)
         val complete=session.cursors.all {it.exhausted}
-        val unresolved=hasYearFilter && groups.values.any {yearOf(it)==null}
+        val unresolvedCount=evaluations.values.count {evaluation -> evaluation.dimensions.values.any {it.verdict==MatchVerdict.INDETERMINATE}}
+        val unresolved=unresolvedCount>0
         val more=session.cursors.any {!it.exhausted && it.stopReason==null}
-        val unknown=evidence.sumOf {entry -> listOf(entry.year,entry.originalLanguages,entry.countries).count {it is FieldEvidence.Unknown}}
+        val unknown=evaluations.values.sumOf {evaluation -> evaluation.dimensions.values.count {it.verdict==MatchVerdict.INDETERMINATE}} + session.unidentifiedRecords
+        val scopedCount=if(complete && !unresolved && session.unidentifiedRecords==0) items.size.toLong() else null
+        val display=buildList {
+            if(!complete) add("仍有内容未查询完成")
+            if(session.cursors.any {it.failure!=null}) add("部分来源查询失败")
+            if(evaluations.values.any {it.dimensions.getValue("year").verdict==MatchVerdict.INDETERMINATE}) add("部分影片缺少年份资料或年份存在冲突")
+            if(unresolved || session.unidentifiedRecords>0) add("部分影片资料不足或存在冲突")
+            if(complete && !unresolved && session.unidentifiedRecords==0) add(if(items.isEmpty()) "已查询来源中未找到符合条件的影片" else "已查询来源筛选完成")
+        }.joinToString("；")
         return CandidateQuerySnapshot(CatalogResult.create(query.queryId,items,if(complete) QueryCoverage.COMPLETE else QueryCoverage.PARTIAL,
             session.cursors.filter {it.failure!=null}.map {it.sourceId}.toSet(),unknown,
-            if(complete && !unresolved && session.unidentifiedRecords==0) items.size.toLong() else null,more,session.revision),session.cursors.toList(),accepted,session.evidenceKeys.toList(),items.size)
+            scopedCount,more,session.revision),session.cursors.toList(),accepted,session.evidenceKeys.toList(),items.size,
+            StrictQueryProjection(query,items.size,scopedCount,unresolvedCount,
+                if(complete && !unresolved && session.unidentifiedRecords==0) StrictSortScope.EXHAUSTED_SELECTED_SOURCES else StrictSortScope.OBSERVED_ONLY,display))
     }
     override suspend fun loadMore(queryId: String): LoadOutcome = try { loads.withLock {
         val run = gate.withLock { active?.takeIf { it.session.query.queryId == queryId } } ?: return@withLock LoadOutcome.Cancelled

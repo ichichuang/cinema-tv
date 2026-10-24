@@ -1,6 +1,7 @@
 package com.ichichuang.cinema.data.catalog
 
 import com.ichichuang.cinema.domain.model.catalog.*
+import com.ichichuang.cinema.domain.filter.StrictWorkFacts
 
 /** Opaque source-owned cursors. Only an explicit source response proves exhaustion. */
 internal data class SourceCursorState(
@@ -32,11 +33,14 @@ internal data class QueryBudget(
 internal data class StoredQuerySession(val query: CatalogQuery, val cursors: List<SourceCursorState>,
     val evidenceKeys: List<SourceItemKey> = emptyList(), val revision: Long = 0, val capturedRecords: Int = 0, val projectionDigest: String = "", val unidentifiedRecords: Int = 0)
 internal data class QueryCatalogEntry(val key: SourceItemKey, val homeWorkId: WorkId, val groupWorkId: WorkId,
-    val title: String, val year: FieldEvidence<Int>, val originalLanguages: FieldEvidence<FactIds>,
-    val countries: FieldEvidence<FactIds>, val playbackEntryIds: List<String>)
+    val title: String, val facts: StrictWorkFacts, val playbackEntryIds: List<String>) {
+    val year get() = facts.year
+    val originalLanguages get() = facts.originalLanguages
+    val countries get() = facts.countries
+}
 internal data class CandidateQuerySnapshot(val result: CatalogResult, val sourceCursors: List<SourceCursorState>,
     val acceptedEntries: List<QueryCatalogEntry>, val retainedEvidenceKeys: List<SourceItemKey>,
-    val verifiedCurrentMatchCount: Int)
+    val verifiedCurrentMatchCount: Int, val strict: StrictQueryProjection)
 internal data class CommittedQueryState(val session: StoredQuerySession, val entries: List<QueryCatalogEntry>)
 internal class QueryStateLimitException(message: String) : IllegalArgumentException(message)
 internal interface CandidateQueryStore {

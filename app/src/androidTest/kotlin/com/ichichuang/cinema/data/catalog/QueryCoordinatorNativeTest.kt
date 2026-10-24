@@ -101,4 +101,63 @@ class QueryCoordinatorNativeTest : NativeStorageFixture() {
         assertEquals(before,next.start(q));assertEquals(item,next.snapshot(id).acceptedEntries.single().key.itemId.value)
     }
 
+    @Test fun query07_full_strict_selection_survives_real_room_close_reopen() = runBlocking<Unit> {
+        sources(CandidateCatalogStore(database))
+        val selection=CatalogQuery.create("native-strict-selection",contentKind=ContentKind.MOVIE,
+            languageScope=LanguageScope.NON_CHINESE,countryIds=setOf("JP","TH"),genreIds=setOf("crime"),
+            yearStart=1985,yearEnd=1995,sort=CatalogSort.YEAR_ASCENDING,enabledSourceIds=setOf(a))
+        val saved=StoredQuerySession(selection,listOf(SourceCursorState(a,"2")))
+        database.querySubscription().query(com.ichichuang.cinema.data.local.entity.CandidateQuerySessionEntity(
+            selection.queryId,QuerySessionCodec.encode(saved)))
+        reopen()
+        val restored=requireNotNull(RoomCandidateQueryStore(database).load(selection.queryId))
+        assertEquals(selection,restored.query)
+        assertEquals(saved,restored)
+    }
+
+    @Test fun query08_strict_projection_coverage_identity_routes_and_raw_data_survive_reopen() = runBlocking<Unit> {
+        fun strictRaw(source:SourceId)=buildJsonObject {
+            raw("shared").forEach {(key,value)->put(key,value)}
+            put("vod_area","日本/泰国");put("vod_class","犯罪")
+            put("work_content_kind","movie");put("work_original_language","英语")
+            put("work_original_language_scope","complete")
+        }
+        fun key(source:SourceId)=SourceItemKey(source,SourceItemId("shared"))
+        val proof=CatalogIdentityProofs(mapOf("strict-proof" to VerifiedCatalogAssociation(key(a),key(b),CatalogIdentifier("fixture","shared"))))
+        val catalog=CandidateCatalogStore(database,proof);sources(catalog)
+        com.ichichuang.cinema.data.userdata.RoomFavoritesStore(database).setFavorite("synthetic-strict-personal",true)
+        val favoriteBefore=requireNotNull(database.userRecords().favorite("synthetic-strict-personal"))
+        val original=linkedMapOf(a to strictRaw(a),b to strictRaw(b))
+        for(source in listOf(a,b)) catalog.ingest("strict-seed-${source.value}",MaccmsCatalogNormalizer.normalize(source,original.getValue(source),0),
+            listOf(DeclaredCatalogEntry("strict-route-${source.value}",EpisodeId("strict-episode-${source.value}"),VariantId("strict-variant-${source.value}"),0,0)))
+        assertEquals(AssociationDecision.LINKED,catalog.associate(key(a),key(b),"strict-proof",1))
+        val homes=listOf(a,b).map {catalog.workFor(key(it))}
+        val routes=listOf(a,b).flatMap {catalog.entries(key(it))}.toSet()
+        val selection=CatalogQuery.create("native-strict-integrated",contentKind=ContentKind.MOVIE,
+            languageScope=LanguageScope.NON_CHINESE,countryIds=setOf("JP","TH"),genreIds=setOf("crime"),
+            yearStart=1985,yearEnd=1995,sort=CatalogSort.YEAR_ASCENDING,enabledSourceIds=linkedSetOf(a,b))
+        val first=QueryCoordinator(RoomCandidateQueryStore(database,catalog),CandidateQueryTransport {source,_,_,_->
+            if(source==b) error("synthetic outage") else page(null,true,original.getValue(source))})
+        first.start(selection);assertTrue(first.loadMore(selection.queryId) is LoadOutcome.Partial)
+        val partial=first.snapshot(selection.queryId)
+        assertEquals(1,partial.strict.verifiedObservedMatchCount);assertNull(partial.strict.globalTotal)
+        assertEquals(setOf(b),partial.result.failedSourceIds);assertNull(partial.strict.knownScopedMatchCount)
+        reopen()
+        val recoveredCatalog=CandidateCatalogStore(database)
+        val second=QueryCoordinator(RoomCandidateQueryStore(database,recoveredCatalog),CandidateQueryTransport {source,_,_,_->page(null,true,original.getValue(source))})
+        assertEquals(partial,second.start(selection))
+        assertEquals(LoadOutcome.Complete,second.loadMore(selection.queryId))
+        val complete=second.snapshot(selection.queryId)
+        assertEquals(1,complete.strict.verifiedObservedMatchCount);assertEquals(1L,complete.strict.knownScopedMatchCount)
+        assertNull(complete.strict.globalTotal);assertEquals(2,complete.acceptedEntries.size)
+        assertEquals(routes,complete.acceptedEntries.flatMap {it.playbackEntryIds}.toSet())
+        assertEquals(homes,listOf(a,b).map {recoveredCatalog.workFor(key(it))})
+        for(source in listOf(a,b)) assertTrue(recoveredCatalog.captures(key(source)).all {it.raw==original.getValue(source)})
+        reopen()
+        val final=QueryCoordinator(RoomCandidateQueryStore(database),CandidateQueryTransport {_,_,_,_->error("must not fetch")})
+        assertEquals(complete,final.start(selection))
+        assertEquals(favoriteBefore,database.userRecords().favorite("synthetic-strict-personal"))
+        assertEquals(1,database.userRecords().favoriteCount())
+    }
+
 }

@@ -1,6 +1,29 @@
 # TV 重构进度
 
-Round 01–08 已留存，当前完成限定的 Round 09 合成来源能力、独立游标查询和授权订阅候选切片，并关闭 Round 08 两个覆盖缺口；普通路径生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+Round 01–09 已留存，当前完成限定的 Round 10 候选严格多维与年份筛选实现及执行验证；普通路径生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+
+## Round 10 执行记录
+
+明确聊天授权按ZIP执行，仅本地提交，不推送/合并/发布或进入后续任务。起点 `87303304947649a4a464c781b57feae8e01dbb04`，既有隔离工作树初始干净，ZIP与四项SHA-256全部通过。
+
+| 步骤 | 实际状态 |
+| --- | --- |
+| R10-1 | 实际接口/旧运行边界先映射，真实RED后候选边界及Preferences哨兵通过；JVM281/281 |
+| R10-2 | AND/OR三值、作品语言作用域、出处/冲突及精确映射；真实RED→JVM290/290 |
+| R10-3 | 精确年、整十闭区间、范围、旧/未来年份及类型化校验；真实RED→JVM300/300 |
+| R10-4 | 既有协调器接入、完整query payload、严格facts摘要、范围计数/排序、显式移除审计；JVM313/313，真实Room丢选择RED→候选native104/104 |
+| R10-5 | FAC-03原样矩阵夹具补充后完整JVM314/314、Python62/62、全native145/145；普通140任务与双Lint执行通过，新增告警0；全轮独立终审0/0/0、index319文件0违规，本地Git收尾见验证报告 |
+
+- Ruling: 范围以Round10候选切片为准，不替换主计划T07的普通接口。代价：产品严格筛选、UI及全T07仍未接入。
+- Ruling: 包内原件保留忽略证据；导入计划仅脱敏个人绝对路径以满足既有index规则。代价：原始字节须对照附件校验，不放宽检查。
+- Ruling: 保留既有无upstream本地分支，允许metadata-only fetch，不创建upstream、不pull/push/merge。代价：本地交付没有远端备份。
+- Ruling: 每个任务用未提交精确diff独立审阅，完整回归后统一作本地提交。代价：不提供临时stub/失败阶段的中间提交。
+- Ruling: 按原R10-N标题提取brief，证据与账本保留，不为技能脚本重写计划或删除工作树。代价：人工对应步骤并占用本地证据空间。
+- Ruling: 复用schema5现有candidate_query_sessions.payload保存完整选择，schema1–5字节不变，无schema6；迁移矩阵DB-02为N/A。代价：只有新旧候选payload兼容证明，不声称执行不存在的5→6迁移。
+- Independent review: 四个实现任务及全轮23路径独立只读终审均通过，0Critical/0Important/0Minor，无待修复或延后项；未独立重跑运行证据。18项应用/测试指纹与受测源码/index相等，精确23路径本地交付，最终HEAD见聊天与final-delivery.json；不push/merge/publish。
+- Native: 本轮145个方法全部实际通过，start/terminal/source清单多重集相等，无skip/not-run/duplicate；两台API30 ARM64自有AVD serial5574/5576已按身份门禁正常关闭，host PID消失。原Room1→5、身份、订阅、播放/交接全部重新执行。
+- Preserved: 普通路径、旧筛选默认、DataStore/Room writer authority、旧normalizer、schema1–5、空sources、包/版本0.9.8/code18、普通ARMv7、unsigned Release和签名冻结保持。未访问物理/个人设备或真实来源，未接UI/DI/生产。
+- Evidence: [35项矩阵及实际证据](../../verification/2026-10-24-round-10-strict-filtering.md)、[结构说明](../../architecture/tv-strict-filtering.md)，原始命令/报告/指纹在 `.local/evidence/round-10/`。仅34项适用合成检查及1项条件N/A；完整T07/M03/A12–A16、真实数据/TV/API24/ARMv7/生产验收未完成；停止于Round10。
 
 ## Round 09 执行记录
 

@@ -21,9 +21,7 @@ internal class RoomCandidateQueryStore(private val database: CinemaDatabase,
         keys.map { key ->
             val captures=catalog.captures(key)
             QueryCatalogEntry(key,requireNotNull(catalog.workFor(key)),requireNotNull(catalog.groupFor(key)),
-                captures.lastOrNull()?.raw?.get("vod_name").scalar().orEmpty(),CatalogClaims.combine(captures.map {it.year}),
-                CatalogClaims.combine(captures.map {it.facts.getValue("originalLanguages")}),
-                CatalogClaims.combine(captures.map {it.facts.getValue("countries")}),catalog.entries(key))
+                captures.lastOrNull()?.raw?.get("vod_name").scalar().orEmpty(),StrictCaptureFacts.fromCaptures(captures),catalog.entries(key))
         }
     }
     override suspend fun commit(session: StoredQuerySession, captures: List<NormalizedCatalogCapture>, budget: QueryBudget, guard: () -> Unit): CommittedQueryState = database.withTransaction {

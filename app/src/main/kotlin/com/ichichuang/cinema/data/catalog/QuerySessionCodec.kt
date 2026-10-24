@@ -9,6 +9,7 @@ import java.security.MessageDigest
 internal object QuerySessionCodec {
     fun encode(session: StoredQuerySession): String = buildJsonObject {
         put("queryId",session.query.queryId)
+        put("fullQuery",CatalogQueryCodec.encode(session.query))
         session.query.yearStart?.let { put("yearStart",it) };session.query.yearEnd?.let { put("yearEnd",it) }
         put("sources",JsonArray(session.query.enabledSourceIds.map { JsonPrimitive(it.value) }))
         put("projectionDigest",session.projectionDigest);put("unidentifiedRecords",session.unidentifiedRecords)
@@ -27,8 +28,12 @@ internal object QuerySessionCodec {
         fun JsonObject.string(key: String)=getValue(key).jsonPrimitive.content.also {require(it.isNotBlank() && it.length<=256)}
         val sources=raw.getValue("sources").jsonArray.map { SourceId(it.jsonPrimitive.content.also { v -> require(v.isNotBlank() && v.length<=256) }) }
         require(sources.size<=32 && sources.distinct().size==sources.size)
-        val query=CatalogQuery.create(raw.string("queryId"),yearStart=raw["yearStart"]?.jsonPrimitive?.int,
+        val legacy=CatalogQuery.create(raw.string("queryId"),yearStart=raw["yearStart"]?.jsonPrimitive?.int,
             yearEnd=raw["yearEnd"]?.jsonPrimitive?.int,enabledSourceIds=sources.toSet())
+        // Only absent fullQuery denotes a genuine old candidate payload; malformed new data fails closed.
+        val query=if("fullQuery" in raw) CatalogQueryCodec.decode(raw.getValue("fullQuery").text()) else legacy
+        require(query.queryId==legacy.queryId && query.enabledSourceIds==legacy.enabledSourceIds &&
+            query.yearStart==legacy.yearStart && query.yearEnd==legacy.yearEnd)
         val cursors=raw.getValue("cursors").jsonArray.map { element ->
             val row=element.jsonObject
             val visited=row.getValue("visited").jsonArray.map {it.jsonPrimitive.content.also { v -> require(v.isNotBlank() && v.length<=256) }}
@@ -58,6 +63,9 @@ internal fun queryProjectionDigest(entries: List<QueryCatalogEntry>): String {
         put("year",evidenceJson(entry.year) {JsonPrimitive(it)})
         put("languages",evidenceJson(entry.originalLanguages) {stringsJson(it.values)})
         put("countries",evidenceJson(entry.countries) {stringsJson(it.values)})
+        put("genres",evidenceJson(entry.facts.genres) {stringsJson(it.values)})
+        put("contentKind",evidenceJson(entry.facts.contentKind) {JsonPrimitive(it.name)})
+        put("completeLanguages",evidenceJson(entry.facts.completeOriginalLanguages) {stringsJson(it.values)})
         put("entries",JsonArray(entry.playbackEntryIds.sorted().map(::JsonPrimitive)))
     } }).storageJson()
     return MessageDigest.getInstance("SHA-256").digest(json.toByteArray()).joinToString("") { "%02x".format(it) }

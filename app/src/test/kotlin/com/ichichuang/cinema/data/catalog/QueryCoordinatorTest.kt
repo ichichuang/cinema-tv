@@ -36,8 +36,7 @@ class QueryCoordinatorTest {
         override suspend fun entries(keys: List<SourceItemKey>) = keys.map { key ->
             val captures = evidence.getValue(key)
             QueryCatalogEntry(key,WorkId("home:${key.sourceId.value}:${key.itemId.value}"),groups[key] ?: WorkId("home:${key.sourceId.value}:${key.itemId.value}"),
-                captures.last().raw["vod_name"].scalar().orEmpty(),CatalogClaims.combine(captures.map { it.year }),
-                CatalogClaims.combine(captures.map { it.facts.getValue("originalLanguages") }),CatalogClaims.combine(captures.map { it.facts.getValue("countries") }),listOf("entry:${key.sourceId.value}:${key.itemId.value}"))
+                captures.last().raw["vod_name"].scalar().orEmpty(),StrictCaptureFacts.fromCaptures(captures),listOf("entry:${key.sourceId.value}:${key.itemId.value}"))
         }
         override suspend fun commit(session: StoredQuerySession, captures: List<NormalizedCatalogCapture>, budget: QueryBudget, guard: () -> Unit): CommittedQueryState {
             guard(); require(sessions.containsKey(session.query.queryId) || sessions.size < budget.maxSessions)
@@ -118,7 +117,7 @@ class QueryCoordinatorTest {
     @Test fun rejects_unsupported_filters_and_reused_query_identity_and_bounds_sessions_sources() = runBlocking {
         val c=QueryCoordinator(MemoryStore(),CandidateQueryTransport {_,_,_,_->error("must not fetch")},QueryBudget(maxSessions=1,maxSources=1))
         suspend fun rejected(q: CatalogQuery) { try {c.start(q);fail("must reject")} catch(_:IllegalArgumentException) {} }
-        rejected(CatalogQuery.create("bad",contentKind=ContentKind.MOVIE,enabledSourceIds=setOf(a)))
+        // Full predicates now supported; preserve session/source/identity rejection checks below.
         rejected(query(sources=setOf(a,b)));c.start(query(sources=setOf(a)))
         rejected(query(year=1994,sources=setOf(a)));rejected(query("second",setOf(a)))
     }
@@ -209,6 +208,88 @@ class QueryCoordinatorTest {
         assertEquals(setOf(b),snapshot.result.failedSourceIds);assertEquals(1,snapshot.verifiedCurrentMatchCount)
         assertEquals("good",snapshot.acceptedEntries.single().key.itemId.value)
         assertEquals("1",snapshot.sourceCursors.last().nextCursor);assertNull(snapshot.result.knownMatchedCount)
+    }
+
+    @Test fun strict_selected_country_is_supported_and_unknown_does_not_match() = runBlocking {
+        val c=QueryCoordinator(MemoryStore(),FixtureTransport(mutableMapOf((a to "1") to page(null,true,row("unknown")))))
+        c.start(CatalogQuery.create("strict",countryIds=setOf("JP"),enabledSourceIds=setOf(a)))
+        c.loadMore("strict")
+        assertTrue(c.snapshot("strict").acceptedEntries.isEmpty())
+        assertNull(c.snapshot("strict").result.knownMatchedCount)
+    }
+
+    private fun strictRow(id:String,year:String="1994",country:String="日本",genre:String="犯罪",kind:String="movie",language:String="英语")=buildJsonObject {
+        row(id,year,id).forEach { (key,value)->put(key,value) }
+        put("vod_area",country);put("vod_class",genre);put("work_content_kind",kind)
+        put("work_original_language",language);put("work_original_language_scope","complete")
+    }
+    private fun strictQuery(id:String="strict")=CatalogQuery.create(id,contentKind=ContentKind.MOVIE,
+        languageScope=LanguageScope.NON_CHINESE,countryIds=setOf("JP","TH"),genreIds=setOf("crime"),
+        yearStart=1985,yearEnd=1995,sort=CatalogSort.YEAR_ASCENDING,enabledSourceIds=setOf(a))
+    @Test fun strict_composition_rechecks_all_facets_and_sorts_scoped_rows() = runBlocking {
+        val rows=arrayOf(strictRow("later","1995"),strictRow("first","1985","泰国"),strictRow("wrong-year","1996"),
+            strictRow("wrong-country",country="美国"),strictRow("wrong-genre",genre="恐怖"),
+            strictRow("wrong-kind",kind="series"),strictRow("wrong-language",language="汉语"))
+        val c=QueryCoordinator(MemoryStore(),FixtureTransport(mutableMapOf((a to "1") to page("2",false,*rows))),QueryBudget(maxRequests=1))
+        c.start(strictQuery());c.loadMore("strict")
+        val snapshot=c.snapshot("strict")
+        assertEquals(listOf("first","later"),snapshot.result.items.map {it.title})
+        assertEquals(QueryCoverage.PARTIAL,snapshot.result.coverage);assertNull(snapshot.result.knownMatchedCount)
+        assertEquals(7,snapshot.retainedEvidenceKeys.size)
+    }
+    @Test fun strict_query_id_reuse_cannot_change_selected_facets() = runBlocking {
+        val c=QueryCoordinator(MemoryStore(),CandidateQueryTransport {_,_,_,_->error("unused")})
+        c.start(strictQuery())
+        assertTrue(runCatching {c.start(CatalogQuery.create("strict",countryIds=setOf("US"),enabledSourceIds=setOf(a)))}.isFailure)
+    }
+
+    @Test fun strict_empty_exhaustion_distinguishes_known_empty_from_unknown_facts() = runBlocking {
+        for(unknown in listOf(false,true)) {
+            val fixture=if(unknown) row("unknown","") else row("foreign","1995")
+            val q=query("empty",setOf(a),1994)
+            val c=QueryCoordinator(MemoryStore(),FixtureTransport(mutableMapOf((a to "1") to page(null,true,fixture))))
+            c.start(q);c.loadMore("empty");val result=c.snapshot("empty")
+            assertTrue(result.result.items.isEmpty());assertNull(result.strict.globalTotal)
+            assertEquals(q,result.strict.selection)
+            assertEquals(if(unknown) null else 0L,result.strict.knownScopedMatchCount)
+            assertEquals(if(unknown) 1 else 0,result.strict.unresolvedWorkCount)
+            assertEquals(if(unknown) StrictSortScope.OBSERVED_ONLY else StrictSortScope.EXHAUSTED_SELECTED_SOURCES,result.strict.sortScope)
+            assertTrue(result.strict.displayState.contains(if(unknown) "年份" else "未找到"))
+            assertEquals(q,result.strict.selection) // Ordinary zero rows never remove conditions.
+        }
+    }
+    @Test fun strict_superseded_query_cannot_replace_new_selection_cursors_or_rows() = runBlocking {
+        val entered=CompletableDeferred<Unit>();val release=CompletableDeferred<Unit>()
+        val s=MemoryStore()
+        val c=QueryCoordinator(s,CandidateQueryTransport {_,_,q,_->
+            if(q.queryId=="q1") withContext(NonCancellable) {entered.complete(Unit);release.await()}
+            page(null,true,strictRow(q.queryId))
+        })
+        c.start(strictQuery("q1"));val loading=async {c.loadMore("q1")};entered.await()
+        val q2=CatalogQuery.create("q2",countryIds=setOf("US"),yearStart=1987,yearEnd=1987,enabledSourceIds=setOf(a))
+        val initial=c.start(q2);release.complete(Unit);assertEquals(LoadOutcome.Cancelled,loading.await())
+        assertEquals(initial,c.snapshot("q2"));assertEquals(q2,c.snapshot("q2").strict.selection)
+        assertTrue(s.evidence.isEmpty());assertEquals("1",c.snapshot("q2").sourceCursors.single().nextCursor)
+    }
+    @Test fun all_strict_facts_affect_projection_digest_even_when_old_year_fields_do_not_change() {
+        val capture=MaccmsCatalogNormalizer.normalize(a,strictRow("item"),0)
+        val key=SourceItemKey(a,SourceItemId("item"));val facts=StrictCaptureFacts.fromCaptures(listOf(capture))
+        val entry=QueryCatalogEntry(key,WorkId("home"),WorkId("home"),"title",facts,listOf("route"))
+        val changed=entry.copy(facts=facts.copy(genres=FieldEvidence.Unknown()))
+        assertNotEquals(queryProjectionDigest(listOf(entry)),queryProjectionDigest(listOf(changed)))
+    }
+
+    @Test fun chronological_sort_uses_title_work_key_ties_and_unknowns_last_in_both_directions() = runBlocking {
+        for(sort in listOf(CatalogSort.YEAR_ASCENDING,CatalogSort.YEAR_DESCENDING)) {
+            val rows=arrayOf(row("b","1994","same"),row("a","1994","same"),row("old","1987","old"),row("unknown","","unknown"))
+            val c=QueryCoordinator(MemoryStore(),FixtureTransport(mutableMapOf((a to "1") to page("2",false,*rows))),QueryBudget(maxRequests=1))
+            c.start(CatalogQuery.create("sorted",sort=sort,enabledSourceIds=setOf(a)));c.loadMore("sorted")
+            val result=c.snapshot("sorted")
+            assertEquals(if(sort==CatalogSort.YEAR_ASCENDING) listOf("old","a","b","unknown") else listOf("a","b","old","unknown"),
+                result.result.items.map {it.workId.value.substringAfterLast(":")})
+            assertEquals(StrictSortScope.OBSERVED_ONLY,result.strict.sortScope);assertNull(result.strict.globalTotal)
+            assertTrue(result.strict.displayState.contains("未查询完成"))
+        }
     }
 
 }
