@@ -138,7 +138,7 @@ private fun JsonElement.reference(): EvidenceReference = with(jsonObject) {
         required("rawValue").text(), required("ruleVersion").text())
 }
 
-private fun <T> evidenceJson(evidence: FieldEvidence<T>, encode: (T) -> JsonElement): JsonObject = buildJsonObject {
+internal fun <T> evidenceJson(evidence: FieldEvidence<T>, encode: (T) -> JsonElement): JsonObject = buildJsonObject {
     when (evidence) {
         is FieldEvidence.Unknown -> {
             put("state", "unknown")
@@ -164,7 +164,7 @@ private fun <T> evidenceJson(evidence: FieldEvidence<T>, encode: (T) -> JsonElem
     }
 }
 
-private fun <T> JsonElement.evidence(decode: (JsonElement) -> T): FieldEvidence<T> = with(jsonObject) {
+internal fun <T> JsonElement.evidence(decode: (JsonElement) -> T): FieldEvidence<T> = with(jsonObject) {
     when (required("state").text()) {
         "unknown" -> FieldEvidence.Unknown(required("observation").nullable { it.reference() })
         "source_reported" -> FieldEvidence.SourceReported(decode(required("value")), required("reference").reference())

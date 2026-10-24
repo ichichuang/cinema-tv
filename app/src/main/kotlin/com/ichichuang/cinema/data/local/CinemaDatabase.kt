@@ -9,10 +9,13 @@ import com.ichichuang.cinema.data.local.entity.*
 
 @Database(entities = [WorkReferenceEntity::class, WorkMetadataCacheEntity::class, FavoriteEntity::class,
     BrowseSnapshotEntity::class, PlaybackSnapshotEntity::class, LegacyImportBatchEntity::class, LegacyImportRecordEntity::class,
-    PlaybackSessionEntity::class, PlaybackRecordOrderEntity::class, PlaybackResumeEntity::class, LegacyHandoffEntity::class],
-    version = 3, exportSchema = true)
+    PlaybackSessionEntity::class, PlaybackRecordOrderEntity::class, PlaybackResumeEntity::class, LegacyHandoffEntity::class, CatalogSourceEntity::class, CatalogEndpointEntity::class, CatalogItemEntity::class,
+        CatalogCaptureEntity::class, CatalogEntryEntity::class, CatalogRouteEntity::class,
+        CatalogVerifiedIdentifierEntity::class, CatalogAssociationHistoryEntity::class],
+    version = 4, exportSchema = true)
 @TypeConverters(Utf16KeyConverter::class)
 internal abstract class CinemaDatabase : RoomDatabase() {
+    abstract fun catalogIdentity(): CatalogIdentityDao
     abstract fun userRecords(): UserRecordsDao
     abstract fun browseSnapshots(): BrowseSnapshotsDao
     abstract fun playbackSnapshots(): PlaybackSnapshotsDao
