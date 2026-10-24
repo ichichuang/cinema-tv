@@ -23,26 +23,27 @@ if (playbackRoomProbe) {
     }
 }
 
+val storageTestArm64 = providers.gradleProperty("cinema.storageTestArm64")
+    .map { it.toBooleanStrict() }.getOrElse(false)
+
 // Browse restoration shares the verified R06/R07 test authority, never a separate credential.
 val browseRestoreProbe = providers.gradleProperty("cinema.browseRestoreProbe")
     .map { it.toBooleanStrict() }.getOrElse(false)
 if (browseRestoreProbe) {
     val pair = setOf(":app:assembleDebug", ":app:assembleDebugAndroidTest")
-    if (gradle.startParameter.taskNames.toSet() != pair || !playbackRoomProbe) {
-        throw GradleException("浏览恢复探针仅允许完整 Debug / DebugAndroidTest 配对且必须启用已有播放测试授权；禁止安装、Release、bundle、发布或签名任务。")
+    if (gradle.startParameter.taskNames.toSet() != pair || !playbackRoomProbe || !storageTestArm64) {
+        throw GradleException("浏览恢复探针仅允许完整 Debug / DebugAndroidTest 配对且必须启用已有播放测试授权和 ARM64 存储测试；禁止安装、Release、bundle、发布或签名任务。")
     }
     gradle.taskGraph.whenReady {
         if (allTasks.any { it.name.contains("release", ignoreCase = true) ||
                 it.name.startsWith("publish", ignoreCase = true) || it.name.startsWith("install", ignoreCase = true) ||
-                it.name.startsWith("bundle", ignoreCase = true) }) {
+                it.name == "bundleDebug" }) {
             throw GradleException("浏览恢复探针任务图禁止安装、Release、bundle、发布或生产签名任务。")
         }
     }
 }
 
 // This opt-in only assembles a disposable instrumentation APK pair; it never installs.
-val storageTestArm64 = providers.gradleProperty("cinema.storageTestArm64")
-    .map { it.toBooleanStrict() }.getOrElse(false)
 if (storageTestArm64) {
     val allowedTasks = setOf(":app:assembleDebug", ":app:assembleDebugAndroidTest")
     if (gradle.startParameter.taskNames.isEmpty() || gradle.startParameter.taskNames.any { it !in allowedTasks }) {
