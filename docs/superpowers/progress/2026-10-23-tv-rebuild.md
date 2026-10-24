@@ -1,6 +1,27 @@
 # TV 重构进度
 
-Round 01–03 已留存，当前执行限定的 Round 04。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+Round 01–04 已留存，当前完成限定的 Round 05 候选切片；生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+
+## Round 05 执行记录
+
+用户明确授权按附件实施、仅本地提交不推送。起点 `a46a8a97947d1b72fefd3361f9742df9540a5be6`，原 main `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，两处干净；复用原工作树。计划原字节导入，SHA-256 `662e6d80c8b1ebc30f2e25abe91c5bf35d689d34a246be24aa1d6c579677a039`。完整证据见 [Round 05 验证](../../verification/2026-10-24-round-05-playback-checkpoints.md) 与 [候选结构](../../architecture/tv-playback-checkpoints.md)。
+
+| 步骤 | 实际状态 |
+| --- | --- |
+| R05-1 真实契约／事件映射 | 沿用原 snapshot／commit；现有播放器、schema、旧文档和官方 Media3 语义已核对；生产源码保持 |
+| R05-2 单调钟与候选协调器 | JVM 红绿及最终 25/25；五秒实际播放、零值／时长、快退、预加载、切集屏障、完成及取消 |
+| R05-3 原子提交／持久仲裁 | 真 Room generation／sequence／payload 幂等及独立作品指针；原 schema 1 不改，真实 1→2 增量迁移；原生全部 61/61 实际通过 |
+| R05-4 未来事件接入 | 记录 Media3 ready、playing、buffering、seek、ended、后台语义；未接现有播放器或 DI，不将候选视为运行时修复 |
+| R05-5 回归／审阅／本地交付 | 修正后 JVM 149/149、Python 62/62；134 个普通 Gradle task 实际重跑；Debug／Release Lint 21／22 Warning，各 1 Hint、0 Error；暂存安全检查和提交信息见验证报告交付段 |
+
+- Pre-flight: 真实 domain/schema 是策略与 adapter 的输入；策略事件和持久代次分别控制调度及跨会话顺序；迁移与实际 AVD 共同决定 native 证据；property-off 产物必须在 ARM64 验证后独立重建。
+- Ruling: 继续使用原账本及 R05-1–5 标题，不改写附件以适配技能数字 Task 脚本；计划原字节导入。代价：人工对应步骤。初期“原文含私人路径”的旧轮次假设已由本轮实际扫描纠正，没有因此改正文。
+- Ruling: 新选普通观看以 5,000ms 实际播放提升；4,999ms 误点退出不提升；真实短片结束可完成当前集。显式 seek／完成的失败或取消保存独立保留待确认状态。代价：阈值是待未来产品／实机评估的政策，不能宣称故障下最多丢五秒。
+- Ruling: schema 2 新增三张仲裁／续播表，原七表和 1.json 字节保持；不从旧记录推测会话代次或作品指针。代价：真实旧 DataStore 迁移、身份关联与 runtime cutover 仍未完成。
+- Final review: 一次 fresh-context 独立只读审阅，0 Critical、3 Important、0 Minor；三项均实际 RED→GREEN 修正。五项 JVM 回归先失败；真实 Room 两项组合先失败；修正后 149 JVM／61 native／62 Python 全绿。修复为短会话显式保存重试、真正重看恢复进行中、锁前捕获事件时间防止慢写入虚增观看。没有第二次独立复审，没有延后 Minor。
+- Final: Ruling: 审阅保留项继续未验证／范围外：生产 Media3／生命周期／TV、真实旧 DataStore 升级回滚备份、跨源身份与时间轴、进入 API 前的外部事件乱序、违约复用 sessionId／低层 DAO 写入、长期保留与删除政策、真实断电／进程／磁盘故障、全剧完结及 UI 展示。代价：候选测试不提供这些产品关口的通过证据；本轮不扩张去实现。
+- Ruling: 用户已选 local-only，按保留分支／工作树收口，无需再次询问 merge／push 菜单。原始证据保留于忽略目录，不按技能默认清理证据。代价：没有远端备份，AVD 文件占用保留但已关闭。
+- 本地实现提交：`194040bf92868c15b8570e136d515ac3546a41eb`，15 个精确路径；提交前 index 223 文件、0 违规。本报告／账本另作本地结项提交，最终文档 index 224 文件、0 违规，已核对暂存 blob 与工作区字节；最终 HEAD 见交接记录，不推送。
 
 ## Round 04 执行记录
 
@@ -115,7 +136,7 @@ Round 01–03 已留存，当前执行限定的 Round 04。原计划文件保持
 | T01 基线与隔离 | 本地隔离、原有测试/构建/Lint 已核实；旧样本、设备矩阵等未完成 |
 | T02 规格冻结 | 数据契约及本轮持久化编码切片已通过纯测试；视觉／图标／交互等仍未完成，M01 未完成 |
 | T03 数据库与迁移 | Round 02 候选与 synthetic staging 保持；R04 在专用 ARM64 AVD 实际执行 34/34 通过；真实旧数据、runtime cutover 及整个 T03／M02 未完成 |
-| T04 播放检查点 | 未开始 |
+| T04 播放检查点 | Round 05 候选策略／真实持久仲裁与合成 schema 迁移已测试；149 JVM／61 native 全量通过；生产播放器未接入，整个 T04 未验收 |
 | T05 身份与字段标准化 | 未开始 |
 | T06 来源能力与订阅 | 未开始 |
 | T07 严格多维查询 | 未开始 |
