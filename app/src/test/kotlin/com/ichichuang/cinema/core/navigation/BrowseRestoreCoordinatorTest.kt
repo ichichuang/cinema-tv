@@ -104,4 +104,39 @@ class BrowseRestoreCoordinatorTest {
         assertEquals("列数", modalReturnControl("筛选", row, row - "筛选", "片库"))
         assertEquals("片库", modalReturnControl("筛选", row, emptyList(), "片库"))
     }
+    @Test fun positioning_and_focus_share_removed_anchor_and_neighbor_policy() {
+        val coordinator = BrowseRestoreCoordinator(); val saved = browseSnapshot(); val token = coordinator.begin(saved)
+        val layout = coordinator.advanceLayout(token, 5)!!
+        val existing = RestoreObservation(saved.query, 5, mapOf("row" to listOf(work)), true,
+            savedRowKey = "row", savedRowOrder = listOf(saved.anchorWorkId!!, work), layoutToken = layout)
+        assertEquals(RestorePositioning(work, 0f), coordinator.positioning(token, existing))
+        assertEquals(RestoreOutcome.WaitingForLayout, coordinator.observe(token, existing))
+        assertEquals(RestoreOutcome.ReadyToFocus(work, null, -.2f), coordinator.observe(token, existing.copy(layoutReady = setOf(work))))
+        val next = coordinator.begin(saved); val nextLayout = coordinator.advanceLayout(next, 5)!!
+        val neighbor = WorkId("surviving-same-row")
+        val removed = existing.copy(rows = mapOf("row" to listOf(neighbor)), savedRowOrder = listOf(neighbor, work), layoutToken = nextLayout)
+        assertEquals(RestorePositioning(neighbor, 0f), coordinator.positioning(next, removed))
+        assertEquals(RestoreOutcome.Fallback(neighbor), coordinator.observe(next, removed.copy(layoutReady = setOf(neighbor))))
+    }
+    @Test fun positioning_waits_for_partial_and_rejects_old_query_layout_and_input() {
+        val coordinator = BrowseRestoreCoordinator(); val saved = browseSnapshot(); val token = coordinator.begin(saved)
+        val pass = coordinator.advanceLayout(token, 4)!!
+        val partial = observation(saved).copy(rows = mapOf("row" to listOf(work)), layoutToken = pass)
+        assertNull(coordinator.positioning(token, partial))
+        assertNull(coordinator.positioning(token, partial.copy(complete = true, query = browseSnapshot("history").query)))
+        val currentPass = coordinator.advanceLayout(token, 4)!!
+        assertNull(coordinator.positioning(token, partial.copy(complete = true)))
+        assertEquals(RestorePositioning(work, 0f), coordinator.positioning(token, partial.copy(complete = true, layoutToken = currentPass)))
+        coordinator.onUserInput()
+        assertNull(coordinator.positioning(token, partial.copy(complete = true)))
+    }
+    @Test fun unanchored_context_does_not_impose_a_new_scroll_position() {
+        val coordinator = BrowseRestoreCoordinator()
+        val saved = browseSnapshot().copy(focusedWorkId = null, anchorWorkId = null)
+        val token = coordinator.begin(saved); val pass = coordinator.advanceLayout(token, 4)!!
+        val entry = WorkId("row-entry")
+        val result = RestoreObservation(saved.query, 4, mapOf("row" to listOf(entry)), true,
+            savedRowKey = "row", savedRowOrder = listOf(entry), layoutToken = pass)
+        assertEquals(RestorePositioning(null, 0f), coordinator.positioning(token, result))
+    }
 }

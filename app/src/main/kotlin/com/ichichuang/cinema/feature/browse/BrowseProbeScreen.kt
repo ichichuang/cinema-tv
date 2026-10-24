@@ -75,9 +75,14 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
     LaunchedEffect(pass, token, viewportWidth, viewportHeight) {
         if (pass != null && token != null && snapshot != null && viewportWidth > 0 && viewportHeight > 0 &&
             runtime.restoreToken == token && runtime.layoutToken == pass) {
-            val anchorIndex = items.indexOfFirst { it.id == (snapshot.anchorWorkId ?: snapshot.focusedWorkId) }
-            if (anchorIndex >= 0) grid.scrollToItem(anchorIndex,
-                (-snapshot.relativeOffset * viewportHeight).toInt().coerceAtLeast(0))
+            val positioning = runtime.restore.positioning(token, runtime.observation(emptySet(), pass, false))
+                ?: return@LaunchedEffect
+            if (positioning.workId != null) {
+                val anchorIndex = items.indexOfFirst { it.id == positioning.workId }
+                if (anchorIndex < 0) return@LaunchedEffect
+                grid.scrollToItem(anchorIndex, (-positioning.relativeOffset * viewportHeight).toInt().coerceAtLeast(0))
+            }
+            if (runtime.restoreToken != token || runtime.layoutToken != pass) return@LaunchedEffect
             anchorPositioned = true
             requestRestore()
         }

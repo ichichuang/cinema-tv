@@ -17,6 +17,7 @@ internal data class RestoreObservation(
     val savedRowOrder: List<WorkId> = emptyList(),
     val layoutToken: RestoreLayoutToken? = null,
 )
+internal data class RestorePositioning(val workId: WorkId?, val relativeOffset: Float)
 internal sealed interface RestoreOutcome {
     data object WaitingForQuery : RestoreOutcome
     data object WaitingForItem : RestoreOutcome

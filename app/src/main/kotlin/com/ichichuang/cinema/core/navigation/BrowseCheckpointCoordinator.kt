@@ -45,9 +45,11 @@ internal class BrowseCheckpointCoordinator(
     }
     private suspend fun commit(token: CheckpointToken, expected: Long?): CommitResult = writes.withLock {
         val capture = synchronized(stateLock) {
-            if (token != current || (expected != null && expected != revision)) null
-            else pending?.let { it to revision }
-        } ?: return@withLock CommitResult.RejectedStale
+            if (token != current || (expected != null && expected != revision)) return@withLock CommitResult.RejectedStale
+            val state = pending ?: return@withLock if (expected == null && lastResult == CommitResult.Committed)
+                CommitResult.Committed else CommitResult.RejectedStale
+            state to revision
+        }
         val result = store.saveActive(capture.first)
         val accepted = synchronized(stateLock) {
             if (token == current && revision == capture.second) {

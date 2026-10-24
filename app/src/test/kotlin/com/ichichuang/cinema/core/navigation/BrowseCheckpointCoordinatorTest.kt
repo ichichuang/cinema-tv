@@ -115,4 +115,47 @@ class BrowseCheckpointCoordinatorTest {
         Unit
     }
 
+    @Test fun concurrent_same_revision_flushes_share_one_committed_acknowledgement() = runBlocking {
+        val entered = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
+        val stored = mutableListOf<RestoreNavigationState>(); val reported = mutableListOf<CommitResult>()
+        val store = object : BrowseNavigationStore {
+            override suspend fun saveActive(state: RestoreNavigationState): CommitResult {
+                entered.complete(Unit); release.await(); stored += state; return CommitResult.Committed
+            }
+            override suspend fun loadLatest(topLevel: BrowseTopLevel): RestoreNavigationState? = null
+            override suspend fun loadActive() = stored.lastOrNull()
+        }
+        val coordinator = BrowseCheckpointCoordinator(store, this, onResult = { reported += it })
+        val state = RestoreNavigationState(browseSnapshot()); val token = coordinator.begin(state)
+        val first = async(start = CoroutineStart.UNDISPATCHED) { coordinator.flush(token) }
+        entered.await()
+        val second = async(start = CoroutineStart.UNDISPATCHED) { coordinator.flush(token) }
+        assertFalse(second.isCompleted); release.complete(Unit)
+        assertEquals(CommitResult.Committed, first.await())
+        assertEquals("相同状态的等待者必须取得已确认提交", CommitResult.Committed, second.await())
+        assertEquals(listOf(state), stored); assertEquals(listOf(CommitResult.Committed), reported)
+        assertFalse(coordinator.hasPending)
+    }
+    @Test fun queued_explicit_flush_saves_newer_pending_instead_of_reusing_old_acknowledgement() = runBlocking {
+        val entered = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
+        val stored = mutableListOf<RestoreNavigationState>()
+        val store = object : BrowseNavigationStore {
+            override suspend fun saveActive(state: RestoreNavigationState): CommitResult {
+                if (stored.isEmpty()) { entered.complete(Unit); release.await() }
+                stored += state; return CommitResult.Committed
+            }
+            override suspend fun loadLatest(topLevel: BrowseTopLevel): RestoreNavigationState? = null
+            override suspend fun loadActive() = stored.lastOrNull()
+        }
+        val coordinator = BrowseCheckpointCoordinator(store, this)
+        val old = RestoreNavigationState(browseSnapshot()); val token = coordinator.begin(old)
+        val first = async(start = CoroutineStart.UNDISPATCHED) { coordinator.flush(token) }; entered.await()
+        val queued = async(start = CoroutineStart.UNDISPATCHED) { coordinator.flush(token) }
+        val current = old.copy(snapshot = old.snapshot.copy(relativeOffset = .5f))
+        assertTrue(coordinator.update(token, current)); release.complete(Unit)
+        assertEquals(CommitResult.Committed, first.await())
+        assertEquals(CommitResult.Committed, queued.await())
+        assertEquals(listOf(old, current), stored)
+        assertEquals(current, store.loadActive()); assertFalse(coordinator.hasPending)
+    }
 }

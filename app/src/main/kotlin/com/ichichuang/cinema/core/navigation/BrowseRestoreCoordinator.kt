@@ -26,36 +26,59 @@ internal class BrowseRestoreCoordinator {
         latestResultRevision = resultRevision
         return RestoreLayoutToken(generation, resultRevision, ++layoutGeneration).also { layout = it }
     }
+    private fun currentSnapshot(token: RestoreToken): BrowseSnapshot? = snapshot?.takeIf {
+        token.routeGeneration == generation && token.contextKey == it.contextKey && token.query == it.query && !delivered
+    }
+    private fun matchesQuery(saved: BrowseSnapshot, observation: RestoreObservation) =
+        observation.query == saved.query && observation.resultRevision != null && observation.resultRevision >= latestResultRevision
+
+    /** Resolve the same destination before layout, without consuming the cancellable focus request. */
+    @Synchronized fun positioning(token: RestoreToken, observation: RestoreObservation): RestorePositioning? {
+        val saved = currentSnapshot(token) ?: return null
+        if (!matchesQuery(saved, observation) || layout == null || observation.layoutToken != layout ||
+            layout?.resultRevision != observation.resultRevision) return null
+        // A new context without any saved position must retain its existing viewport behavior.
+        if (saved.focusedWorkId == null && saved.anchorWorkId == null) return RestorePositioning(null, 0f)
+        return when (val destination = destination(saved, observation)) {
+            is RestoreOutcome.ReadyToFocus -> RestorePositioning(destination.anchorWorkId ?: destination.workId,
+                if (destination.anchorWorkId != null) destination.relativeOffset else 0f)
+            is RestoreOutcome.Fallback -> RestorePositioning(destination.workId, 0f)
+            else -> null
+        }
+    }
     @Synchronized fun observe(token: RestoreToken, observation: RestoreObservation): RestoreOutcome {
-        val s = snapshot ?: return RestoreOutcome.Cancelled
-        if (token.routeGeneration != generation || token.contextKey != s.contextKey || token.query != s.query || delivered)
-            return RestoreOutcome.Cancelled
-        if (observation.query != s.query || observation.resultRevision == null ||
-            observation.resultRevision < latestResultRevision) return RestoreOutcome.WaitingForQuery
-        if (observation.resultRevision > latestResultRevision) {
-            latestResultRevision = observation.resultRevision
+        val saved = currentSnapshot(token) ?: return RestoreOutcome.Cancelled
+        if (!matchesQuery(saved, observation)) return RestoreOutcome.WaitingForQuery
+        val revision = requireNotNull(observation.resultRevision)
+        if (revision > latestResultRevision) {
+            latestResultRevision = revision
             layout = null
         }
-        val layoutMatches = layout != null && observation.layoutToken == layout && layout?.resultRevision == observation.resultRevision
+        val layoutMatches = layout != null && observation.layoutToken == layout && layout?.resultRevision == revision
+        val destination = destination(saved, observation)
+        when (destination) {
+            is RestoreOutcome.ReadyToFocus -> if (!layoutMatches || destination.workId !in observation.layoutReady ||
+                (destination.anchorWorkId != null && destination.anchorWorkId !in observation.layoutReady)) return RestoreOutcome.WaitingForLayout
+            is RestoreOutcome.Fallback -> if (!layoutMatches ||
+                (destination.workId?.let { it !in observation.layoutReady } ?: !observation.pageControlReady)) return RestoreOutcome.WaitingForLayout
+            else -> return destination
+        }
+        delivered = true
+        return destination
+    }
+    /** One removal/fallback policy shared by positioning and final layout-gated focus delivery. */
+    private fun destination(saved: BrowseSnapshot, observation: RestoreObservation): RestoreOutcome {
         val ids = observation.rows.values.flatten().toSet()
-        val target = s.focusedWorkId ?: s.anchorWorkId
+        val target = saved.focusedWorkId ?: saved.anchorWorkId
         if (target != null && target in ids) {
-            if (s.anchorWorkId != null && s.anchorWorkId !in ids && !observation.complete) return RestoreOutcome.WaitingForItem
-            val anchor = s.anchorWorkId?.takeIf { it in ids }
-            if (!layoutMatches || target !in observation.layoutReady || (anchor != null && anchor !in observation.layoutReady))
-                return RestoreOutcome.WaitingForLayout
-            delivered = true
-            return RestoreOutcome.ReadyToFocus(target, anchor, s.relativeOffset)
+            if (saved.anchorWorkId != null && saved.anchorWorkId !in ids && !observation.complete) return RestoreOutcome.WaitingForItem
+            return RestoreOutcome.ReadyToFocus(target, saved.anchorWorkId?.takeIf { it in ids }, saved.relativeOffset)
         }
         if (target != null && !observation.complete) return RestoreOutcome.WaitingForItem
         val row = observation.rows[observation.savedRowKey].orEmpty()
         val oldIndex = observation.savedRowOrder.indexOf(target)
         val neighbor = if (oldIndex >= 0) observation.savedRowOrder.withIndex()
             .filter { it.value in row }.minByOrNull { kotlin.math.abs(it.index - oldIndex) }?.value else null
-        val fallback = neighbor ?: row.firstOrNull()
-        if (!layoutMatches || (fallback != null && fallback !in observation.layoutReady)) return RestoreOutcome.WaitingForLayout
-        if (fallback == null && !observation.pageControlReady) return RestoreOutcome.WaitingForLayout
-        delivered = true
-        return RestoreOutcome.Fallback(fallback)
+        return RestoreOutcome.Fallback(neighbor ?: row.firstOrNull())
     }
 }

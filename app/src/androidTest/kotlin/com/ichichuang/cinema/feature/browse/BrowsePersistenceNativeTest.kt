@@ -444,4 +444,53 @@ class BrowsePersistenceNativeTest {
         runtime { assertEquals(fixture.alternative.query, it.navigation!!.snapshot.query) }
         assertFalse(focused().contains(target.value))
     }
+    private fun coldSnapshotWithRemovedWorks(removed: Set<Int>) {
+        val original = fixture.initial
+        runBlocking { DebugBrowseProbeGate.withOwnedProfile(context) { db ->
+            assertEquals(CommitResult.Committed, RoomBrowseStateStore(db).saveActive(RestoreNavigationState(original)))
+        } }
+        mutateFixture { root ->
+            val works = root.getJSONArray("works")
+            removed.sortedDescending().forEach { works.remove(it) }
+        }
+    }
+    private fun assertColdDeepRemovalRestores(removed: Set<Int>, expectedIndex: Int) {
+        val original = fixture.initial
+        val expected = fixture.works[expectedIndex].id
+        coldSnapshotWithRemovedWorks(removed)
+        BrowseProbeTestHooks.blockPlacement = true; launch(false)
+        until { var loaded = false; scenario!!.onActivity { loaded = it.browseProbe?.navigation != null && it.browseProbe?.result?.coverage == QueryCoverage.COMPLETE }; loaded }
+        assertTrue("首次冷恢复完成布局前不能抢焦点到首项", focused().none { it in fixture.works.map { work -> work.id.value } })
+        runtime { BrowseProbeTestHooks.blockPlacement = false }
+        focus(expected.value)
+        runtime {
+            assertEquals(original.query, it.navigation!!.snapshot.query)
+            assertEquals(expected, it.navigation!!.snapshot.focusedWorkId)
+            assertTrue("恢复目标必须来自真实深层视口", it.items.indexOfFirst { work -> work.id == it.visibleAnchor } >= 80)
+        }
+        assertEquals(listOf(expected.value), focused())
+    }
+    @Test fun cold_complete_removed_anchor_keeps_existing_deep_target() {
+        assertColdDeepRemovalRestores(setOf(95), 99)
+    }
+    @Test fun cold_complete_removed_anchor_and_target_restores_same_row_neighbor() {
+        assertColdDeepRemovalRestores(setOf(95, 99), 98)
+    }
+    @Test fun background_flush_and_navigation_share_same_room_acknowledgement() {
+        launch(); instrumentation.waitForIdleSync(); acknowledged()
+        val release = CompletableDeferred<Unit>()
+        runtime { BrowseProbeTestHooks.beforeSave = release; it.positioned(it.visibleAnchor, it.visibleOffset); it.background() }
+        until { BrowseProbeTestHooks.waitingSaves.get() == 1 }
+        key(KeyEvent.KEYCODE_DPAD_CENTER)
+        until { var busy = false; runtime { busy = it.busy }; busy }
+        runtime { BrowseProbeTestHooks.beforeSave = null; release.complete(Unit) }
+        focus("详情返回")
+        runtime { assertTrue(it.isDetail); assertEquals(CommitResult.Committed, it.lastCommit); assertFalse(it.status.contains("尚未保存")) }
+        closeActivity()
+        runBlocking { DebugBrowseProbeGate.withOwnedProfile(context) { db ->
+            val saved = RoomBrowseStateStore(db).loadActive()!!
+            assertEquals(listOf(BrowseChildRoute.DETAIL), saved.returnChain)
+            assertEquals(target, saved.snapshot.focusedWorkId); assertEquals(fixture.initial.query, saved.snapshot.query)
+        } }
+    }
 }
