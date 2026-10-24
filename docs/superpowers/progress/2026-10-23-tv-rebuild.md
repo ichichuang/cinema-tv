@@ -1,6 +1,29 @@
 # TV 重构进度
 
-Round 01–04 已留存，当前完成限定的 Round 05 候选切片；生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+Round 01–05 已留存，当前完成限定的 Round 06 测试授权 Debug 运行时切片；普通路径生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+
+## Round 06 执行记录
+
+起点实测 `d75cb40622a5adc8d9680a198063d0a0fc01cec4`，分支 `codex/contract-foundation`；隔离工作树与 main 起始均干净。包内三项 SHA-256 及独立文档字节一致，计划原样导入。仅授权本地提交，禁止 push/merge/publish/真实设备及后续轮次。
+
+- Pre-flight: R06-1 门禁产出唯一 writer 模式，R06-2 bridge 消费；R06-2 不可变事件与真实身份供 R06-3 Media3/Room 和独立进程验证；R06-4 在两属性关闭后重建普通产物。
+- Ruling: 沿用本账本和 R06 标题，不套用技能数字 Task 脚本；原附件不改写。代价是手工记录每步证据。
+- Ruling: 旧 MovieDetail 无稳定 episode/variant ID，只允许测试仓库显式注入既有 PlaybackTarget 和私有本地 URI；线上仓库无法证明身份则拒绝探针播放。代价是本轮不能用于真实来源或宣称生产接入。
+- Ruling: 运行时拒绝任何旧 progress/browse/filter 文件，包括空文件；不解析、隐藏或清除旧记录。代价是只能使用全新可丢弃 profile。
+
+| 步骤 | 状态 |
+| --- | --- |
+| R06-1 基线和门禁 | 起点／源码／既有工作树已核；新跑基线JVM149/149；六类非法请求均在执行前拒绝，默认和旧记录门禁有用例 |
+| R06-2 事件和生命周期 | 最终JVM177/177；真实retry与两项审阅竞态均实际RED→GREEN；单调事件时间、切集屏障、单次请求取消及后台暂停保护已接入Probe |
+| R06-3 实际 Media3 / Room 与进程恢复 | 最终71/71，逐方法源清单与start/pass对应：68主套件＋2独立进程＋1 Legacy OFF；AVD afb36413／emulator-5564 已关闭；PID2677→2783恢复5554ms且暂停 |
+| R06-4 回归、独立审阅、安全和本地提交 | 两属性OFF全量140任务实际执行；Python62/62；双Lint 0Error，21/22Warning各1Hint与Round05相同；实现本地提交23dfac4；最终完整index安全检查238项0违规；文档提交见验证报告 |
+
+- Final review: 一次独立只读审阅核对15个候选文件指纹；0 Critical、2 Important、0 Minor。发现“慢切集／retry覆盖较新的后台暂停”和“取消单次await仍可能执行旧媒体副作用”；两项均补真实SQLite锁／单次Job取消的确定性RED并修正，完整回归已通过。修正不再独立复审，作者用红绿和全量证据负责确认。
+- Ruling: 双进程 Phase A 的预期取自真实 pause onEvents 处理后、明确 boundary 提交之后，Phase B 保留完整快照比较。首次失败是预期记录早于合法的下一次同位置提交，不能将较早回执称为最后提交。代价是测试需显式等待播放器事件，不能以任意固定延迟冒充同步。
+
+- Final verification: 首次全量Lint暴露3个API26调用错误；改为兼容min24的canonical File边界校验，路径／URI越界测试3项红绿后重跑全部。schema1/2、原coordinator/store、DataStore、Koin、manifest及发布身份不变。
+- Local delivery: 实现提交 `23dfac429d5fc1cf8a547f8cb69304490593b617`，暂存236个index文件安全检查0违规；原main／刷新后origin/main仍为 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`。无upstream的本地分支用途明确，不建立远端分支，不push/merge/publish。
+- Evidence: [完整Round06验证](../../verification/2026-10-24-round-06-playback-runtime.md)；[运行时结构](../../architecture/tv-playback-runtime-probe.md)。真实旧用户迁移、ARMv7／TV视频和遥控、Activity导航自动恢复、T03／T04整体、M02、A06–A09均未验收。本轮停止，不进入后续工作。
 
 ## Round 05 执行记录
 
