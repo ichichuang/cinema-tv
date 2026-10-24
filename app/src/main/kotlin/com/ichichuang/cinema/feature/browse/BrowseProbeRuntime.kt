@@ -40,9 +40,23 @@ internal class BrowseProbeRuntime(
                 BrowseProbeTestHooks.waitingSaves.incrementAndGet()
                 try { hold.await() } finally { BrowseProbeTestHooks.waitingSaves.decrementAndGet() }
             }
-            return store.saveActive(state)
+            saveInFlight = true
+            committingSnapshot = state.snapshot
+            trace()
+            return try {
+                if (fixture.saveDelayMillis > 0) delay(fixture.saveDelayMillis)
+                store.saveActive(state)
+            } finally { saveInFlight = false; committingSnapshot = null; trace() }
         }
-    }, scope)
+    }, scope, onResult = { commit ->
+        lastCommit = commit
+        status = if (commit != CommitResult.Committed) "浏览位置尚未保存，请保留当前页面后重试"
+            else if (result?.coverage == QueryCoverage.COMPLETE) "当前测试来源已完整核对"
+            else "当前测试来源仅有部分结果，缺失不表示已移除"
+        trace()
+    })
+    private var saveInFlight = false
+    private var committingSnapshot: com.ichichuang.cinema.domain.model.userdata.BrowseSnapshot? = null
     private var checkpointToken: CheckpointToken? = null
     var navigation by mutableStateOf<RestoreNavigationState?>(null); private set
     var items by mutableStateOf<List<BrowseProbeFixture.Work>>(emptyList()); private set
@@ -53,6 +67,7 @@ internal class BrowseProbeRuntime(
     var viewportWidth by mutableIntStateOf(0); private set
     var viewportHeight by mutableIntStateOf(0); private set
     fun viewportChanged(width: Int, height: Int) {
+        if (!foreground || stopped) return
         if (width == viewportWidth && height == viewportHeight) return
         val measured = viewportWidth > 0 && viewportHeight > 0
         viewportWidth = width; viewportHeight = height
@@ -100,6 +115,8 @@ internal class BrowseProbeRuntime(
     private var anchor: WorkId? = null
     private var offset = 0f
     private var modalInvoker: String? = null
+    private var modalInvokerRow: List<String> = emptyList()
+    var foreground by mutableStateOf(true); private set
     private val held = mutableSetOf<Int>()
     private var stopped = false
     val top: BrowseTopLevel get() = BrowseTopLevel.entries.firstOrNull { it.route == navigation?.snapshot?.route } ?: BrowseTopLevel.LIBRARY
@@ -110,7 +127,9 @@ internal class BrowseProbeRuntime(
         BrowseProbeTestHooks.beforeLoad?.await()
         val saved = store.loadActive() ?: RestoreNavigationState(fixture.initial)
         val token = restore.completeLoad(ticket, saved.snapshot)
-        install(saved, token)
+        // A cancelled initial load may still populate an empty page after user input,
+        // but it must never replace a newer explicit query/context already installed.
+        if (token != null || navigation == null) install(saved, token)
     }
     private fun install(state: RestoreNavigationState, token: RestoreToken?) {
         val priorControl = focusedControl
@@ -120,7 +139,10 @@ internal class BrowseProbeRuntime(
         focused = null; focusedControl = if (token == null) priorControl else null
         restoreToken = token
         val query = requireNotNull(state.snapshot.query)
-        val found = fixture.query(query, top, ++revision)
+        // A new Activity/process must not restart below the durable result generation.
+        revision = maxOf(revision, state.snapshot.resultRevision ?: 0L)
+        if (revision < Long.MAX_VALUE) revision++
+        val found = fixture.query(query, top, revision)
         items = found.first; result = found.second
         layoutToken = token?.let { restore.advanceLayout(it, revision) }
         status = if (result?.coverage == QueryCoverage.COMPLETE) "当前测试来源已完整核对" else "当前测试来源仅有部分结果，缺失不表示已移除"
@@ -132,9 +154,9 @@ internal class BrowseProbeRuntime(
         anchorWorkId = anchor ?: state.snapshot.anchorWorkId, relativeOffset = offset,
         resultRevision = result?.snapshotRevision ?: state.snapshot.resultRevision, savedAt = System.currentTimeMillis())) }
     private fun update() { val state = stateNow() ?: return; navigation = state; checkpointToken?.let { checkpoint.update(it, state) }; trace() }
-    fun positioned(id: WorkId?, relativeOffset: Float) { visibleAnchor = id; visibleOffset = relativeOffset; if (focused == null) return; anchor = id; offset = relativeOffset; if (focused != null) update() }
-    fun focused(id: WorkId) { focused = id; focusedControl = null; userTarget = null; controlTarget = null; update() }
-    fun controlFocused(name: String) { if (modal) return; focused = null; focusedControl = name; if (controlTarget == name) controlTarget = null; trace() }
+    fun positioned(id: WorkId?, relativeOffset: Float) { if (!foreground || stopped) return; visibleAnchor = id; visibleOffset = relativeOffset; if (focused == null) return; anchor = id; offset = relativeOffset; if (focused != null) update() }
+    fun focused(id: WorkId) { if (!foreground || stopped) return; focused = id; focusedControl = null; userTarget = null; controlTarget = null; update() }
+    fun controlFocused(name: String) { if (!foreground || stopped || modal) return; focused = null; focusedControl = name; if (controlTarget == name) controlTarget = null; trace() }
     suspend fun flush(): CommitResult {
         val token = checkpointToken ?: return CommitResult.RejectedStale
         if (!checkpoint.hasPending) return lastCommit ?: checkpoint.lastResult ?: CommitResult.RejectedStale
@@ -143,6 +165,8 @@ internal class BrowseProbeRuntime(
         trace(); return result
     }
     fun background() { scope.launch { flush() } }
+    fun pause() { foreground = false; background() }
+    fun resume() { if (!stopped) foreground = true }
     suspend fun shutdown() { stopped = true; if (checkpoint.hasPending) flush() }
     private val routeChanges = Mutex()
     private var routeRequest = 0L
@@ -189,7 +213,7 @@ internal class BrowseProbeRuntime(
         }
     }
     fun back(exit: () -> Unit) {
-        if (modal) { modal = false; controlTarget = modalInvoker?.takeIf { it != "筛选" || filterVisible } ?: "片库"; return }
+        if (modal) { modal = false; controlTarget = modalReturnControl(modalInvoker, modalInvokerRow, toolbarControls(), "片库"); return }
         if (!isDetail) { leave { exit() }; return }
         val ticket = restore.reserveLoad()
         leave {
@@ -197,7 +221,8 @@ internal class BrowseProbeRuntime(
             install(state, restore.completeLoad(ticket, state.snapshot))
         }
     }
-    fun openModal() { modalInvoker = focusedControl ?: "筛选"; modal = true; focused = null; focusedControl = null }
+    private fun toolbarControls() = listOf("片库", "收藏", "历史") + (if (filterVisible) listOf("筛选") else emptyList()) + listOf("列数", "刷新")
+    fun openModal() { modalInvoker = focusedControl ?: "筛选"; modalInvokerRow = toolbarControls(); modal = true; focused = null; focusedControl = null }
     fun removeModalInvoker() { filterVisible = false }
     fun changeColumns() {
         val state = stateNow() ?: return
@@ -215,7 +240,7 @@ internal class BrowseProbeRuntime(
     fun refresh() {
         // Metadata/source refresh preserves the installed active order and focus. No restore request.
         result = result?.let { CatalogResult.create(it.queryId, it.items, it.coverage, it.failedSourceIds,
-            it.unknownFieldCount, it.knownMatchedCount, it.hasMore, ++revision) }
+            it.unknownFieldCount, it.knownMatchedCount, it.hasMore, if (revision < Long.MAX_VALUE) ++revision else revision) }
         restoreToken = null
     }
     fun delivered(outcome: RestoreOutcome): WorkId? = when (outcome) {
@@ -254,7 +279,7 @@ internal class BrowseProbeRuntime(
             }
             return true
         }
-        val controls = listOf("片库", "收藏", "历史") + (if (filterVisible) listOf("筛选") else emptyList()) + listOf("列数", "刷新")
+        val controls = toolbarControls()
         val controlIndex = controls.indexOf(focusedControl)
         if (controlIndex >= 0) {
             when (code) {
@@ -281,6 +306,10 @@ internal class BrowseProbeRuntime(
             .put("pid", android.os.Process.myPid()).put("route", snapshot?.route)
             .put("detail", isDetail).put("focused", focused?.value).put("control", focusedControl)
             .put("context", snapshot?.contextKey).put("anchor", anchor?.value).put("offset", offset)
+            .put("snapshot", snapshot?.let(com.ichichuang.cinema.data.local.codec.BrowseSnapshotCodec::encode))
+            .put("viewportWidth", viewportWidth).put("viewportHeight", viewportHeight)
+            .put("waitingSave", saveInFlight)
+            .put("committingSnapshot", committingSnapshot?.let(com.ichichuang.cinema.data.local.codec.BrowseSnapshotCodec::encode))
             .put("commit", lastCommit?.toString() ?: checkpoint.lastResult?.toString()).toString())
     }
 }

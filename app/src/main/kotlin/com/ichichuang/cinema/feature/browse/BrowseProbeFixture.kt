@@ -17,6 +17,7 @@ internal class BrowseProbeFixture(context: Context) {
     val alternative: BrowseSnapshot = BrowseSnapshotCodec.decode(data.getString("alternative"))
     val savedOrder = data.getJSONArray("order").let { array -> (0 until array.length()).map { WorkId(array.getString(it)) } }
     val complete = data.getBoolean("complete")
+    val saveDelayMillis = data.optLong("saveDelayMillis", 0).also { require(it in 0..10_000) }
     data class Work(val id: WorkId, val title: String, val source: SourceId,
         val facts: StrictWorkFacts, val favorite: Boolean, val history: Boolean)
     val works: List<Work> = data.getJSONArray("works").let { array -> (0 until array.length()).map { index ->

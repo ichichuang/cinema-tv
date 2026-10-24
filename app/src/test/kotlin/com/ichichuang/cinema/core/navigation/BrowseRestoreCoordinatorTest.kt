@@ -90,4 +90,18 @@ class BrowseRestoreCoordinatorTest {
         assertEquals(RestoreOutcome.ReadyToFocus(work, s.anchorWorkId, -.2f), c.observe(t, observation(s, true).copy(layoutToken = newColumns)))
     }
 
+    @Test fun removed_target_without_old_row_neighbor_uses_current_row_entry() {
+        val coordinator = BrowseRestoreCoordinator(); val saved = browseSnapshot(); val token = coordinator.begin(saved)
+        val entry = WorkId("current-row-entry"); val unrelated = WorkId("unrelated-other-row")
+        val observation = RestoreObservation(saved.query, 5,
+            mapOf("saved" to listOf(entry), "other" to listOf(unrelated)), true, setOf(entry, unrelated), true,
+            "saved", listOf(work, WorkId("also-removed")), coordinator.advanceLayout(token, 5))
+        assertEquals(RestoreOutcome.Fallback(entry), coordinator.observe(token, observation))
+    }
+    @Test fun modal_removed_invoker_uses_same_row_then_page_default() {
+        val row = listOf("片库", "收藏", "历史", "筛选", "列数", "刷新")
+        assertEquals("筛选", modalReturnControl("筛选", row, row, "片库"))
+        assertEquals("列数", modalReturnControl("筛选", row, row - "筛选", "片库"))
+        assertEquals("片库", modalReturnControl("筛选", row, emptyList(), "片库"))
+    }
 }

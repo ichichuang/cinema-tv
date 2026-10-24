@@ -40,14 +40,15 @@ class MainActivity : ComponentActivity(), KoinComponent {
         private set
     private var probeError by mutableStateOf<String?>(null)
 
-    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-        if (BuildConfig.BROWSE_RESTORE_PROBE && browseProbe?.key(event) { finish() } == true) return true
-        return super.dispatchKeyEvent(event)
+    override fun onPause() {
+        // Freeze candidate observations before stop-time window/inset changes arrive.
+        browseProbe?.pause()
+        super.onPause()
     }
 
-    override fun onStop() {
-        browseProbe?.background()
-        super.onStop()
+    override fun onResume() {
+        super.onResume()
+        browseProbe?.resume()
     }
 
     override fun onDestroy() {
@@ -58,6 +59,13 @@ class MainActivity : ComponentActivity(), KoinComponent {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (BuildConfig.BROWSE_RESTORE_PROBE) {
+            val ordinaryCallback = requireNotNull(window.callback)
+            window.callback = object : android.view.Window.Callback by ordinaryCallback {
+                override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+                    if (browseProbe?.key(event) { finish() } == true) return true
+                    return ordinaryCallback.dispatchKeyEvent(event)
+                }
+            }
             requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             probeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also { scope ->
                 scope.launch {

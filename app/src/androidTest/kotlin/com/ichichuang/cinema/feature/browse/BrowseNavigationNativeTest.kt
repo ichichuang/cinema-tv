@@ -157,9 +157,9 @@ class BrowseNavigationNativeTest {
         key(KeyEvent.KEYCODE_DPAD_DOWN); key(KeyEvent.KEYCODE_DPAD_RIGHT); focus("关闭筛选"); assertUniqueFocus()
         key(KeyEvent.KEYCODE_BACK); focus("筛选"); assertUniqueFocus()
     }
-    @Test fun modal_removed_invoker_returns_page_control() {
+    @Test fun modal_removed_invoker_returns_same_row_control() {
         launch(); control("筛选"); key(KeyEvent.KEYCODE_DPAD_CENTER); focus("关闭筛选")
-        runtime { it.removeModalInvoker() }; key(KeyEvent.KEYCODE_BACK); focus("片库"); assertUniqueFocus()
+        runtime { it.removeModalInvoker() }; key(KeyEvent.KEYCODE_BACK); focus("列数"); assertUniqueFocus()
     }
     @Test fun user_input_cancels_late_focus_restore() {
         val release = CompletableDeferred<Unit>(); BrowseProbeTestHooks.beforeLoad = release

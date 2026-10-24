@@ -24,7 +24,7 @@ import com.ichichuang.cinema.domain.model.catalog.WorkId
 @Composable
 internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) {
     val grid = rememberLazyGridState()
-    val windowFocused = LocalWindowInfo.current.isWindowFocused && !BrowseProbeTestHooks.holdWindowReady
+    val windowFocused = LocalWindowInfo.current.isWindowFocused && runtime.foreground && !BrowseProbeTestHooks.holdWindowReady
     val requesters = remember { mutableMapOf<WorkId, FocusRequester>() }
     val controls = remember { mutableMapOf<String, FocusRequester>() }
     val token = runtime.restoreToken
@@ -33,13 +33,16 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
     val items = runtime.items
     val columns = runtime.columns
     val snapshot = runtime.navigation?.snapshot
+    val viewportWidth = runtime.viewportWidth
+    val viewportHeight = runtime.viewportHeight
+    var anchorPositioned by remember(pass, viewportWidth, viewportHeight) { mutableStateOf(false) }
     val ready = remember(pass) { mutableSetOf<WorkId>() }
     var pageReady by remember(pass) { mutableStateOf(false) }
     val epoch = runtime.inputEpoch
     var pendingAction by remember(pass) { mutableStateOf<RestoreOutcome?>(null) }
     fun requestRestore() {
         BrowseProbeTestHooks.traceFocus("窗口=$windowFocused token=${token?.routeGeneration}/${runtime.restoreToken?.routeGeneration} pass=$pass current=${runtime.layoutToken} revision=${runtime.result?.snapshotRevision} viewport=${grid.layoutInfo.viewportSize} first=${grid.firstVisibleItemIndex} ready=${ready.size} 待确认=$pendingAction")
-        if (!windowFocused || runtime.isDetail || runtime.modal || token == null || pass == null ||
+        if (!anchorPositioned || !windowFocused || runtime.isDetail || runtime.modal || token == null || pass == null ||
             BrowseProbeTestHooks.blockPlacement || runtime.restoreToken != token || runtime.layoutToken != pass ||
             runtime.result?.snapshotRevision != pass.resultRevision) return
         val outcome = pendingAction ?: runtime.restore.observe(token, runtime.observation(ready.toSet(), pass, pageReady))
@@ -69,11 +72,14 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
         } else BrowseProbeTestHooks.failedFocusRequests.incrementAndGet()
     }
     LaunchedEffect(windowFocused, pass, BrowseProbeTestHooks.disableWorkFocus) { if (windowFocused) requestRestore() }
-    LaunchedEffect(pass) {
-        if (pass != null && snapshot != null) {
+    LaunchedEffect(pass, token, viewportWidth, viewportHeight) {
+        if (pass != null && token != null && snapshot != null && viewportWidth > 0 && viewportHeight > 0 &&
+            runtime.restoreToken == token && runtime.layoutToken == pass) {
             val anchorIndex = items.indexOfFirst { it.id == (snapshot.anchorWorkId ?: snapshot.focusedWorkId) }
             if (anchorIndex >= 0) grid.scrollToItem(anchorIndex,
-                (-snapshot.relativeOffset * grid.layoutInfo.viewportSize.height).toInt().coerceAtLeast(0))
+                (-snapshot.relativeOffset * viewportHeight).toInt().coerceAtLeast(0))
+            anchorPositioned = true
+            requestRestore()
         }
     }
     LaunchedEffect(runtime.userTarget, epoch) {
@@ -97,11 +103,11 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
         }
     }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
-        .testTag("候选浏览")) {
+        .semantics { testTagsAsResourceId = true }.testTag("候选浏览")) {
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 (listOf("片库", "收藏", "历史") + (if (runtime.filterVisible) listOf("筛选") else emptyList()) + listOf("列数", "刷新")).forEach { label ->
-                    val requester = controls.getOrPut(label) { FocusRequester() }
+                    val requester = remember(label) { controls.getOrPut(label) { FocusRequester() } }
                     var focus by remember(label) { mutableStateOf(false) }
                     Text(label, color = if (focus) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.background(if (focus) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
@@ -125,7 +131,7 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
                 LazyVerticalGrid(GridCells.Fixed(columns), Modifier.weight(1f).testTag("作品列表").onSizeChanged { if (runtime.layoutToken == pass) runtime.viewportChanged(it.width, it.height) }.onGloballyPositioned { runtime.placed(columns) }, state = grid,
                     horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(items, key = { it.id.value }) { work ->
-                        val requester = requesters.getOrPut(work.id) { FocusRequester() }
+                        val requester = remember(work.id) { requesters.getOrPut(work.id) { FocusRequester() } }
                         var focus by remember { mutableStateOf(false) }
                         DisposableEffect(work.id, pass) { onDispose { ready.remove(work.id) } }
                         Column(Modifier.height(112.dp).fillMaxWidth()
@@ -169,7 +175,7 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
 @Composable
 internal fun BrowseProbeDetail(runtime: BrowseProbeRuntime, onExit: () -> Unit) {
     val requester = remember { FocusRequester() }
-    val windowFocused = LocalWindowInfo.current.isWindowFocused && !BrowseProbeTestHooks.holdWindowReady
+    val windowFocused = LocalWindowInfo.current.isWindowFocused && runtime.foreground && !BrowseProbeTestHooks.holdWindowReady
     var placed by remember { mutableStateOf(false) }
     LaunchedEffect(placed, windowFocused) { if (placed && windowFocused) requester.requestFocus() }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(36.dp)

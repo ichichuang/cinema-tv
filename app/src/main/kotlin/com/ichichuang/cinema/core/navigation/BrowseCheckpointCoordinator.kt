@@ -14,6 +14,7 @@ internal class BrowseCheckpointCoordinator(
     private val store: BrowseNavigationStore,
     private val scope: CoroutineScope,
     private val delay: BrowseDelay = BrowseDelay { kotlinx.coroutines.delay(it) },
+    private val onResult: (CommitResult) -> Unit = {},
 ) {
     private val stateLock = Any()
     private val writes = Mutex()
@@ -48,12 +49,14 @@ internal class BrowseCheckpointCoordinator(
             else pending?.let { it to revision }
         } ?: return@withLock CommitResult.RejectedStale
         val result = store.saveActive(capture.first)
-        synchronized(stateLock) {
+        val accepted = synchronized(stateLock) {
             if (token == current && revision == capture.second) {
                 lastResult = result
                 if (result == CommitResult.Committed) pending = null
-            }
+                true
+            } else false
         }
+        if (accepted) onResult(result)
         result
     }
 }

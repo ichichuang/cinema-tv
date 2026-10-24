@@ -53,3 +53,14 @@ internal interface BrowseNavigationStore {
     suspend fun loadLatest(topLevel: BrowseTopLevel): RestoreNavigationState?
     suspend fun loadActive(): RestoreNavigationState?
 }
+
+/** Modal return stays in its captured control row; only an empty row uses the page control. */
+internal fun modalReturnControl(invoker: String?, originalRow: List<String>, availableRow: List<String>, pageDefault: String): String {
+    if (invoker in availableRow) return requireNotNull(invoker)
+    val index = originalRow.indexOf(invoker)
+    if (index < 0) return pageDefault
+    return availableRow.filter { it in originalRow }.minWithOrNull(
+        compareBy<String> { kotlin.math.abs(originalRow.indexOf(it) - index) }
+            .thenBy { if (originalRow.indexOf(it) >= index) 0 else 1 }
+    ) ?: pageDefault
+}

@@ -1,6 +1,7 @@
 package com.ichichuang.cinema.core.navigation
 
 import android.content.Context
+import kotlinx.coroutines.withContext
 import com.ichichuang.cinema.BuildConfig
 import com.ichichuang.cinema.data.local.CinemaDatabase
 import com.ichichuang.cinema.data.local.CinemaDatabaseFactory
@@ -28,6 +29,18 @@ internal object DebugBrowseProbeGate {
                 LegacyHandoffRuntime.present(context), false)
             requireProfile(true, BuildConfig.DEBUG, true, false,
                 LegacyHandoffRuntime.capture(context).entries.isNotEmpty())
+            // Android's default corruption handler can delete/recreate a corrupt file before
+            // Room validates it. Inspect an existing candidate read-only with a refusing handler.
+            val file = context.getDatabasePath(DATABASE)
+            if (file.exists()) withContext(kotlinx.coroutines.Dispatchers.IO) {
+                android.database.sqlite.SQLiteDatabase.openDatabase(file.path, null,
+                    android.database.sqlite.SQLiteDatabase.OPEN_READONLY,
+                    android.database.DatabaseErrorHandler { throw android.database.sqlite.SQLiteDatabaseCorruptException("浏览测试数据库损坏，请保留原文件") }).use { sql ->
+                    sql.rawQuery("PRAGMA quick_check", null).use { rows ->
+                        check(rows.moveToFirst() && rows.getString(0) == "ok" && !rows.moveToNext()) { "浏览测试数据库完整性检查失败" }
+                    }
+                }
+            }
             val database = CinemaDatabaseFactory.open(context, DATABASE)
             try {
                 // Force schema/integrity validation before exposing any browse writer to the route.
