@@ -1,6 +1,24 @@
 # TV 重构进度
 
-Round 01 已留存，当前继续限定的 Round 02。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+Round 01、Round 02 已留存，当前执行限定的 Round 03。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+
+## Round 03 执行记录
+
+唯一执行计划为附件 `2026-10-24-round-03-native-storage-verification.md`，SHA-256 `4f0b86c7a3efe4a4349e6fd2a97a4a93b4fd829b87c7205e15b41cb479cc7f17`；原字节及原始输出保存在忽略的 `.local/evidence/round-03/`。实查起点 `f588ed11d6f998b36de16feaa7a141fda1cc2bef`，两处 checkout 干净、无 HEAD 漂移。详细证据及全部 34 项方法见 [Round 03 记录](../../verification/2026-10-24-round-03-native-storage.md)。
+
+| 步骤 | 实际状态 |
+| --- | --- |
+| R03-1 交接、工具链与兼容目标 | 清点 15 + 19 项原生方法，无 Ignore；构建成功；最小新增 emulator 37.2.12 与一个 API 30 arm64 镜像；APK 仅 armeabi-v7a，而镜像 abilist32 为空，NATIVE_TARGET_BLOCKED |
+| R03-2 单目标原生执行 | 未创建 AVD / serial，未安装 APK、未启动 runner；executed / passed / failed / skipped 均 0，not run 34 |
+| R03-3 实际失败修复 | 未开展；没有原生失败或红绿证据，应用 / 测试 / schema / 契约全部保持 |
+| R03-4 可用回归与证据 | Python 62/62、应用 124/124；134 个 Gradle 任务实际重跑成功；debug Lint 20 Warning + 1 Hint，release 21 Warning + 1 Hint，新增一条 DataStore 版本提示；一次独立只读审阅无 Critical / Important / Minor；实际暂存 index 211 文件、0 违规；仅本地证据提交，最终 HEAD 随终端交接记录，不推送 |
+
+- Pre-flight: R03-1 的真实 APK / runner / 兼容目标是 R03-2 的输入；R03-2 的实际失败才允许 R03-3 修改代码；R03-4 必须区分 host、compiled-only、native 和 blocked。ABI 不匹配使原生执行与修复步骤不可进入。
+- Ruling: 沿用现有账本对应 R03-1–R03-4，不改写原计划以适配技能数字任务脚本。代价：人工对应状态。
+- Ruling: 只裁定已核实路径因 ABI 受阻，不把未验证的 ARM32 / 其他镜像路径说成不可能；停止额外下载或 ABI 改造，完成可用主机检查并据实交付。代价：34 项仍为 compiled-only，整个 T03 / M02 / A01–A24 未验收。
+- Ruling: 原始计划含个人路径，保留在忽略证据中；Git 仅提交报告与本账本，保留原计划文件名 / 摘要。代价：原字节需通过本地附件复核。
+- Ruling: 按本轮 scoped plan 允许的阻塞证据提交完成本地交付，没有 upstream 也不推送 / 合并。代价：没有远端备份；T04 未开始。
+- Final review: 一次独立只读审阅，无 Critical / Important / Minor，没有修正或二次复核。审阅者重读实际产物并重新解析现有结果，未重跑测试。其保留项均维持原生 / 目标门禁 / 其他环境未验证、真实迁移 / 实机 / 生产关口范围外、历史操作全面证明不成立；暂存与提交终态由作者随后实查，不把本轮解释为产品验收。
 
 ## Round 02 执行记录
 
@@ -60,7 +78,7 @@ Round 01 已留存，当前继续限定的 Round 02。原计划文件保持原�
 | G02 删除诊断 | 未实现，旧诊断保持原样 |
 | G03 全新视觉、原创图标、状态 | 未实现 |
 | G04 遥控器、焦点、动效 | 未实现 |
-| G05 页面、筛选、焦点、进度持久化 | 快照契约与候选存储／编码已实现，原生持久性执行阻塞，未接运行时 |
+| G05 页面、筛选、焦点、进度持久化 | 快照契约与候选存储／编码已实现；R03 已核实路径因 APK / 镜像 ABI 不匹配仍阻塞，未接运行时 |
 | G06 续播、历史、收藏 | 接口与快照已定义，未实现功能 |
 | G07 多源统一数据、稳定身份 | ID 与字段依据类型已实现和单测，无身份关联算法 |
 | G08 严格分类、国家、类型、年份 | 字段与年份边界校验已实现和单测，无查询引擎 |
@@ -75,7 +93,7 @@ Round 01 已留存，当前继续限定的 Round 02。原计划文件保持原�
 | --- | --- |
 | T01 基线与隔离 | 本地隔离、原有测试/构建/Lint 已核实；旧样本、设备矩阵等未完成 |
 | T02 规格冻结 | 数据契约及本轮持久化编码切片已通过纯测试；视觉／图标／交互等仍未完成，M01 未完成 |
-| T03 数据库与迁移 | Round 02 隔离候选与 synthetic staging 已实现并编译；原生执行、真实旧数据和 runtime cutover 未通过，整个 T03／M02 未完成 |
+| T03 数据库与迁移 | Round 02 候选与 synthetic staging 保持；R03 主机回归通过，34 项原生测试因已核实的 ABI 不匹配仍为 0 执行；真实旧数据、runtime cutover 及整个 T03／M02 未完成 |
 | T04 播放检查点 | 未开始 |
 | T05 身份与字段标准化 | 未开始 |
 | T06 来源能力与订阅 | 未开始 |
