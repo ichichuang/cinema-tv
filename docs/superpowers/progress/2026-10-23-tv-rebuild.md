@@ -1,6 +1,42 @@
 # TV 重构进度
 
-Round 01–06 已留存，当前完成限定的 Round 07 自有合成旧记录交接演练；普通路径生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+Round 01–07 已留存，当前完成限定的 Round 08 离线候选作品身份与字段溯源切片；普通路径生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+
+## Round 08 执行记录
+
+用户明确授权按附件执行，仅本地提交、不推送；原生仅限已确认专用模拟器。起点 `4097694bef7107ca1c6953d55bf9c78c3914b8ac`；隔离分支和main均干净，附件四项清单和三份独立附件字节一致。限定候选实现及本轮验证已完成，不代表产品或生产接入验收。
+
+- Pre-flight: R08-1 的实际契约与原始字段输入供R08-2标准化；R08-2证据供R08-3持久化；R08-3稳定身份与事务供R08-4投影；R08-5验证全部接口及门禁。
+- Ruling: 沿用本账本R08标题及忽略证据 `.local/evidence/round-08/`，不改写为技能数字Task脚本或删除原始证据。代价：步骤人工对应、保留本地证据空间。
+- Ruling: 附件原始计划含个人绝对路径，会触发现有index检查；完整原件留在忽略证据，仓库同名计划仅把工作树绝对路径替为占位符，原始SHA-256为 `16a8dc1e89c1ed550c30c8e48e46b74ef5d50885a521793db5e70b08f3354471`。代价：需原件校验原始字节，不放宽安全规则。
+- Ruling: 不修改旧CMS解析和运行契约；候选投影接受原始JSON及显式身份并复用RemoteVod DTO，保留旧解析无法表达的字段存在性与原文。代价：本轮只验证离线候选入口。
+- Ruling: 复用既有ID与FieldEvidence；字段名、观察时间、字幕和关联历史作为候选记录补足，不新建平行公共模型或更改旧codec。代价：候选记录与现有展示契约需显式投影。
+- Ruling: 现有分支无upstream为既定local-only用途；本轮明确禁止push，不建立远端分支。代价：无远端备份。
+
+- Ruling: 错误关联拆分保守解散整个候选组，各条目恢复各自原work key；撤销该组证明，原证据及历史保留，原证明不可复用。代价：组内可能正确的关联也需新证明恢复，优先避免传递误合并。
+- Round07有限独立复审：fresh-context审查核心修复、proof接线及对应测试设计，未发现受控合成profile范围内剩余Important/Critical；未重新执行103方法、未核验历史日志与AVD，不推断生产／TV验收。
+
+- Final review: fresh-context独立只读审阅全部候选实现与测试、原schema及运行接入，0 Critical／0 Important／2 Minor。实现指纹保持；审查者未运行测试、构建或ADB。
+- Final: minor (deferred): 缓存淘汰用例未seed缓存行，证明范围限于空缓存删除；既有原生缓存测试另覆盖实际缓存删除与个人记录保留，未宣称组合场景全覆盖。
+- Final: minor (deferred): 整组拆分用例仅二成员一个proof；代码全组撤销已审阅，三成员传递拆分的独立原生断言未补充。
+- Final: Ruling: 生产核验authority、命名空间注册和证明取得流程保持未接入。代价：合成证明不能代表生产信任。
+- Final: Ruling: 查询协调、严格筛选、实时来源和可播放性不在本轮实现。代价：不能作完整T05/T06/T07或片源可用声明。
+- Final: Ruling: 历史容量／自动回收策略仍未实现，候选历史普通运行不生成。代价：将来生产接入前须另定保留策略。
+- Final: Ruling: ARMv7 TV、物理设备、UI和真实用户升级保持未验收。代价：ARM64合成原生不能替代产品验收。
+- Final: Ruling: 独立审查不验证运行日志；实际命令、计数、产物与设备证据由执行者核对。代价：审查结论仅源码／测试设计层，不是独立重跑。
+
+| 步骤 | 状态 |
+| --- | --- |
+| R08-1 | 契约与schema核对完成；基线JVM实际重跑28任务通过；前轮有限独立复审未发现剩余Important/Critical（未运行测试） |
+| R08-2 | 标准化／身份／投影／codec实际RED→GREEN，完整JVM221/221通过 |
+| R08-3 | 原生20项先失败，补足边界后23/23实际通过；schema3完整11表种子→4逐字段一致，close/reopen与事务／SQL约束通过 |
+| R08-4 | 离线DTO投影和明确entry/episode/variant身份已实现；列表详情追加、路由变更、冲突和未解析保留有JVM／原生证据 |
+| R08-5 | 最终JVM221／Python62／native126逐方法全部通过，140普通Gradle任务实际执行；双Lint无变化；0 Critical／0 Important／2 Minor，精确本地提交中 |
+
+- Ruling: 标准化、投影、事务与新schema共同构成可验证候选，使用一个通过完整回归的实现提交，另作证据文档提交。代价：不提供未验证或临时stub的中间commit。
+- Local delivery: 实现提交 `f3da504dfece3ee2600d04b197b10d24da9284ca`，21个明确路径；19项应用／测试／schema与审查、最终测试、index和commit blob一致。提交前index278文件、0所检查规则违规；main与fetch后origin/main仍为原基线。文档提交及最终HEAD由Git日志和忽略证据final-delivery.json记录，不push／merge／publish。
+- Final verification: 新增23项文件数据库原生与既有103方法全部实际通过，0 skip／not-run／duplicate；两台专用AVD已按身份门禁关闭、host PID消失，合成数据及共享ADB保留。普通门禁OFF、ARMv7、unsigned Release、旧schema1/2/3及25条运行／发布路径保持。
+- Evidence: [本轮验证](../../verification/2026-10-24-round-08-work-identity.md)、[结构说明](../../architecture/tv-catalog-identity.md)，原始证据在忽略目录 `.local/evidence/round-08/`。T05/T03/T04整体、M02、A13/A16/A18整体验收、生产信任/目录/迁移、UI及ARMv7 TV仍未完成；停止于Round08。
 
 ## Round 07 执行记录
 
