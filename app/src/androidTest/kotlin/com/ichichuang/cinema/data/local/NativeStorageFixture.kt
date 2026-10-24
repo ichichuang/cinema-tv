@@ -27,7 +27,7 @@ abstract class NativeStorageFixture {
         database = CinemaDatabaseFactory.open(context, databaseName)
         fixtureDirectory = File(context.filesDir, "synthetic-round02-${UUID.randomUUID()}").apply { mkdirs() }
         fixtureScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        sourceFiles = LegacyStoreKind.entries.associateWith { File(fixtureDirectory, "cinema_${it.tag}.preferences_pb") }
+        sourceFiles = listOf(LegacyStoreKind.PROGRESS, LegacyStoreKind.BROWSE, LegacyStoreKind.FILTERS).associateWith { File(fixtureDirectory, "cinema_${it.tag}.preferences_pb") }
         stores = sourceFiles.mapValues { (_, file) -> PreferenceDataStoreFactory.create(
             scope = fixtureScope, produceFile = { file }) }
     }

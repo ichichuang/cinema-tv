@@ -3,7 +3,6 @@ package com.ichichuang.cinema.data.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
@@ -16,7 +15,7 @@ data class WatchPoint(
     val durationMs: Long,
 )
 
-private val Context.progressStore: DataStore<Preferences> by preferencesDataStore(name = "cinema_progress")
+internal val Context.progressStore: DataStore<Preferences> by preferencesDataStore(name = "cinema_progress")
 
 /**
  * 观看进度。
@@ -44,14 +43,14 @@ class PlaybackProgress(private val context: Context) {
 
     suspend fun save(movieId: String, point: WatchPoint) {
         if (movieId.isBlank()) return
-        context.progressStore.edit { prefs ->
+        context.progressStore.editLegacy(context) { prefs ->
             prefs[key(movieId)] =
                 "${point.lineIndex},${point.episodeIndex},${point.positionMs},${point.durationMs}"
         }
     }
 
     suspend fun clear(movieId: String) {
-        context.progressStore.edit { it.remove(key(movieId)) }
+        context.progressStore.editLegacy(context) { it.remove(key(movieId)) }
     }
 
     private fun key(movieId: String) = stringPreferencesKey("wp_$movieId")

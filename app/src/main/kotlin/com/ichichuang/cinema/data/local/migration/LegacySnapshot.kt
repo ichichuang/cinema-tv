@@ -5,7 +5,7 @@ import kotlinx.serialization.json.*
 import java.util.Collections
 import java.security.MessageDigest
 
-internal enum class LegacyStoreKind(val tag: String) { PROGRESS("progress"), BROWSE("browse"), FILTERS("filters") }
+internal enum class LegacyStoreKind(val tag: String) { PROGRESS("progress"), BROWSE("browse"), FILTERS("filters"), SETTINGS("settings") }
 @ConsistentCopyVisibility
 internal data class LegacyValue private constructor(val type: String, val encoded: String) {
     fun stringOrNull(): String? = if (type == "string") Json.parseToJsonElement(encoded).text() else null

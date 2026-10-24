@@ -3,7 +3,6 @@ package com.ichichuang.cinema.data.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -23,7 +22,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "cinema_settings")
+internal val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "cinema_settings")
 
 /** 一个保存下来的片源：名字（展示用）+ 接口地址 */
 data class SavedSource(val name: String, val url: String)
@@ -126,12 +125,12 @@ class CinemaSettings(private val context: Context) {
      */
     suspend fun activateSource(name: String, url: String) {
         val cleanUrl = url.trim()
-        context.dataStore.edit { prefs ->
+        context.dataStore.editLegacy(context) { prefs ->
             if (cleanUrl.isEmpty()) {
                 prefs.remove(keyApiBase)
                 prefs.remove(keyApiName)
                 prefs.remove(keyEnabled)
-                return@edit
+                return@editLegacy
             }
             val cleanName = sanitizeSourceName(name).ifEmpty { DEFAULT_SOURCE_NAME }
             prefs[keyApiBase] = cleanUrl
@@ -163,13 +162,13 @@ class CinemaSettings(private val context: Context) {
         val clean = url.trim()
         if (clean.isEmpty() || clean == DEMO) return false
         var accepted = true
-        context.dataStore.edit { prefs ->
+        context.dataStore.editLegacy(context) { prefs ->
             val current = deriveActive(prefs)
             val match = current.firstOrNull { sourceUrlKey(it) == sourceUrlKey(clean) }
             val next = if (match != null) current - match else current + clean
             if (match == null && next.size > MAX_ENABLED_SOURCES) {
                 accepted = false
-                return@edit
+                return@editLegacy
             }
             prefs[keyEnabled] = encodeUrls(next)
             // 主源口径跟着第一个启用源走（老逻辑 / 设置页状态行都看它）
@@ -201,7 +200,7 @@ class CinemaSettings(private val context: Context) {
 
     /** 首页每行海报数（4..8） */
     suspend fun setHomeColumns(columns: Int) {
-        context.dataStore.edit { prefs ->
+        context.dataStore.editLegacy(context) { prefs ->
             prefs[keyHomeCols] = columns.coerceIn(MIN_HOME_COLUMNS, MAX_HOME_COLUMNS).toLong()
         }
     }
@@ -221,7 +220,7 @@ class CinemaSettings(private val context: Context) {
             .distinctBy { sourceUrlKey(it.url) }
         if (cleaned.isEmpty()) return 0
         var added = 0
-        context.dataStore.edit { prefs ->
+        context.dataStore.editLegacy(context) { prefs ->
             val existing = decodeSources(prefs[keySources])
             val seen = existing.mapTo(HashSet()) { sourceUrlKey(it.url) }
             val fresh = cleaned.filter { seen.add(sourceUrlKey(it.url)) }
@@ -266,7 +265,7 @@ class CinemaSettings(private val context: Context) {
     /** 保存更新清单地址（空串 = 恢复默认候选） */
     suspend fun setUpdateUrl(url: String) {
         val clean = url.trim()
-        context.dataStore.edit { prefs ->
+        context.dataStore.editLegacy(context) { prefs ->
             if (clean.isEmpty() || clean in DEFAULT_UPDATE_URLS) {
                 prefs.remove(keyUpdateUrl)
             } else {
@@ -276,14 +275,14 @@ class CinemaSettings(private val context: Context) {
     }
 
     suspend fun setSeekStep(ms: Long) {
-        context.dataStore.edit { prefs ->
+        context.dataStore.editLegacy(context) { prefs ->
             prefs[keySeekStep] = ms.coerceIn(5_000L, 600_000L)
         }
     }
 
     suspend fun saveCatalog(raw: String) {
         if (raw.isBlank()) return
-        context.dataStore.edit { prefs -> prefs[keyCatalog] = raw }
+        context.dataStore.editLegacy(context) { prefs -> prefs[keyCatalog] = raw }
     }
 
     /** 当前生效的接口地址（读一次，给筛选/测试这类一次性逻辑用） */

@@ -8,6 +8,11 @@ import com.ichichuang.cinema.BuildConfig
 import com.ichichuang.cinema.data.local.CinemaDatabaseFactory
 import com.ichichuang.cinema.data.userdata.PlaybackClock
 import com.ichichuang.cinema.data.userdata.RoomPlaybackProgressStore
+import com.ichichuang.cinema.data.userdata.LegacyHandoffRuntime
+import com.ichichuang.cinema.data.userdata.LegacyHandoffController
+import com.ichichuang.cinema.data.userdata.HandoffWriter
+import com.ichichuang.cinema.data.userdata.HandoffUnavailableException
+import com.ichichuang.cinema.domain.repository.PlaybackProgressStore
 import com.ichichuang.cinema.domain.model.MovieDetail
 import com.ichichuang.cinema.domain.model.userdata.CommitResult
 import com.ichichuang.cinema.domain.model.userdata.PlaybackSnapshot
@@ -19,6 +24,13 @@ import java.util.UUID
 
 internal object PlaybackProbeAuthorization {
     fun mode(context: Context): PlaybackRuntimeMode {
+        if (LegacyHandoffRuntime.present(context)) {
+            return when (LegacyHandoffRuntime.playbackWriter(context)) {
+                HandoffWriter.LEGACY -> PlaybackRuntimeMode.LEGACY
+                HandoffWriter.ROOM -> PlaybackRuntimeMode.ROOM_PROBE
+                HandoffWriter.BLOCKED -> error("交接数据或授权不可用，已停止播放写入；原记录保持")
+            }
+        }
         if (!BuildConfig.PLAYBACK_ROOM_PROBE) return PlaybackRuntimeMode.LEGACY
         val marker = File(context.noBackupFilesDir, "round06-playback-test.authorization")
         val authorized = marker.isFile && marker.length() == "cinema-round06-disposable-local-media".length.toLong() &&
@@ -40,14 +52,21 @@ internal class RoomPlaybackProbe(
     private val player: Player,
     private val outcome: (CommitResult) -> Unit,
 ) {
-    private val database = CinemaDatabaseFactory.open(context, "round06-playback-probe.db")
+    private val handoff = if (LegacyHandoffRuntime.required(context)) LegacyHandoffController.open(context) else null
+    private val database = handoff?.database ?: CinemaDatabaseFactory.open(context, "round06-playback-probe.db")
     private val store = RoomPlaybackProgressStore(database)
+    private suspend fun <T> authorized(action: suspend () -> T): T = if (handoff == null) action() else handoff.room(action)
+    private suspend fun commitAuthorized(action: suspend () -> CommitResult): CommitResult =
+        try { authorized(action) } catch (_: HandoffUnavailableException) { CommitResult.Failed("handoff_unavailable") }
     private val queue = PlaybackEventQueue(scope) { database.close() }
     private val clock = PlaybackClock { SystemClock.elapsedRealtime() }
-    private val bridge = PlaybackRuntimeBridge(store, store::beginSession, clock, System::currentTimeMillis)
+    private val bridge = PlaybackRuntimeBridge(object : PlaybackProgressStore {
+        override suspend fun commit(snapshot: PlaybackSnapshot) = commitAuthorized { store.commit(snapshot) }
+    }, { target, id -> commitAuthorized { store.beginSession(target, id) } }, clock, System::currentTimeMillis)
     private var preparedId: String? = null
     private var pauseId: String? = null
     private var pauseRevision = 0L
+    private var handoffCatalog: HandoffPlaybackProbeCatalog? = null
     private val listener = object : Player.Listener {
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             if (!playWhenReady && (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST ||
@@ -80,10 +99,29 @@ internal class RoomPlaybackProbe(
     fun observe(observation: RuntimeObservation) { queue.post { report(bridge.accept(observation)) } }
     fun pulse() { if (player.isPlaying) observe(capture()) }
 
+    private suspend fun verifyHandoffCatalog(catalog: PlaybackProbeCatalog?) {
+        if (handoff != null) {
+            require(catalog is HandoffPlaybackProbeCatalog) { "缺少已经审计的合成旧记录目录" }
+            require(catalog.probeMedia.size == catalog.handoffManifest.links.size &&
+                HandoffCatalogFingerprint.compute(catalog, context.filesDir) == catalog.handoffManifest.catalogRevision) {
+                "合成目录或媒体指纹已变化，原记录保持"
+            }
+            handoff.verifyManifest(catalog.handoffManifest)
+            for (link in catalog.handoffManifest.links) {
+                val media = catalog.probeMedia.singleOrNull { it.detail.movie.origin == link.origin &&
+                    it.detail.movie.id == link.movieId && it.lineIndex == link.line && it.episodeIndex == link.episode }
+                require(media != null && media.target == link.target &&
+                    ProbeIdentity.resolve(catalog, media.detail, link.line, link.episode) == media) { "合成目录或版本身份已变化，原记录保持" }
+            }
+            handoffCatalog = catalog
+        }
+    }
+
     suspend fun start(catalog: PlaybackProbeCatalog, detail: MovieDetail): ProbeMedia? {
+        verifyHandoffCatalog(catalog)
         val candidates = catalog.probeMedia.filter { it.detail == detail }
         require(candidates.isNotEmpty() && candidates.map { it.target.workId }.distinct().size == 1) { "缺少可信的测试作品身份" }
-        val resume = queue.await { store.loadResume(candidates.first().target.workId) }
+        val resume = queue.await { authorized { store.loadResume(candidates.first().target.workId) } }
         val selected = if (resume == null) candidates.first() else candidates.singleOrNull { it.target.matches(resume) }
             ?: throw IllegalArgumentException("续播剧集或版本已变化，原记录保持")
         return select(catalog, detail, selected.lineIndex, selected.episodeIndex, autoPlay = false, resume = resume)
@@ -97,13 +135,15 @@ internal class RoomPlaybackProbe(
         ProbeMediaFile.requirePrivate(context.filesDir, item.url)
         val previous = capture(RuntimeIntent.BOUNDARY)
         val requestedPauseRevision = pauseRevision
-        player.pause()
+        if (handoff == null) player.pause()
         return queue.await {
+            verifyHandoffCatalog(catalog)
+            if (handoff != null) player.pause()
             val saved = bridge.accept(previous)
             report(saved)
             if (saved != null && saved != CommitResult.Committed) return@await null
-            val restored = resume ?: database.playbackSnapshots().find(media.target.workId.value,
-                media.target.episodeId!!.value, media.target.variantId!!.value)?.snapshot()
+            val restored = resume ?: authorized { database.playbackSnapshots().find(media.target.workId.value,
+                media.target.episodeId!!.value, media.target.variantId!!.value)?.snapshot() }
             val id = UUID.randomUUID().toString()
             val result = bridge.select(media.target, id, restored)
             report(result)
@@ -121,6 +161,7 @@ internal class RoomPlaybackProbe(
         val observation = capture()
         val requestedPauseRevision = pauseRevision
         queue.await {
+            verifyHandoffCatalog(handoffCatalog)
             report(bridge.accept(observation))
             val position = bridge.retry(observation.sessionId, observation.atMs)
             val item = player.currentMediaItem ?: return@await

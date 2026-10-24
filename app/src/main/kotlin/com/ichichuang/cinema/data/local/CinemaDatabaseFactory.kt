@@ -3,6 +3,7 @@ package com.ichichuang.cinema.data.local
 import android.content.Context
 import androidx.room.Room
 import com.ichichuang.cinema.data.local.migration.PLAYBACK_MIGRATION_1_2
+import com.ichichuang.cinema.data.local.migration.HANDOFF_MIGRATION_2_3
 
 /** Explicit candidate construction only; no singleton, legacy reads, or startup registration. */
 internal object CinemaDatabaseFactory {
@@ -11,6 +12,6 @@ internal object CinemaDatabaseFactory {
             "A private candidate database name is required"
         }
         return Room.databaseBuilder(context.applicationContext, CinemaDatabase::class.java, databaseName)
-            .addMigrations(PLAYBACK_MIGRATION_1_2).build()
+            .addMigrations(PLAYBACK_MIGRATION_1_2, HANDOFF_MIGRATION_2_3).build()
     }
 }

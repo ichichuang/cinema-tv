@@ -21,6 +21,7 @@ internal object LegacyEntryClassifier {
             if (entry.value.type == "string") LegacyEntryAnalysis(LegacyEntryStatus.RECOGNIZED, "legacy_filter_only")
             else malformed("wrong_value_type")
         } else unresolved()
+        LegacyStoreKind.SETTINGS -> LegacyEntryAnalysis(LegacyEntryStatus.RECOGNIZED, "configuration_preserved_only")
     }
 
     private fun progress(entry: LegacyEntry): LegacyEntryAnalysis {

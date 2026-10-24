@@ -3,7 +3,6 @@ package com.ichichuang.cinema.data.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.ichichuang.cinema.domain.model.DefaultMovieFilter
@@ -12,7 +11,7 @@ import com.ichichuang.cinema.domain.repository.CATEGORY_ALL
 import com.ichichuang.cinema.domain.repository.FilterStore
 import kotlinx.coroutines.flow.first
 
-private val Context.filterPrefs: DataStore<Preferences> by preferencesDataStore(name = "cinema_filters")
+internal val Context.filterPrefs: DataStore<Preferences> by preferencesDataStore(name = "cinema_filters")
 
 /**
  * 筛选条件的本地记忆（DataStore）。
@@ -42,7 +41,7 @@ class DataStoreFilterStore(private val context: Context) : FilterStore {
     }
 
     override suspend fun save(filter: MovieFilter) {
-        context.filterPrefs.edit { p ->
+        context.filterPrefs.editLegacy(context) { p ->
             p[keyCategory] = filter.category
             p[keyLang] = filter.lang
             p[keyArea] = filter.area

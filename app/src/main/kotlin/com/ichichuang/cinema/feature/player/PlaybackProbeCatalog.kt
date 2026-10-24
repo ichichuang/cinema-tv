@@ -5,6 +5,9 @@ import com.ichichuang.cinema.domain.model.MovieDetail
 
 /** Only instrumentation repositories supply these explicit identities; never infer them from URLs. */
 internal interface PlaybackProbeCatalog { val probeMedia: List<ProbeMedia> }
+internal interface HandoffPlaybackProbeCatalog : PlaybackProbeCatalog {
+    val handoffManifest: com.ichichuang.cinema.data.userdata.HandoffManifest
+}
 internal data class ProbeMedia(val detail: MovieDetail, val lineIndex: Int, val episodeIndex: Int, val target: PlaybackTarget)
 internal object ProbeIdentity {
     fun resolve(catalog: PlaybackProbeCatalog, detail: MovieDetail, line: Int, episode: Int): ProbeMedia? {

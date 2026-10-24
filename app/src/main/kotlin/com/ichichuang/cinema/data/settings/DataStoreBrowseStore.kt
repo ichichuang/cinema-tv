@@ -3,7 +3,6 @@ package com.ichichuang.cinema.data.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -11,7 +10,7 @@ import com.ichichuang.cinema.domain.repository.BrowseMemory
 import com.ichichuang.cinema.domain.repository.BrowseStore
 import kotlinx.coroutines.flow.first
 
-private val Context.browsePrefs: DataStore<Preferences> by preferencesDataStore(name = "cinema_browse")
+internal val Context.browsePrefs: DataStore<Preferences> by preferencesDataStore(name = "cinema_browse")
 
 /**
  * 浏览位置的本地记忆（DataStore）。
@@ -36,7 +35,7 @@ class DataStoreBrowseStore(private val context: Context) : BrowseStore {
     }
 
     override suspend fun save(memory: BrowseMemory) {
-        context.browsePrefs.edit { p ->
+        context.browsePrefs.editLegacy(context) { p ->
             val id = memory.movieId
             if (id.isNullOrBlank()) p.remove(keyMovieId) else p[keyMovieId] = id
             p[keyIndex] = memory.index.coerceAtLeast(0)

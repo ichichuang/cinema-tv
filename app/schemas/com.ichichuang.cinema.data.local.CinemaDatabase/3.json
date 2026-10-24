@@ -1,0 +1,626 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "9e66de430d7940d24f8aa522839b4b71",
+    "entities": [
+      {
+        "tableName": "work_references",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, PRIMARY KEY(`workId`))",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId"
+          ]
+        }
+      },
+      {
+        "tableName": "work_metadata_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`workId`), FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "favorites",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, PRIMARY KEY(`workId`), FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "browse_snapshots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`contextKey` BLOB NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`contextKey`))",
+        "fields": [
+          {
+            "fieldPath": "contextKey",
+            "columnName": "contextKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "contextKey"
+          ]
+        }
+      },
+      {
+        "tableName": "playback_snapshots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, `episodeKey` BLOB NOT NULL, `variantKey` BLOB NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`workId`, `episodeKey`, `variantKey`), FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episodeKey",
+            "columnName": "episodeKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variantKey",
+            "columnName": "variantKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId",
+            "episodeKey",
+            "variantKey"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "legacy_import_batches",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`importVersion` INTEGER NOT NULL, `contentDigest` TEXT NOT NULL, `capturedAt` INTEGER NOT NULL, `totalCount` INTEGER NOT NULL, `recognizedCount` INTEGER NOT NULL, `unresolvedCount` INTEGER NOT NULL, `malformedCount` INTEGER NOT NULL, PRIMARY KEY(`importVersion`, `contentDigest`))",
+        "fields": [
+          {
+            "fieldPath": "importVersion",
+            "columnName": "importVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentDigest",
+            "columnName": "contentDigest",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "capturedAt",
+            "columnName": "capturedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalCount",
+            "columnName": "totalCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recognizedCount",
+            "columnName": "recognizedCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unresolvedCount",
+            "columnName": "unresolvedCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "malformedCount",
+            "columnName": "malformedCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "importVersion",
+            "contentDigest"
+          ]
+        }
+      },
+      {
+        "tableName": "legacy_import_records",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`importVersion` INTEGER NOT NULL, `contentDigest` TEXT NOT NULL, `storeKind` TEXT NOT NULL, `entryKey` BLOB NOT NULL, `valueType` TEXT NOT NULL, `rawValue` TEXT NOT NULL, `status` TEXT NOT NULL, `reason` TEXT NOT NULL, `legacyLineIndex` INTEGER, `legacyEpisodeIndex` INTEGER, `legacyPositionMs` INTEGER, `legacyDurationMs` INTEGER, PRIMARY KEY(`importVersion`, `contentDigest`, `storeKind`, `entryKey`), FOREIGN KEY(`importVersion`, `contentDigest`) REFERENCES `legacy_import_batches`(`importVersion`, `contentDigest`) ON UPDATE NO ACTION ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED)",
+        "fields": [
+          {
+            "fieldPath": "importVersion",
+            "columnName": "importVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentDigest",
+            "columnName": "contentDigest",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "storeKind",
+            "columnName": "storeKind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entryKey",
+            "columnName": "entryKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "valueType",
+            "columnName": "valueType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rawValue",
+            "columnName": "rawValue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "legacyLineIndex",
+            "columnName": "legacyLineIndex",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "legacyEpisodeIndex",
+            "columnName": "legacyEpisodeIndex",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "legacyPositionMs",
+            "columnName": "legacyPositionMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "legacyDurationMs",
+            "columnName": "legacyDurationMs",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "importVersion",
+            "contentDigest",
+            "storeKind",
+            "entryKey"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "legacy_import_batches",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "importVersion",
+              "contentDigest"
+            ],
+            "referencedColumns": [
+              "importVersion",
+              "contentDigest"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "playback_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`generation` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` BLOB NOT NULL, `workId` BLOB NOT NULL, `episodeKey` BLOB NOT NULL, `variantKey` BLOB NOT NULL, `sequence` INTEGER NOT NULL, `payload` TEXT, FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "generation",
+            "columnName": "generation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episodeKey",
+            "columnName": "episodeKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variantKey",
+            "columnName": "variantKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sequence",
+            "columnName": "sequence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "generation"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_playback_sessions_sessionId",
+            "unique": true,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_playback_sessions_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          },
+          {
+            "name": "index_playback_sessions_workId",
+            "unique": false,
+            "columnNames": [
+              "workId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playback_sessions_workId` ON `${TABLE_NAME}` (`workId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "playback_record_order",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, `episodeKey` BLOB NOT NULL, `variantKey` BLOB NOT NULL, `generation` INTEGER NOT NULL, PRIMARY KEY(`workId`, `episodeKey`, `variantKey`), FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`generation`) REFERENCES `playback_sessions`(`generation`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episodeKey",
+            "columnName": "episodeKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variantKey",
+            "columnName": "variantKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generation",
+            "columnName": "generation",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId",
+            "episodeKey",
+            "variantKey"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_playback_record_order_generation",
+            "unique": false,
+            "columnNames": [
+              "generation"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playback_record_order_generation` ON `${TABLE_NAME}` (`generation`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          },
+          {
+            "table": "playback_sessions",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "generation"
+            ],
+            "referencedColumns": [
+              "generation"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "playback_resume",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, `generation` INTEGER NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`workId`), FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`generation`) REFERENCES `playback_sessions`(`generation`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generation",
+            "columnName": "generation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_playback_resume_generation",
+            "unique": false,
+            "columnNames": [
+              "generation"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playback_resume_generation` ON `${TABLE_NAME}` (`generation`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          },
+          {
+            "table": "playback_sessions",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "generation"
+            ],
+            "referencedColumns": [
+              "generation"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "legacy_handoff_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `phase` TEXT NOT NULL, `importVersion` INTEGER NOT NULL, `contentDigest` TEXT NOT NULL, `mappingDigest` TEXT NOT NULL, `totalCount` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`importVersion`, `contentDigest`) REFERENCES `legacy_import_batches`(`importVersion`, `contentDigest`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phase",
+            "columnName": "phase",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importVersion",
+            "columnName": "importVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentDigest",
+            "columnName": "contentDigest",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mappingDigest",
+            "columnName": "mappingDigest",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalCount",
+            "columnName": "totalCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_legacy_handoff_state_importVersion_contentDigest",
+            "unique": false,
+            "columnNames": [
+              "importVersion",
+              "contentDigest"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_legacy_handoff_state_importVersion_contentDigest` ON `${TABLE_NAME}` (`importVersion`, `contentDigest`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "legacy_import_batches",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "importVersion",
+              "contentDigest"
+            ],
+            "referencedColumns": [
+              "importVersion",
+              "contentDigest"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9e66de430d7940d24f8aa522839b4b71')"
+    ]
+  }
+}

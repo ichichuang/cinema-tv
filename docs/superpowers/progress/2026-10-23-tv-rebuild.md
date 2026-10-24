@@ -1,6 +1,30 @@
 # TV 重构进度
 
-Round 01–05 已留存，当前完成限定的 Round 06 测试授权 Debug 运行时切片；普通路径生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+Round 01–06 已留存，当前完成限定的 Round 07 自有合成旧记录交接演练；普通路径生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+
+## Round 07 执行记录
+
+用户明确授权按附件执行，仅本地提交，不推送、合并或发布。起点 `a7deea8a88ff0afa2f7ba06fd7c4f615f8018af1`，隔离分支及 main 均干净；包内四项 SHA-256 和三个独立附件逐字节一致，原计划导入。
+
+- Pre-flight: R07-1 的默认关闭授权和实际旧 writer 图供 R07-2 持久状态及 R07-4 探针使用；R07-3 实际单例捕获和精确映射供 R07-2 激活事务使用；R07-5 验证全部边界。
+- Ruling: 沿用既有账本及 R07 标题和 `.local/evidence/round-07/`，不改写附件来适配技能数字 Task 脚本，不删除原始证据。代价：人工对应步骤及保留本地证据空间。
+- Ruling: 原工作树不是 App managed worktree，原生附加工具已明确拒绝；继续使用现有 Git linked worktree，不另建或重置。代价：本轮不增加 App 管理附件。
+- Ruling: v2 无交接 authority 表，新增 v3 单独状态表及显式2→3迁移；原1／2 schema字节保持，1→2→3与2→3均做native保留测试。代价：候选数据库的schema增加一版，普通生产路径仍不开库。
+- Ruling: 演练只启动播放器；browse／filter／来源原始值完整staging并保留旧只读访问，激活后这些旧writer显式拒绝修改，不提供新配置UI或生产导航切换。代价：本轮不能宣称完整产品迁移。
+- Ruling: 分支没有 upstream 是既定 local-only 用途；用户本轮明确禁止 push，保留该状态，不建立远端分支。
+
+| 步骤 | 状态 |
+| --- | --- |
+| R07-1 | 基线原生68＋独立进程2、JVM177实际通过；最终授权8项及单例捕获／门禁原生4项通过，普通生产入口保持 |
+| R07-2 | 真实 Room 状态、AtomicFile 意图、屏障内重新捕获及单事务激活已核验；17项状态／导入／故障原生测试通过，缺库／缺授权／缺意图均不退回旧写入 |
+| R07-3 | 四个既有 DataStore 单例捕获，完整 typed staging／accounting；10项主机精确映射测试及原生幂等、内容变化、损坏／未解析保留通过；原文件哈希一致 |
+| R07-4 | 真实 WAV／Media3：旧2000ms暂停恢复→新Room7520ms提交→PID5829换5935完整相同快照暂停恢复；实际Probe OFF拒绝回退；媒体替换及撤销授权4项原生通过 |
+| R07-5 | 最终JVM199／Python62／native103逐方法全部通过，无skip／not-run／重复；140个普通Gradle任务实际执行；双Lint与Round06相同；一次独立审查的3项Important均实际RED→GREEN，未二次复审 |
+
+- Final review: 35个审查时候选文件前后SHA一致，独立只读审查0 Critical／3 Important／0 Minor。修复为：测试profile持锁等待已接受的DataStore actor真实IO确认再传播取消；prepare／激活重验实际媒体证明；切集／retry在副作用前重验目录。新增4项原生断言先4失败，分项修复后4通过，再执行完整回归。作者负责修正后验证，没有第二次独立审查。
+- Ruling: 交接AVD保留了本轮合成旧文件，不能满足原Round06空白profile前置条件；关闭并保留原数据后，用现有镜像新建空白自有AVD跑67项既有核心及2项进程／1项Legacy OFF测试，不清空旧profile。两个AVD逐操作门禁、最后均已关闭，host PID消失，共享ADB保持。
+- Ruling: 状态、审计、屏障及探针互相依赖，采用验证后的一个完整实现提交，再单独记录交付；不提交临时stub或未通过状态。
+- Evidence: [本轮结构](../../architecture/tv-legacy-handoff.md)；全部源码、方法执行及旧文件指纹原始证据在忽略目录 `.local/evidence/round-07/`。普通Debug／Release仍旧存储独占，T03／T04整体、M02、A05–A11／A20、真实用户升级、ARMv7／TV及签名发布仍未验收；停止于Round07。
 
 ## Round 06 执行记录
 

@@ -9,8 +9,8 @@ import com.ichichuang.cinema.data.local.entity.*
 
 @Database(entities = [WorkReferenceEntity::class, WorkMetadataCacheEntity::class, FavoriteEntity::class,
     BrowseSnapshotEntity::class, PlaybackSnapshotEntity::class, LegacyImportBatchEntity::class, LegacyImportRecordEntity::class,
-    PlaybackSessionEntity::class, PlaybackRecordOrderEntity::class, PlaybackResumeEntity::class],
-    version = 2, exportSchema = true)
+    PlaybackSessionEntity::class, PlaybackRecordOrderEntity::class, PlaybackResumeEntity::class, LegacyHandoffEntity::class],
+    version = 3, exportSchema = true)
 @TypeConverters(Utf16KeyConverter::class)
 internal abstract class CinemaDatabase : RoomDatabase() {
     abstract fun userRecords(): UserRecordsDao
@@ -19,4 +19,5 @@ internal abstract class CinemaDatabase : RoomDatabase() {
     abstract fun metadataCache(): MetadataCacheDao
     abstract fun legacyImports(): LegacyImportsDao
     abstract fun playbackSessions(): PlaybackSessionsDao
+    abstract fun legacyHandoff(): LegacyHandoffDao
 }
