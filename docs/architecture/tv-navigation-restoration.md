@@ -15,7 +15,7 @@ Round 11 仅覆盖测试自有合成 profile 的 T08 切片。普通 Debug／Rel
 
 ## 门禁
 
-`cinema.browseRestoreProbe` 默认 OFF。ON 只接受完整 assembleDebug/assembleDebugAndroidTest 根任务，并要求已有 playbackRoomProbe 编译门；拒绝 Release/bundle/publish/install。实际运行还必须通过已有 R07 的应用与测试 APK 同签名、独立私有授权、API30 ranchu ARM64 镜像检查，并且没有已启动的旧数据交接、四类旧 store 没有记录。
+`cinema.browseRestoreProbe` 默认 OFF。ON 只接受完整 assembleDebug/assembleDebugAndroidTest 根任务，并要求已有 playbackRoomProbe 与 storageTestArm64 编译门；拒绝 Release/bundle/publish/install。实际运行还必须通过已有 R07 的应用与测试 APK 同签名、独立私有授权、API30 ranchu ARM64 镜像检查，并且没有已启动的旧数据交接、四类旧 store 没有记录。
 
 `DebugBrowseProbeGate.withOwnedProfile` 的 action 持有已有 writer 互斥并独占数据库生命周期，先读取旧记录并校验 Room schema，再交付候选 store。异常不变成空记录。候选编译模式立即拒绝 legacyWrite，防止旧写请求排队后恢复。OFF 在访问 Context／数据库／锁前返回。宿主每次安装／运行另核对自有 AVD、serial、host PID、boot ID、API／ABI 和测试包；应用内权限不能替代宿主身份核验。
 
@@ -34,3 +34,11 @@ Round 11 仅覆盖测试自有合成 profile 的 T08 切片。普通 Debug／Rel
 `RestoreNavigationState` 只允许三个稳定顶层页面及最多两个不同 DETAIL／PLAYER 子路由，返回链做防御性复制。它不表示 modal、确认或播放命令。精确查询变化必须使用新 queryId，contextKey 为顶层 route 与 queryId 的组合；旧查询 context 行保留。
 
 `RoomBrowseStateStore.saveActive` 在既有 v5 browse_snapshots 的单次事务里保存原始 context、全局 active pointer、该顶层的 latest pointer。pointer payload 使用完整快照及有界返回链，复用原 BrowseSnapshotCodec；loadLatest 校验请求顶层与 payload route 一致，损坏记录报错。没有 v6 表或破坏性迁移，旧 schema 1–5 的字节保留由验证报告核对。
+
+## 候选原生接线
+
+MainActivity 在解引用旧 HomeViewModel／UpdateCenter 前按编译门分流，仅 ON 指定横屏并消费候选方向键。实际 CinemaNavHost 提供 browse/detail；详情返回保留三个来源页和完整查询，候选没有自动播放入口。授权 lease 内的结构化协程拥有 runtime 和数据库，退出先处理 pending checkpoint，启动失败清除 runtime 并显示中文不可用状态。
+
+合成 catalog 仅由 instrumentation 写入私有 no-backup fixture，普通应用无内置目录；投影复用 StrictFilterEvaluator，对年份、国家、语言、类型、题材和来源范围执行精确匹配。布局以稳定 work ID 为 LazyGrid key，使用实际 placement、窗口焦点、Focused/Selected semantics 和视口锚点。协调器交付的单次动作仅在原 token／布局／结果 revision 下保留；原生 requestFocus 返回 false 时等待实际就绪事件重试，用户按键撤销后不得复活。列数改变创建新布局 token 并按新行重定位锚点；刷新保留当前顺序和焦点。模态层限制背景可聚焦性，关闭回到仍存在的入口，否则回到页面控件。路由动作在 IO 前取得请求序号并串行等待提交；新的返回动作可取代尚未执行的旧跳转，方向键仍被处理，详情返回只完成 IO 前已有且未被输入撤销的恢复 ticket。
+
+`round11-browse-trace.json` 是隔离 profile 的调试补充记录，不能代替实际 Compose 焦点、数据库重开或外部新 PID 证据。Activity 重建、进程 kill 和 force-stop 分别记录；持久化只保证最近一次已确认成功的事务。

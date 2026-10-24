@@ -149,3 +149,22 @@ fun CinemaNavHost(
         }
     }
 }
+
+/** Candidate seam selected before legacy lazy injection; unreachable in ordinary runtime. */
+@Composable
+internal fun CinemaNavHost(
+    probe: com.ichichuang.cinema.feature.browse.BrowseProbeRuntime,
+    onExit: () -> Unit,
+) {
+    check(com.ichichuang.cinema.BuildConfig.BROWSE_RESTORE_PROBE)
+    val nav = rememberNavController()
+    androidx.compose.runtime.LaunchedEffect(probe.isDetail) {
+        if (probe.isDetail && nav.currentDestination?.route != "候选详情") nav.navigate("候选详情")
+        else if (!probe.isDetail && nav.currentDestination?.route == "候选详情") nav.popBackStack()
+    }
+    NavHost(nav, startDestination = "候选浏览", enterTransition = { androidx.compose.animation.EnterTransition.None },
+        exitTransition = { androidx.compose.animation.ExitTransition.None }) {
+        composable("候选浏览") { com.ichichuang.cinema.feature.browse.BrowseProbeScreen(probe, onExit) }
+        composable("候选详情") { com.ichichuang.cinema.feature.browse.BrowseProbeDetail(probe, onExit) }
+    }
+}

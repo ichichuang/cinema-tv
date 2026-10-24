@@ -9,6 +9,13 @@ import com.ichichuang.cinema.feature.update.UpdateCenter
 import com.ichichuang.cinema.nav.CinemaNavHost
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import androidx.compose.runtime.*
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.testTag
+import com.ichichuang.cinema.core.navigation.DebugBrowseProbeGate
+import com.ichichuang.cinema.data.userdata.RoomBrowseStateStore
+import com.ichichuang.cinema.feature.browse.*
+import kotlinx.coroutines.*
 
 /**
  * 唯一的 Activity。
@@ -28,8 +35,58 @@ class MainActivity : ComponentActivity(), KoinComponent {
     private val updateCenter: UpdateCenter by inject()
     private val homeViewModel: HomeViewModel by inject()
 
+    private var probeScope: CoroutineScope? = null
+    internal var browseProbe by mutableStateOf<BrowseProbeRuntime?>(null)
+        private set
+    private var probeError by mutableStateOf<String?>(null)
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (BuildConfig.BROWSE_RESTORE_PROBE && browseProbe?.key(event) { finish() } == true) return true
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun onStop() {
+        browseProbe?.background()
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        probeScope?.cancel()
+        super.onDestroy()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (BuildConfig.BROWSE_RESTORE_PROBE) {
+            requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            probeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also { scope ->
+                scope.launch {
+                    BrowseProbeTestHooks.activeLeases.incrementAndGet()
+                    try {
+                        DebugBrowseProbeGate.withOwnedProfile(this@MainActivity) { database ->
+                            coroutineScope {
+                                val runtime = BrowseProbeRuntime(this@MainActivity, RoomBrowseStateStore(database), this,
+                                    withContext(Dispatchers.IO) { BrowseProbeFixture(this@MainActivity) })
+                                browseProbe = runtime
+                                try { runtime.start(); awaitCancellation() }
+                                finally { withContext(NonCancellable) { runtime.shutdown() } }
+                            }
+                        }
+                    } catch (cancelled: CancellationException) { throw cancelled }
+                    catch (_: Exception) { browseProbe = null; probeError = "无法进入浏览测试，请检查独立测试授权与本地资料" }
+                    finally { BrowseProbeTestHooks.activeLeases.decrementAndGet() }
+                }
+            }
+            setContent {
+                CinemaTheme {
+                    val runtime = browseProbe
+                    if (runtime != null) CinemaNavHost(runtime, onExit = { finish() })
+                    else Text(probeError ?: "正在核验独立浏览测试环境", modifier = androidx.compose.ui.Modifier.then(
+                        if (probeError != null) androidx.compose.ui.Modifier.testTag("浏览测试不可用") else androidx.compose.ui.Modifier))
+                }
+            }
+            return
+        }
         setContent {
             CinemaTheme {
                 CinemaNavHost(
