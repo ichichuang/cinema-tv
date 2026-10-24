@@ -7,6 +7,22 @@ plugins {
     id("androidx.room")
 }
 
+// A probe APK is only built together with its instrumentation APK. No install/distribution roots.
+val playbackRoomProbe = providers.gradleProperty("cinema.playbackRoomProbe")
+    .map { it.toBooleanStrict() }.getOrElse(false)
+if (playbackRoomProbe) {
+    val pair = setOf(":app:assembleDebug", ":app:assembleDebugAndroidTest")
+    if (gradle.startParameter.taskNames.toSet() != pair) {
+        throw GradleException("Room 播放探针仅允许完整 Debug / DebugAndroidTest 测试配对；禁止 Release、bundle、发布、签名或安装任务。")
+    }
+    gradle.taskGraph.whenReady {
+        if (allTasks.any { it.name.contains("release", ignoreCase = true) ||
+                it.name.startsWith("publish", ignoreCase = true) || it.name == "bundleDebug" }) {
+            throw GradleException("Room 播放探针任务图不得包含 Release、bundle、发布或生产签名任务。")
+        }
+    }
+}
+
 // This opt-in only assembles a disposable instrumentation APK pair; it never installs.
 val storageTestArm64 = providers.gradleProperty("cinema.storageTestArm64")
     .map { it.toBooleanStrict() }.getOrElse(false)
@@ -56,6 +72,7 @@ android {
         versionCode = 18
         versionName = "0.9.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "PLAYBACK_ROOM_PROBE", "false")
     }
 
     signingConfigs {
@@ -77,6 +94,7 @@ android {
 
     buildTypes {
         debug {
+            buildConfigField("boolean", "PLAYBACK_ROOM_PROBE", playbackRoomProbe.toString())
             ndk { abiFilters += if (storageTestArm64) "arm64-v8a" else "armeabi-v7a" }
             // Contributor builds cannot replace the installed production application.
             applicationIdSuffix = ".debug"
@@ -94,7 +112,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
     lint { disable += "ExpiredTargetSdkVersion" }
     // Retain dependency license texts when several dependencies contribute the same name.

@@ -9,6 +9,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.ichichuang.cinema.core.design.formatTime
@@ -20,6 +21,9 @@ import com.ichichuang.cinema.domain.model.Episode
 import com.ichichuang.cinema.domain.model.PlayLine
 import com.ichichuang.cinema.domain.repository.MovieRepository
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -85,14 +89,27 @@ class PlayerViewModel(
     context: Context,
 ) : ViewModel() {
 
+    // Gate before allocating a player or opening Room; ordinary builds return Legacy immediately.
+    private val runtimeMode = PlaybackProbeAuthorization.mode(context)
+
     /** 播放器本体。页面用 PlayerSurface(player) 画它 */
     val player: ExoPlayer = ExoPlayer.Builder(context)
-        .setMediaSourceFactory(DefaultMediaSourceFactory(httpDataSource()))
+        .setMediaSourceFactory(DefaultMediaSourceFactory(if (runtimeMode == PlaybackRuntimeMode.ROOM_PROBE)
+            DefaultDataSource.Factory(context, httpDataSource()) else httpDataSource()))
         .setHandleAudioBecomingNoisy(true)   // 拔耳机/蓝牙断开自动暂停
         .build()
 
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
+
+    internal val roomProbe = if (runtimeMode == PlaybackRuntimeMode.ROOM_PROBE)
+        RoomPlaybackProbe(context, viewModelScope, player) { result ->
+            if (result != com.ichichuang.cinema.domain.model.userdata.CommitResult.Committed) _state.update {
+                it.copy(hint = "播放进度未保存，请重试；原记录保持", hintNonce = it.hintNonce + 1)
+            }
+        } else null
+    private var probeDetail: com.ichichuang.cinema.domain.model.MovieDetail? = null
+    private var probeStartJob: Job? = null
 
     private var movieId: String = ""
     /** 影片来自哪个片源（多源聚合时用）；空 = 单源/演示 */
@@ -111,7 +128,7 @@ class PlayerViewModel(
         player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _state.update { it.copy(playing = isPlaying) }
-                if (!isPlaying) persistProgress()
+                if (!isPlaying && roomProbe == null) persistProgress()
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -136,7 +153,9 @@ class PlayerViewModel(
                 val dur = runCatching { player.duration }.getOrDefault(0L).coerceAtLeast(0L)
                 val buf = runCatching { player.bufferedPosition }.getOrDefault(0L)
                 _state.update { it.copy(positionMs = pos, durationMs = dur, bufferedMs = buf) }
-                if (player.isPlaying && pos - lastSavedMs > 10_000) {
+                if (roomProbe != null) {
+                    roomProbe.pulse()
+                } else if (player.isPlaying && pos - lastSavedMs > 10_000) {
                     lastSavedMs = pos
                     persistProgress()
                 }
@@ -148,6 +167,21 @@ class PlayerViewModel(
     /** 页面上屏时调一次（movieId 变了才重新开始） */
     fun start(movieId: String, fallbackTitle: String, origin: String) {
         if (started && this.movieId == movieId && movieOrigin == origin.trim()) return
+        if (roomProbe != null) {
+            started = true
+            this.movieId = movieId
+            movieOrigin = origin.trim()
+            probeStartJob?.cancel()
+            probeStartJob = probeLaunch {
+                val detail = repository.detail(movieId, origin) ?: error("无测试内容")
+                require(detail.movie.id == movieId && detail.movie.origin == origin)
+                val catalog = repository as? PlaybackProbeCatalog ?: error("无测试身份目录")
+                val selected = roomProbe.start(catalog, detail) ?: return@probeLaunch
+                probeDetail = detail
+                updateProbeSelection(selected)
+            }
+            return
+        }
         started = true
         this.movieId = movieId
         movieOrigin = origin.trim()
@@ -260,6 +294,7 @@ class PlayerViewModel(
             return
         }
         val episode = s.episodes[target]
+        if (roomProbe != null) { selectProbeEpisode(s.lineIndex, target); return }
         _state.update {
             it.copy(
                 episodeIndex = target,
@@ -302,6 +337,7 @@ class PlayerViewModel(
     fun selectEpisode(index: Int) {
         val s = _state.value
         val ep = s.episodes.getOrNull(index) ?: return
+        if (roomProbe != null) { selectProbeEpisode(s.lineIndex, index); return }
         _state.update {
             it.copy(
                 episodeIndex = index,
@@ -315,6 +351,8 @@ class PlayerViewModel(
     fun selectLine(index: Int) {
         val s = _state.value
         if (s.lines.getOrNull(index) == null) return
+        // No index/name-based carry of a checkpoint to a different timebase in probe mode.
+        if (roomProbe != null) { selectProbeEpisode(index, 0); return }
         autoSwitched = 0
         // 手动换线路：带着当前进度换过去，"像没换过一样"接着看
         switchToLine(index, keepEpisodeName = s.episodeName, resumeMs = s.positionMs)
@@ -343,6 +381,11 @@ class PlayerViewModel(
     fun clearHint() = _state.update { it.copy(hint = null) }
 
     fun retry() {
+        if (roomProbe != null) {
+            _state.update { it.copy(error = null) }
+            probeLaunch { roomProbe.retry() }
+            return
+        }
         val s = _state.value
         _state.update { it.copy(error = null) }
         playEpisode(s.episodes.getOrNull(s.episodeIndex), 0L)
@@ -350,11 +393,13 @@ class PlayerViewModel(
 
     /** 离开播放页：暂停并立刻落盘 */
     fun pauseAndSave() {
+        if (roomProbe != null) { probeLaunch { roomProbe.boundary() }; return }
         runCatching { player.pause() }
         persistProgress()
     }
 
     override fun onCleared() {
+        roomProbe?.close()
         runCatching { player.pause() }
         runCatching { player.release() }
         super.onCleared()
@@ -398,6 +443,10 @@ class PlayerViewModel(
 
     /** 线路失败：自动试下一条（用户无感），全试完才报错 */
     private fun handlePlaybackError(error: PlaybackException) {
+        if (roomProbe != null) {
+            _state.update { it.copy(error = friendlyError(error), buffering = false, controlsVisible = true) }
+            return
+        }
         val s = _state.value
         if (s.lines.size > 1 && autoSwitched < s.lines.size - 1) {
             autoSwitched++
@@ -435,6 +484,10 @@ class PlayerViewModel(
     }
 
     private fun onEpisodeEnded() {
+        if (roomProbe != null) {
+            _state.update { it.copy(hint = "当前集播放结束", hintNonce = it.hintNonce + 1, controlsVisible = true) }
+            return
+        }
         val s = _state.value
         val next = s.episodes.getOrNull(s.episodeIndex + 1)
         if (next != null) {
@@ -460,6 +513,7 @@ class PlayerViewModel(
     }
 
     private fun persistProgress(forceMs: Long? = null) {
+        if (roomProbe != null) { probeLaunch { roomProbe.boundary() }; return }
         val s = _state.value
         if (movieId.isBlank()) return
         val pos = forceMs ?: runCatching { player.currentPosition }.getOrDefault(s.positionMs)
@@ -469,6 +523,34 @@ class PlayerViewModel(
                 progress.save(progressKey(), WatchPoint(s.lineIndex, s.episodeIndex, pos, dur))
             }
         }
+    }
+
+    private fun probeLaunch(block: suspend () -> Unit): Job = viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+        try { block() }
+        catch (e: CancellationException) { throw e }
+        catch (_: Exception) {
+            _state.update { it.copy(error = "测试播放身份或记录不可用，原记录保持", loading = false, buffering = false) }
+        }
+    }
+
+    private fun selectProbeEpisode(line: Int, episode: Int) {
+        val detail = probeDetail ?: return
+        val catalog = repository as? PlaybackProbeCatalog ?: return
+        val autoPlay = player.playWhenReady
+        probeLaunch {
+            val selected = roomProbe?.select(catalog, detail, line, episode, autoPlay) ?: return@probeLaunch
+            updateProbeSelection(selected)
+        }
+    }
+
+    private fun updateProbeSelection(selected: ProbeMedia) {
+        val detail = selected.detail
+        val episodes = detail.lines[selected.lineIndex].episodes
+        _state.update { it.copy(title = detail.movie.title, loading = false, error = null,
+            lines = detail.lines, lineIndex = selected.lineIndex, episodes = episodes,
+            episodeIndex = selected.episodeIndex, episodeName = episodes[selected.episodeIndex].name,
+            positionMs = player.currentPosition, panelVisible = false, controlsVisible = true,
+            controlsShownAt = System.currentTimeMillis()) }
     }
 
     /**
