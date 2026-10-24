@@ -27,9 +27,9 @@ Round 11 仅覆盖测试自有合成 profile 的 T08 切片。普通 Debug／Rel
 
 ## 恢复与持久化契约
 
-`BrowseRestoreCoordinator` 在 IO 前 reserveLoad，加载后 completeLoad；方向键／确认／返回同步撤销 ticket 和 restore token。观察必须匹配完整查询与当前 route generation；同查询的旧 result revision 不得逆序生效。每次安装结果或改变列数时 advanceLayout，placement 回调携带该 result revision 与 layout generation 的 token，旧测量不能替新布局提供就绪证明。目标与锚点可用且已放置后才交付一次 focus action，UI 必须在同一事件回合消费。Partial 缺失继续等待，不放宽条件；已证明缺失时只在原行邻居／行入口／页面控件之间回退。
+`BrowseRestoreCoordinator` 在 IO 前 reserveLoad，加载后 completeLoad；方向键／确认／返回同步撤销 ticket 和 restore token。观察必须匹配完整查询与当前 route generation；同查询的旧 result revision 不得逆序生效。每次安装结果或改变列数时 advanceLayout，placement 回调携带该 result revision 与 layout generation 的 token，旧测量不能替新布局提供就绪证明。目标与锚点可用且已放置后才交付一次 focus action，UI 必须在同一事件回合消费。Partial 缺失继续等待，不放宽条件；已证明缺失时只在原行邻居／行入口／页面控件之间回退。 滚动定位与最终焦点使用同一目标／回退策略：Complete 证实锚点移除时，先将仍存在的目标或合法同行邻居滚入实际布局；Partial 不提前选择替代项。没有保存 focus/anchor 的新 context 不施加新的滚动位置。定位本身不消费 focus token，scroll 后再次确认 token 与 layout pass。
 
-`BrowseCheckpointCoordinator` 将 token 绑定 context 与完整查询，500ms 稳定后保存；route leave 和后台由调用方 flush 并检查真实 CommitResult。一个 mutex 串行化 store 调用，旧路由回调不能覆盖新已提交现场；Failed／RejectedStale 保留 pending，取消传播。自动防抖的当前提交结果同步反馈状态，失败不显示成功，重试成功清除旧失败状态。新 begin 前应先处理 flush 结果，不能静默丢失未保存状态。
+`BrowseCheckpointCoordinator` 将 token 绑定 context 与完整查询，500ms 稳定后保存；route leave 和后台由调用方 flush 并检查真实 CommitResult。一个 mutex 串行化 store 调用，旧路由回调不能覆盖新已提交现场；Failed／RejectedStale 保留 pending，取消传播。自动防抖的当前提交结果同步反馈状态，失败不显示成功，重试成功清除旧失败状态。新 begin 前应先处理 flush 结果，不能静默丢失未保存状态。 同一当前 token 的显式 flush 等待串行写完成后，若 pending 已由成功事务清空，则复用已确认的 Committed；陈旧 token／定时 revision 仍拒绝，有新 pending 时保存新状态，不能借旧确认跳过新写。
 
 `RestoreNavigationState` 只允许三个稳定顶层页面及最多两个不同 DETAIL／PLAYER 子路由，返回链做防御性复制。它不表示 modal、确认或播放命令。精确查询变化必须使用新 queryId，contextKey 为顶层 route 与 queryId 的组合；旧查询 context 行保留。
 

@@ -1,6 +1,25 @@
 # TV 重构进度
 
-Round 01–09 已留存，当前完成限定的 Round 10 候选严格多维与年份筛选实现及执行验证；普通路径生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+Round 01–10 已留存，当前完成限定的 Round 11 浏览与焦点恢复候选实现及执行验证，整轮独立终审发现的两项Important已修复并通过唯一限定复审；普通路径生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+
+## Round 11 执行记录
+
+明确聊天授权按ZIP执行，仅既有隔离分支本地交付；起点 `32b6bfdcfce6e730af68c246f87c694d09e30915`。ZIP四项SHA-256和三个独立文件逐字节通过；原附件留在忽略证据，工作树与main开始时均干净。
+
+- A/B：默认OFF构建/运行门、候选writer lease、完整query/context/active/latest原子保存、可取消恢复与布局token；不改schema5。独立审查的四项B问题均真实RED→GREEN。
+- C：真实Compose/NavHost、稳定opaque ID、三页来源、深列表、模态与FocusRequester确认；三项审查竞态均真实RED→GREEN，最终原生29方法。
+- D：真实文件库重开/回滚/取消/失败/旧文件保护；停止时Insets污染、首次零高度offset、迟到Q1和modal同排回退均实际失败驱动修复。最终30原生方法，独立限定复审spec/quality通过。
+- E：JVM349/349、Python62/62、普通三门OFF140任务全部执行；双lint0Error，告警ID/级别/消息多重集与基线完全相同。最初5项lint失败保留，remember及仅ON公开Window.Callback修复后重新执行原生/外部实验。
+- 最终执行：205/205原生（C29+D30+OFF1+旧145），0失败/跳过/未运行/重复；外部后台am kill、force-stop、未提交中断三组通过。11个owned AVD实例均关闭，普通构建输出已恢复OFF并与保存产物hash一致。
+- 独立终审：深锚点删除与同token并发flush两项Important均有真实RED→GREEN，统一修复内的新无锚点回归保留58/59失败后补守卫，最终59/59。限定复审F-I1/F-I2均ADDRESSED、修复新增0/0/0，无延期；只读核对证据，不是独立重跑。最终实现3c47c8c，当前index337文件0违规，20项受测源码与提交一致。
+- Ruling: 导入计划仅将个人绝对路径脱敏，原指令/矩阵作为输入证据保留。代价：原始字节须查忽略附件，仓库计划不是原ZIP字节。
+- Ruling: 复用R07签名/profile/consent/emulator与writer互斥，browse ON需要playback编译门但不准备或激活handoff，ON立即拒绝旧writer。代价：本轮只在严格授权profile可运行。
+- Ruling: 保留既有无upstream分支；显式local-only覆盖通常push收尾，只fetch metadata，不pull/merge/push。代价：无远端备份。
+- Ruling: 计划的home-feature路径表述亦作最小脱敏以符合当前index扫描；原件保留，不修改扫描规则。代价：原件校验须回到附件。
+- Ruling: 精确query context、顶层latest与global active使用现有v5单事务payload，不升schema。代价：MIG-02为N/A，不声称不存在的5→6迁移。
+- Ruling: 不新增Compose测试依赖；既有SemanticsOwner、AndroidX Test、平台按键和外部XML验证实际焦点。代价：这些是合成API30 ARM64证据，不等同目标TV或生产验收。
+
+[42项矩阵与完整结果](../../verification/2026-10-24-round-11-browse-restoration.md)、[导航与恢复契约](../../architecture/tv-navigation-restoration.md)。完整T08/A03/A04/A05/A19/M02/M04仍未验收，普通导航/旧DataStore保持；不进入T09/T10、不访问真实来源或物理设备、不发布。
 
 ## Round 10 执行记录
 
@@ -269,7 +288,7 @@ Round 01–09 已留存，当前完成限定的 Round 10 候选严格多维与�
 | T05 身份与字段标准化 | 未开始 |
 | T06 来源能力与订阅 | Round09合成候选切片及两个前轮覆盖缺口已测试；来源能力/独立有界分页/授权订阅候选已验证，普通路径未接入，完整T06/M03及A14/A15/A17/A18/A21未验收 |
 | T07 严格多维查询 | 未开始 |
-| T08 导航快照与焦点恢复 | 未开始 |
+| T08 导航快照与焦点恢复 | Round11候选合成切片已有原生/真实Room/独立进程证据；完整T08及M02/M04仍未验收 |
 | T09 续播、收藏、历史与播放器 | 未开始 |
 | T10 新界面 | 未开始 |
 | T11 遥控器与动效 | 未开始 |
