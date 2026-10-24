@@ -24,7 +24,9 @@ Round 01–06 已留存，当前完成限定的 Round 07 自有合成旧记录�
 - Final review: 35个审查时候选文件前后SHA一致，独立只读审查0 Critical／3 Important／0 Minor。修复为：测试profile持锁等待已接受的DataStore actor真实IO确认再传播取消；prepare／激活重验实际媒体证明；切集／retry在副作用前重验目录。新增4项原生断言先4失败，分项修复后4通过，再执行完整回归。作者负责修正后验证，没有第二次独立审查。
 - Ruling: 交接AVD保留了本轮合成旧文件，不能满足原Round06空白profile前置条件；关闭并保留原数据后，用现有镜像新建空白自有AVD跑67项既有核心及2项进程／1项Legacy OFF测试，不清空旧profile。两个AVD逐操作门禁、最后均已关闭，host PID消失，共享ADB保持。
 - Ruling: 状态、审计、屏障及探针互相依赖，采用验证后的一个完整实现提交，再单独记录交付；不提交临时stub或未通过状态。
-- Evidence: [本轮结构](../../architecture/tv-legacy-handoff.md)；全部源码、方法执行及旧文件指纹原始证据在忽略目录 `.local/evidence/round-07/`。普通Debug／Release仍旧存储独占，T03／T04整体、M02、A05–A11／A20、真实用户升级、ARMv7／TV及签名发布仍未验收；停止于Round07。
+- Local delivery: 实现提交 `e8fecd200c1cfe32f18e94dff974d7844a30401b`；36个明确暂存路径，33个应用／测试／schema指纹与验证及commit blob一致；实现index260文件、0所检查的违规。main与刷新后origin/main均仍为原基线，隔离分支仅本地保留，无push／merge／publish。
+- Final documentation: 验证报告与本账本定稿独立本地提交；最终完整index261文件、0所检查的违规，33项受测源码保持与实现提交相等；最终HEAD由Git日志及忽略证据final-delivery.json记录。
+- Evidence: [完整本轮验证](../../verification/2026-10-24-round-07-legacy-handoff.md)；[本轮结构](../../architecture/tv-legacy-handoff.md)；原始证据在忽略目录 `.local/evidence/round-07/`。普通Debug／Release仍旧存储独占，T03／T04整体、M02、A05–A11／A20、真实用户升级、ARMv7／TV及签名发布仍未验收；停止于Round07。
 
 ## Round 06 执行记录
 
