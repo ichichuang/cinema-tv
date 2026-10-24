@@ -181,7 +181,7 @@ class WorkIdentityStoreInstrumentedTest : NativeStorageFixture() {
             rowSnapshot { sql.rawQuery(it,null) }
         } }
         database=CinemaDatabaseFactory.open(context,databaseName)
-        assertEquals(4L,scalar("PRAGMA user_version")); assertEquals(beforeMigration,oldRows());val before=oldRows();seedPair(store());reopen()
+        assertEquals(5L,scalar("PRAGMA user_version")); assertEquals(beforeMigration,oldRows());val before=oldRows();seedPair(store());reopen()
         assertEquals(before.getValue("favorites"),oldRows().getValue("favorites"))
         assertEquals(before.getValue("browse_snapshots"),oldRows().getValue("browse_snapshots"))
         assertEquals(beforeMigration.filterKeys { it != "work_references" },oldRows().filterKeys { it != "work_references" })
@@ -239,9 +239,56 @@ class WorkIdentityStoreInstrumentedTest : NativeStorageFixture() {
     }
     @Test fun cache_eviction_preserves_identity_evidence_routes_and_personal_records() = runBlocking<Unit> {
         val s=store();seedPair(s);seedPersonal(s.workFor(key(a))!!);s.associate(key(a),key(b),"verified-AB",1)
-        val before=oldRows();database.metadataCache().evictAll();reopen()
-        assertEquals(before,oldRows());assertEquals(store().groupFor(key(a)),store().groupFor(key(b)))
+        for (source in listOf(a,b)) database.metadataCache().upsert(com.ichichuang.cinema.data.local.entity.WorkMetadataCacheEntity(
+            s.workFor(key(source))!!.value,"synthetic-disposable-cache-${source.value}"))
+        suspend fun routeRows() = withContext(Dispatchers.IO) {
+            database.openHelper.writableDatabase.query("SELECT hex(captureId),hex(entryId),payload FROM catalog_routes ORDER BY captureId,entryId").use { cursor ->
+                buildList { while(cursor.moveToNext()) add(listOf(cursor.getString(0),cursor.getString(1),cursor.getString(2))) }
+            }
+        }
+        val capturesBefore=listOf(a,b).associateWith { s.captures(key(it)) }
+        val routesBefore=routeRows();assertEquals(2,routesBefore.size)
+        val before=oldRows();assertEquals(2,before.getValue("work_metadata_cache").size)
+        assertEquals(2,database.metadataCache().evictAll());reopen()
+        assertTrue(oldRows().getValue("work_metadata_cache").isEmpty())
+        assertEquals(before.filterKeys { it != "work_metadata_cache" },oldRows().filterKeys { it != "work_metadata_cache" })
+        assertEquals(store().groupFor(key(a)),store().groupFor(key(b)))
         assertEquals(1,store().captures(key(a)).size);assertEquals(listOf("synthetic-entry-A"),store().entries(key(a)))
+        assertEquals(2L,scalar("SELECT count(*) FROM catalog_verified_identifiers WHERE revoked=0"))
+        assertEquals(capturesBefore,listOf(a,b).associateWith { store().captures(key(it)) })
+        assertEquals(routesBefore,routeRows())
+    }
+    @Test fun three_member_split_revokes_all_proofs_and_retains_original_personal_references_after_reopen() = runBlocking<Unit> {
+        val c=SourceId("synthetic-C")
+        val proofs=CatalogIdentityProofs(mapOf("AB" to VerifiedCatalogAssociation(key(a),key(b),identifier),
+            "BC" to VerifiedCatalogAssociation(key(b),key(c),identifier)))
+        val s=store(proofs);seedPair(s);s.registerSource(c,"fixture:endpoint-C");s.ingest("capture-C",capture(c),entry("C"))
+        val homes=listOf(a,b,c).associateWith { s.workFor(key(it))!! }
+        seedPersonal(homes.getValue(a))
+        for(source in listOf(b,c)) withContext(Dispatchers.IO) {
+            val cv=Utf16KeyConverter();val w=cv.encode(homes.getValue(source).value)
+            database.openHelper.writableDatabase.execSQL("INSERT INTO favorites VALUES (?)",arrayOf<Any>(w))
+            database.openHelper.writableDatabase.execSQL("INSERT INTO playback_snapshots VALUES (?,?,?,?)",
+                arrayOf<Any>(w,cv.encode("episode-${source.value}"),cv.encode("version-${source.value}"),"original-checkpoint-${source.value}"))
+        }
+        val before=oldRows()
+        assertEquals(AssociationDecision.LINKED,s.associate(key(a),key(b),"AB",1))
+        assertEquals(AssociationDecision.LINKED,s.associate(key(b),key(c),"BC",2))
+        assertEquals(1,listOf(a,b,c).map { s.groupFor(key(it)) }.distinct().size)
+        s.split(key(b),"synthetic-three-member-correction",3);reopen();val reopened=store(proofs)
+        assertEquals(before,oldRows());assertEquals(3,homes.values.distinct().size)
+        for(source in listOf(a,b,c)) {
+            assertEquals(homes.getValue(source),reopened.workFor(key(source)))
+            assertEquals(homes.getValue(source),reopened.groupFor(key(source)))
+            assertEquals(1,reopened.captures(key(source)).size)
+            assertEquals(listOf("synthetic-entry-${source.value.last()}"),reopened.entries(key(source)))
+        }
+        assertEquals(4L,scalar("SELECT count(*) FROM catalog_verified_identifiers WHERE revoked=1"))
+        assertEquals(0L,scalar("SELECT count(*) FROM catalog_verified_identifiers WHERE revoked=0"))
+        assertEquals(3L,scalar("SELECT count(*) FROM catalog_association_history WHERE action='split'"))
+        assertEquals(AssociationDecision.CONFLICT,reopened.associate(key(a),key(b),"AB",4))
+        assertEquals(AssociationDecision.CONFLICT,reopened.associate(key(b),key(c),"BC",5))
+        assertEquals(3,listOf(a,b,c).map { reopened.groupFor(key(it)) }.distinct().size)
     }
 
 }

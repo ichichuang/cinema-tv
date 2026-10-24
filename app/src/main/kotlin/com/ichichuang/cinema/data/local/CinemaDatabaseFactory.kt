@@ -1,5 +1,6 @@
 package com.ichichuang.cinema.data.local
 
+import com.ichichuang.cinema.data.local.migration.QUERY_SUBSCRIPTION_MIGRATION_4_5
 import com.ichichuang.cinema.data.local.migration.CATALOG_MIGRATION_3_4
 import android.content.Context
 import androidx.room.Room
@@ -13,6 +14,6 @@ internal object CinemaDatabaseFactory {
             "A private candidate database name is required"
         }
         return Room.databaseBuilder(context.applicationContext, CinemaDatabase::class.java, databaseName)
-            .addMigrations(PLAYBACK_MIGRATION_1_2, HANDOFF_MIGRATION_2_3, CATALOG_MIGRATION_3_4).build()
+            .addMigrations(PLAYBACK_MIGRATION_1_2, HANDOFF_MIGRATION_2_3, CATALOG_MIGRATION_3_4, QUERY_SUBSCRIPTION_MIGRATION_4_5).build()
     }
 }

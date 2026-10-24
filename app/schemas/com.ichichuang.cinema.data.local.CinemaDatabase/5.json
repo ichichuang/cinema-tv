@@ -1,0 +1,1281 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 5,
+    "identityHash": "5ec729a3d2197d66514163c16d39caf4",
+    "entities": [
+      {
+        "tableName": "work_references",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, PRIMARY KEY(`workId`))",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId"
+          ]
+        }
+      },
+      {
+        "tableName": "work_metadata_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`workId`), FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "favorites",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, PRIMARY KEY(`workId`), FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "browse_snapshots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`contextKey` BLOB NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`contextKey`))",
+        "fields": [
+          {
+            "fieldPath": "contextKey",
+            "columnName": "contextKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "contextKey"
+          ]
+        }
+      },
+      {
+        "tableName": "playback_snapshots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, `episodeKey` BLOB NOT NULL, `variantKey` BLOB NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`workId`, `episodeKey`, `variantKey`), FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episodeKey",
+            "columnName": "episodeKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variantKey",
+            "columnName": "variantKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId",
+            "episodeKey",
+            "variantKey"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "legacy_import_batches",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`importVersion` INTEGER NOT NULL, `contentDigest` TEXT NOT NULL, `capturedAt` INTEGER NOT NULL, `totalCount` INTEGER NOT NULL, `recognizedCount` INTEGER NOT NULL, `unresolvedCount` INTEGER NOT NULL, `malformedCount` INTEGER NOT NULL, PRIMARY KEY(`importVersion`, `contentDigest`))",
+        "fields": [
+          {
+            "fieldPath": "importVersion",
+            "columnName": "importVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentDigest",
+            "columnName": "contentDigest",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "capturedAt",
+            "columnName": "capturedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalCount",
+            "columnName": "totalCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recognizedCount",
+            "columnName": "recognizedCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unresolvedCount",
+            "columnName": "unresolvedCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "malformedCount",
+            "columnName": "malformedCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "importVersion",
+            "contentDigest"
+          ]
+        }
+      },
+      {
+        "tableName": "legacy_import_records",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`importVersion` INTEGER NOT NULL, `contentDigest` TEXT NOT NULL, `storeKind` TEXT NOT NULL, `entryKey` BLOB NOT NULL, `valueType` TEXT NOT NULL, `rawValue` TEXT NOT NULL, `status` TEXT NOT NULL, `reason` TEXT NOT NULL, `legacyLineIndex` INTEGER, `legacyEpisodeIndex` INTEGER, `legacyPositionMs` INTEGER, `legacyDurationMs` INTEGER, PRIMARY KEY(`importVersion`, `contentDigest`, `storeKind`, `entryKey`), FOREIGN KEY(`importVersion`, `contentDigest`) REFERENCES `legacy_import_batches`(`importVersion`, `contentDigest`) ON UPDATE NO ACTION ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED)",
+        "fields": [
+          {
+            "fieldPath": "importVersion",
+            "columnName": "importVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentDigest",
+            "columnName": "contentDigest",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "storeKind",
+            "columnName": "storeKind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entryKey",
+            "columnName": "entryKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "valueType",
+            "columnName": "valueType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rawValue",
+            "columnName": "rawValue",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "legacyLineIndex",
+            "columnName": "legacyLineIndex",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "legacyEpisodeIndex",
+            "columnName": "legacyEpisodeIndex",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "legacyPositionMs",
+            "columnName": "legacyPositionMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "legacyDurationMs",
+            "columnName": "legacyDurationMs",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "importVersion",
+            "contentDigest",
+            "storeKind",
+            "entryKey"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "legacy_import_batches",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "importVersion",
+              "contentDigest"
+            ],
+            "referencedColumns": [
+              "importVersion",
+              "contentDigest"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "playback_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`generation` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` BLOB NOT NULL, `workId` BLOB NOT NULL, `episodeKey` BLOB NOT NULL, `variantKey` BLOB NOT NULL, `sequence` INTEGER NOT NULL, `payload` TEXT, FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "generation",
+            "columnName": "generation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episodeKey",
+            "columnName": "episodeKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variantKey",
+            "columnName": "variantKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sequence",
+            "columnName": "sequence",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "generation"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_playback_sessions_sessionId",
+            "unique": true,
+            "columnNames": [
+              "sessionId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_playback_sessions_sessionId` ON `${TABLE_NAME}` (`sessionId`)"
+          },
+          {
+            "name": "index_playback_sessions_workId",
+            "unique": false,
+            "columnNames": [
+              "workId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playback_sessions_workId` ON `${TABLE_NAME}` (`workId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "playback_record_order",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, `episodeKey` BLOB NOT NULL, `variantKey` BLOB NOT NULL, `generation` INTEGER NOT NULL, PRIMARY KEY(`workId`, `episodeKey`, `variantKey`), FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`generation`) REFERENCES `playback_sessions`(`generation`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episodeKey",
+            "columnName": "episodeKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variantKey",
+            "columnName": "variantKey",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generation",
+            "columnName": "generation",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId",
+            "episodeKey",
+            "variantKey"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_playback_record_order_generation",
+            "unique": false,
+            "columnNames": [
+              "generation"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playback_record_order_generation` ON `${TABLE_NAME}` (`generation`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          },
+          {
+            "table": "playback_sessions",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "generation"
+            ],
+            "referencedColumns": [
+              "generation"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "playback_resume",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`workId` BLOB NOT NULL, `generation` INTEGER NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`workId`), FOREIGN KEY(`workId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`generation`) REFERENCES `playback_sessions`(`generation`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "workId",
+            "columnName": "workId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generation",
+            "columnName": "generation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "workId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_playback_resume_generation",
+            "unique": false,
+            "columnNames": [
+              "generation"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playback_resume_generation` ON `${TABLE_NAME}` (`generation`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "workId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          },
+          {
+            "table": "playback_sessions",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "generation"
+            ],
+            "referencedColumns": [
+              "generation"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "legacy_handoff_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `phase` TEXT NOT NULL, `importVersion` INTEGER NOT NULL, `contentDigest` TEXT NOT NULL, `mappingDigest` TEXT NOT NULL, `totalCount` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`importVersion`, `contentDigest`) REFERENCES `legacy_import_batches`(`importVersion`, `contentDigest`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phase",
+            "columnName": "phase",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importVersion",
+            "columnName": "importVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentDigest",
+            "columnName": "contentDigest",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mappingDigest",
+            "columnName": "mappingDigest",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalCount",
+            "columnName": "totalCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_legacy_handoff_state_importVersion_contentDigest",
+            "unique": false,
+            "columnNames": [
+              "importVersion",
+              "contentDigest"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_legacy_handoff_state_importVersion_contentDigest` ON `${TABLE_NAME}` (`importVersion`, `contentDigest`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "legacy_import_batches",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "importVersion",
+              "contentDigest"
+            ],
+            "referencedColumns": [
+              "importVersion",
+              "contentDigest"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "catalog_sources",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceId` BLOB NOT NULL, `available` INTEGER NOT NULL, PRIMARY KEY(`sourceId`))",
+        "fields": [
+          {
+            "fieldPath": "sourceId",
+            "columnName": "sourceId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "available",
+            "columnName": "available",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sourceId"
+          ]
+        }
+      },
+      {
+        "tableName": "catalog_endpoints",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`endpoint` BLOB NOT NULL, `sourceId` BLOB NOT NULL, `proofId` BLOB, PRIMARY KEY(`endpoint`), FOREIGN KEY(`sourceId`) REFERENCES `catalog_sources`(`sourceId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "endpoint",
+            "columnName": "endpoint",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceId",
+            "columnName": "sourceId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "proofId",
+            "columnName": "proofId",
+            "affinity": "BLOB"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "endpoint"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_catalog_endpoints_sourceId",
+            "unique": false,
+            "columnNames": [
+              "sourceId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_catalog_endpoints_sourceId` ON `${TABLE_NAME}` (`sourceId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "catalog_sources",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceId"
+            ],
+            "referencedColumns": [
+              "sourceId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "catalog_items",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceId` BLOB NOT NULL, `itemId` BLOB NOT NULL, `homeWorkId` BLOB NOT NULL, `groupWorkId` BLOB NOT NULL, PRIMARY KEY(`sourceId`, `itemId`), FOREIGN KEY(`sourceId`) REFERENCES `catalog_sources`(`sourceId`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`homeWorkId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`groupWorkId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "sourceId",
+            "columnName": "sourceId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemId",
+            "columnName": "itemId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "homeWorkId",
+            "columnName": "homeWorkId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "groupWorkId",
+            "columnName": "groupWorkId",
+            "affinity": "BLOB",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sourceId",
+            "itemId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_catalog_items_homeWorkId",
+            "unique": true,
+            "columnNames": [
+              "homeWorkId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_catalog_items_homeWorkId` ON `${TABLE_NAME}` (`homeWorkId`)"
+          },
+          {
+            "name": "index_catalog_items_groupWorkId",
+            "unique": false,
+            "columnNames": [
+              "groupWorkId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_catalog_items_groupWorkId` ON `${TABLE_NAME}` (`groupWorkId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "catalog_sources",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceId"
+            ],
+            "referencedColumns": [
+              "sourceId"
+            ]
+          },
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "homeWorkId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          },
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "groupWorkId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "catalog_captures",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`captureId` BLOB NOT NULL, `sourceId` BLOB NOT NULL, `itemId` BLOB, `payload` TEXT NOT NULL, `entriesPayload` TEXT NOT NULL, PRIMARY KEY(`captureId`), FOREIGN KEY(`sourceId`) REFERENCES `catalog_sources`(`sourceId`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`sourceId`, `itemId`) REFERENCES `catalog_items`(`sourceId`, `itemId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "captureId",
+            "columnName": "captureId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceId",
+            "columnName": "sourceId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemId",
+            "columnName": "itemId",
+            "affinity": "BLOB"
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entriesPayload",
+            "columnName": "entriesPayload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "captureId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_catalog_captures_sourceId_itemId",
+            "unique": false,
+            "columnNames": [
+              "sourceId",
+              "itemId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_catalog_captures_sourceId_itemId` ON `${TABLE_NAME}` (`sourceId`, `itemId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "catalog_sources",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceId"
+            ],
+            "referencedColumns": [
+              "sourceId"
+            ]
+          },
+          {
+            "table": "catalog_items",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceId",
+              "itemId"
+            ],
+            "referencedColumns": [
+              "sourceId",
+              "itemId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "catalog_entries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`entryId` BLOB NOT NULL, `sourceId` BLOB NOT NULL, `itemId` BLOB NOT NULL, `episodeId` BLOB NOT NULL, `variantId` BLOB NOT NULL, PRIMARY KEY(`entryId`), FOREIGN KEY(`sourceId`, `itemId`) REFERENCES `catalog_items`(`sourceId`, `itemId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "entryId",
+            "columnName": "entryId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceId",
+            "columnName": "sourceId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemId",
+            "columnName": "itemId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episodeId",
+            "columnName": "episodeId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variantId",
+            "columnName": "variantId",
+            "affinity": "BLOB",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "entryId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_catalog_entries_sourceId_itemId",
+            "unique": false,
+            "columnNames": [
+              "sourceId",
+              "itemId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_catalog_entries_sourceId_itemId` ON `${TABLE_NAME}` (`sourceId`, `itemId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "catalog_items",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceId",
+              "itemId"
+            ],
+            "referencedColumns": [
+              "sourceId",
+              "itemId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "catalog_routes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`captureId` BLOB NOT NULL, `entryId` BLOB NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`captureId`, `entryId`), FOREIGN KEY(`captureId`) REFERENCES `catalog_captures`(`captureId`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`entryId`) REFERENCES `catalog_entries`(`entryId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "captureId",
+            "columnName": "captureId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entryId",
+            "columnName": "entryId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "captureId",
+            "entryId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_catalog_routes_entryId",
+            "unique": false,
+            "columnNames": [
+              "entryId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_catalog_routes_entryId` ON `${TABLE_NAME}` (`entryId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "catalog_captures",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "captureId"
+            ],
+            "referencedColumns": [
+              "captureId"
+            ]
+          },
+          {
+            "table": "catalog_entries",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "entryId"
+            ],
+            "referencedColumns": [
+              "entryId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "catalog_verified_identifiers",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sourceId` BLOB NOT NULL, `itemId` BLOB NOT NULL, `namespace` BLOB NOT NULL, `identifier` BLOB NOT NULL, `proofId` BLOB NOT NULL, `revoked` INTEGER NOT NULL, PRIMARY KEY(`sourceId`, `itemId`, `namespace`, `identifier`, `proofId`), FOREIGN KEY(`sourceId`, `itemId`) REFERENCES `catalog_items`(`sourceId`, `itemId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "sourceId",
+            "columnName": "sourceId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemId",
+            "columnName": "itemId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "namespace",
+            "columnName": "namespace",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "identifier",
+            "columnName": "identifier",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "proofId",
+            "columnName": "proofId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revoked",
+            "columnName": "revoked",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sourceId",
+            "itemId",
+            "namespace",
+            "identifier",
+            "proofId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "catalog_items",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceId",
+              "itemId"
+            ],
+            "referencedColumns": [
+              "sourceId",
+              "itemId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "catalog_association_history",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`eventId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sourceId` BLOB NOT NULL, `itemId` BLOB NOT NULL, `fromWorkId` BLOB NOT NULL, `toWorkId` BLOB NOT NULL, `action` TEXT NOT NULL, `proofId` BLOB NOT NULL, `occurredAt` INTEGER NOT NULL, `detail` TEXT NOT NULL, FOREIGN KEY(`sourceId`, `itemId`) REFERENCES `catalog_items`(`sourceId`, `itemId`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`fromWorkId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`toWorkId`) REFERENCES `work_references`(`workId`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "fields": [
+          {
+            "fieldPath": "eventId",
+            "columnName": "eventId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceId",
+            "columnName": "sourceId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "itemId",
+            "columnName": "itemId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fromWorkId",
+            "columnName": "fromWorkId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "toWorkId",
+            "columnName": "toWorkId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "action",
+            "columnName": "action",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "proofId",
+            "columnName": "proofId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "occurredAt",
+            "columnName": "occurredAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detail",
+            "columnName": "detail",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "eventId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_catalog_association_history_sourceId_itemId",
+            "unique": false,
+            "columnNames": [
+              "sourceId",
+              "itemId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_catalog_association_history_sourceId_itemId` ON `${TABLE_NAME}` (`sourceId`, `itemId`)"
+          },
+          {
+            "name": "index_catalog_association_history_fromWorkId",
+            "unique": false,
+            "columnNames": [
+              "fromWorkId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_catalog_association_history_fromWorkId` ON `${TABLE_NAME}` (`fromWorkId`)"
+          },
+          {
+            "name": "index_catalog_association_history_toWorkId",
+            "unique": false,
+            "columnNames": [
+              "toWorkId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_catalog_association_history_toWorkId` ON `${TABLE_NAME}` (`toWorkId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "catalog_items",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sourceId",
+              "itemId"
+            ],
+            "referencedColumns": [
+              "sourceId",
+              "itemId"
+            ]
+          },
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "fromWorkId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          },
+          {
+            "table": "work_references",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "toWorkId"
+            ],
+            "referencedColumns": [
+              "workId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "candidate_capability_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`singleton` INTEGER NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`singleton`))",
+        "fields": [
+          {
+            "fieldPath": "singleton",
+            "columnName": "singleton",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "singleton"
+          ]
+        }
+      },
+      {
+        "tableName": "candidate_query_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`queryId` BLOB NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`queryId`))",
+        "fields": [
+          {
+            "fieldPath": "queryId",
+            "columnName": "queryId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "queryId"
+          ]
+        }
+      },
+      {
+        "tableName": "candidate_subscription_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`catalogId` BLOB NOT NULL, `payload` TEXT NOT NULL, PRIMARY KEY(`catalogId`))",
+        "fields": [
+          {
+            "fieldPath": "catalogId",
+            "columnName": "catalogId",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "catalogId"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5ec729a3d2197d66514163c16d39caf4')"
+    ]
+  }
+}

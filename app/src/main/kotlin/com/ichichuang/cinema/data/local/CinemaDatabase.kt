@@ -11,10 +11,12 @@ import com.ichichuang.cinema.data.local.entity.*
     BrowseSnapshotEntity::class, PlaybackSnapshotEntity::class, LegacyImportBatchEntity::class, LegacyImportRecordEntity::class,
     PlaybackSessionEntity::class, PlaybackRecordOrderEntity::class, PlaybackResumeEntity::class, LegacyHandoffEntity::class, CatalogSourceEntity::class, CatalogEndpointEntity::class, CatalogItemEntity::class,
         CatalogCaptureEntity::class, CatalogEntryEntity::class, CatalogRouteEntity::class,
-        CatalogVerifiedIdentifierEntity::class, CatalogAssociationHistoryEntity::class],
-    version = 4, exportSchema = true)
+        CatalogVerifiedIdentifierEntity::class, CatalogAssociationHistoryEntity::class, CandidateCapabilityStateEntity::class,
+        CandidateQuerySessionEntity::class, CandidateSubscriptionStateEntity::class],
+    version = 5, exportSchema = true)
 @TypeConverters(Utf16KeyConverter::class)
 internal abstract class CinemaDatabase : RoomDatabase() {
+    abstract fun querySubscription(): QuerySubscriptionDao
     abstract fun catalogIdentity(): CatalogIdentityDao
     abstract fun userRecords(): UserRecordsDao
     abstract fun browseSnapshots(): BrowseSnapshotsDao
