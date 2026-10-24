@@ -1,6 +1,27 @@
 # TV 重构进度
 
-Round 01–07 已留存，当前完成限定的 Round 08 离线候选作品身份与字段溯源切片；普通路径生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+Round 01–08 已留存，当前完成限定的 Round 09 合成来源能力、独立游标查询和授权订阅候选切片，并关闭 Round 08 两个覆盖缺口；普通路径生产接入与整体验收仍未完成。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+
+## Round 09 执行记录
+
+聊天明确授权按附件执行，仅本地提交，不推送、合并、发布或进入后续轮次。起点 `96962f6a5255431bf9d316a4bfacac0d55ef7ca3`；复用既有干净隔离工作树。ZIP、四项清单及三个单独附件全部校验一致；metadata-only fetch 后 main 与 origin/main 仍为原基线，未 pull 或改变分支。
+
+| 步骤 | 实际状态 |
+| --- | --- |
+| R09-1 | 原接口/十九表/schema1–4与两个Minor已核；真实seed两行缓存并淘汰、A–B–C三成员拆分和重开均实际native通过，原代码立即通过，不伪造RED |
+| R09-2 | 复用原始观察，字段供给/样本过滤证据/健康/新鲜度分开；精确alias失效、Room重开、时钟回拨及反序列化约束已测试；最终能力JVM17/17 |
+| R09-3 | 独立有限游标、预算、循环停止、代次/取消、部分覆盖、未知总量及既有证明分组；原始证据和两源入口保留；查询JVM17/17、native6/6 |
+| R09-4 | 声明式限额解析、显式发布者根、验签/重放/SSRF防护、提交时重验授权和停用项；订阅JVM21/21、native7/7；默认空目录兼容且原文件未改 |
+| R09-5 | 最终JVM276/276、Python62/62、native143/143逐方法一致；普通双门禁OFF全量140任务实际执行；双Lint0Error且告警多重集与Round08一致；schema1–4字节及十九旧表定义保持 |
+
+- Ruling: 原T02 `knownMatchedCount` 为可靠匹配总量；部分覆盖保留null，候选快照单独给出当前已证数量，不改变原公共契约。完整T07多维谓词/排序/年份UI均未实现。
+- Ruling: 新持久状态无法存入原十九表，采用唯一显式4→5迁移，仅增三个candidate表；真实v4十九表全行种子升级、外键检查及关闭重开通过，原schema1–4不改。
+- Ruling: 附件原件保留于忽略证据；仓库计划仅将个人绝对路径替为占位符，不放宽index安全规则。代价是原始字节需对照保存的附件。
+- Independent review: 各切片首审的能力1项、查询3项、订阅1项Important均有实际失败断言和修复后定向复审；全改动终审0Critical/0Important/1Minor。该Minor为较晚超时后回拨复活旧证明，作为新鲜度契约问题补JVM真实RED17/1→GREEN17/17并重跑native102项；限定复审确认addressed、修复新增0/0/0。审查者未独立运行测试/ADB，不把源码复审称为独立重跑。
+- Final verification: 143个原生方法来自最终修复后的102项候选/存储套件，加此前已通过且源码未变化的41项播放/交接回归；无skip/not-run/duplicate。独立进程恢复分别实测5544ms、7522ms且暂停。两台专用API30 ARM64 AVD固定serial5570/5572、逐操作门禁，现已关闭且host PID消失；共享ADB及合成数据保留。
+- Preserved: 二十九条关键普通运行/发布路径逐字节保持，默认sources为空，应用ID/0.9.8/code18、普通ARMv7、unsigned Release及签名冻结不变。未操作物理或个人设备、未扫描真实来源、未加生产信任根或媒体目录、未接运行DI或旧writer authority。
+- Local delivery: 实现提交 `3cb684fabcf0a98f9bc0845ecb40bcecaff6a562`，27个明确路径、3905增行/7删行；25项受测应用/测试/schema与暂存和commit blob一致，实现index302文件0所检查规则违规。本账本与验证报告另作本地文档提交，最终完整index303文件同样0违规；最终HEAD由Git日志与忽略证据final-delivery.json记录。仅保留既有无upstream本地分支，不建立远端分支、不push/merge/publish。
+- Evidence: [逐项验证及命令](../../verification/2026-10-24-round-09-source-query-subscription.md)、[实际接口与边界](../../architecture/tv-query-subscription.md)，原始日志/指纹/审阅在 `.local/evidence/round-09/`。只标记本轮合成T06切片与两个覆盖缺口；完整T06/M03/A14/A15/A17/A18/A21、真实来源、API24/ARMv7 TV/UI/生产验收均未完成。停止于Round09。
 
 ## Round 08 执行记录
 
@@ -223,7 +244,7 @@ Round 01–07 已留存，当前完成限定的 Round 08 离线候选作品身�
 | T03 数据库与迁移 | Round 02 候选与 synthetic staging 保持；R04 在专用 ARM64 AVD 实际执行 34/34 通过；真实旧数据、runtime cutover 及整个 T03／M02 未完成 |
 | T04 播放检查点 | Round 05 候选策略／真实持久仲裁与合成 schema 迁移已测试；149 JVM／61 native 全量通过；生产播放器未接入，整个 T04 未验收 |
 | T05 身份与字段标准化 | 未开始 |
-| T06 来源能力与订阅 | 未开始 |
+| T06 来源能力与订阅 | Round09合成候选切片及两个前轮覆盖缺口已测试；来源能力/独立有界分页/授权订阅候选已验证，普通路径未接入，完整T06/M03及A14/A15/A17/A18/A21未验收 |
 | T07 严格多维查询 | 未开始 |
 | T08 导航快照与焦点恢复 | 未开始 |
 | T09 续播、收藏、历史与播放器 | 未开始 |
