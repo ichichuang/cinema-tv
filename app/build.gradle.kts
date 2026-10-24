@@ -7,6 +7,24 @@ plugins {
     id("androidx.room")
 }
 
+// This opt-in only assembles a disposable instrumentation APK pair; it never installs.
+val storageTestArm64 = providers.gradleProperty("cinema.storageTestArm64")
+    .map { it.toBooleanStrict() }.getOrElse(false)
+if (storageTestArm64) {
+    val allowedTasks = setOf(":app:assembleDebug", ":app:assembleDebugAndroidTest")
+    if (gradle.startParameter.taskNames.isEmpty() || gradle.startParameter.taskNames.any { it !in allowedTasks }) {
+        throw GradleException("ARM64 存储测试仅允许 :app:assembleDebug 和 :app:assembleDebugAndroidTest；禁止 Release、bundle、发布或安装任务。")
+    }
+    gradle.taskGraph.whenReady {
+        if (allTasks.any { task ->
+                task.name.contains("release", ignoreCase = true) ||
+                    task.name.startsWith("publish", ignoreCase = true) || task.name == "bundleDebug"
+            }) {
+            throw GradleException("ARM64 存储测试任务图不得包含 Release、bundle 或发布任务。")
+        }
+    }
+}
+
 // Removing this freeze requires review of the signing migration and TV upgrade evidence.
 // A command-line property alone cannot re-enable signing during the incident.
 val releaseSigningFrozen = true
@@ -38,7 +56,6 @@ android {
         versionCode = 18
         versionName = "0.9.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        ndk { abiFilters += listOf("armeabi-v7a") }
     }
 
     signingConfigs {
@@ -60,11 +77,13 @@ android {
 
     buildTypes {
         debug {
+            ndk { abiFilters += if (storageTestArm64) "arm64-v8a" else "armeabi-v7a" }
             // Contributor builds cannot replace the installed production application.
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
         release {
+            ndk { abiFilters += "armeabi-v7a" }
             isMinifyEnabled = false
             // No fallback to the debug key or any repository-owned signing key.
             signingConfig = signingConfigs.findByName("externalRelease")

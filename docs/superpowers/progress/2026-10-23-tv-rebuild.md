@@ -1,6 +1,27 @@
 # TV 重构进度
 
-Round 01、Round 02 已留存，当前执行限定的 Round 03。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+Round 01–03 已留存，当前执行限定的 Round 04。原计划文件保持原样，执行状态以本记录及验证报告为准。最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
+
+## Round 04 执行记录
+
+起点 `541b7ce5370693c5f96c848bb0cd3e8ec8cbc7b5`，两处 checkout 干净。唯一执行计划 `2026-10-24-round-04-abi-native-verification.md` 的 SHA-256 为 `67c5a1c73022423ed574ec3ebe9f57d27b151e16790c14dfd0dbc6bffff096cc`；包内校验及独立附件字节均一致。原始计划和日志在忽略的 `.local/evidence/round-04/`；详见 [Round 04 记录](../../verification/2026-10-24-round-04-abi-native.md)。
+
+| 步骤 | 实际状态 |
+| --- | --- |
+| R04-1 ABI 根因与路线 | property-off 重建、实际 APK / AAR / ELF / AGP 合并逻辑已核实；选择 Route B，复用现有 API 30 ARM64 镜像 |
+| R04-2 隔离测试产物 | 打包前置断言 RED → GREEN；真实 ARM64 库、482 个非 JNI 条目相同；property-off 三个 manifest / JNI 与基线一致；Release / bundle / publish 及依赖注入门禁通过 |
+| R04-3 单目标原生执行 | 新建唯一 API 30 ARM64 AVD，emulator-5562；15 + 19 方法全部实际执行 / 通过，0 失败 / 跳过 / 未运行；目标已关闭 |
+| R04-4 实际缺陷修复 | 没有原生缺陷可修复，全部存储 / 测试源码保持；仅修正了本轮构建门禁误判 |
+| R04-5 回归、审阅、本地交付 | 应用 124/124、Python 62/62、135 个 Gradle 任务实际重跑通过；Debug / Release Lint 21 / 22 Warning，各 1 Hint、0 Error；独立只读审阅无 Critical / Important / Minor；审阅后 index 212 files、0 违规；仅本地交付，最终提交 HEAD 随终端交接记录，不推送 |
+
+- Pre-flight: R04-1 的实际依赖 / ABI 决定 R04-2 产物；R04-2 的兼容产物及 R04-3 的目标身份共同决定能否执行；仅 R04-3 复现的缺陷允许 R04-4 修复；R04-5 必须独立重建 property-off 产物，不能混用 opt-in 结果。
+- Ruling: 沿用既有账本对应 R04-1–R04-5，保留原计划字节而不改写为技能脚本的数字 Task 标题；原始证据不删除。原因：与既有记录及附件证据要求一致。代价：步骤需人工对应。
+- Ruling: 原始计划含个人路径，按既有 index 安全规则仅保存在忽略证据中，Git 记录文件名及 SHA-256。代价：复核原字节需要本地附件 / 忽略证据。
+- Ruling: 本轮明确只允许本地提交，不推送；专用分支无 upstream 是既定交付状态，不建立远端分支。代价：本轮没有远端备份。
+- Ruling: 使用现有 ARM64 镜像与真实 AAR 库，不下载其他镜像；明确两个 buildType 的 ABI，避免实际 addAll 合并造成混合 ABI。代价：测试结果只能证明 ARM64 候选行为，ARMv7 实机仍未验证。
+- Ruling: 保留 `.debug` 测试身份，因为原 fixture 明确要求此身份；以新建一次性 AVD 和逐命令 serial 门禁隔离数据，不修改原测试。代价：测试 APK 使用常规 Debug ID，必须坚持目标身份门禁。
+- Ruling: 保留两处 buildType ABI 声明造成的额外一条重复 ChromeOS 告警；实际普通产物与基线相同，不压制 Lint 或增加范围外 ABI。代价：Debug / Release Warning 数各增加 1。
+- Final review: 一次独立只读审阅，无 Critical / Important / Minor；未重跑测试，无审阅修正或二次复核。九项保留边界逐项裁定见 R04 报告：TV / ARMv7、进程 / 断电、真实耗尽、真实迁移 / T04、完整读失败编排、其他 DataStore 类型、设备端回提均未验证；index / commit 由作者随后实查；整个 T03 / M02 / A01–A24 与发布继续不作通过声明。代价：本轮原生证据严格限于所列候选操作。
 
 ## Round 03 执行记录
 
@@ -78,7 +99,7 @@ Round 01、Round 02 已留存，当前执行限定的 Round 03。原计划文件
 | G02 删除诊断 | 未实现，旧诊断保持原样 |
 | G03 全新视觉、原创图标、状态 | 未实现 |
 | G04 遥控器、焦点、动效 | 未实现 |
-| G05 页面、筛选、焦点、进度持久化 | 快照契约与候选存储／编码已实现；R03 已核实路径因 APK / 镜像 ABI 不匹配仍阻塞，未接运行时 |
+| G05 页面、筛选、焦点、进度持久化 | 快照契约与候选存储／编码已实现；R04 的 34 项候选存储原生检查在专用 ARM64 AVD 通过，未接运行时或验证用户体验 |
 | G06 续播、历史、收藏 | 接口与快照已定义，未实现功能 |
 | G07 多源统一数据、稳定身份 | ID 与字段依据类型已实现和单测，无身份关联算法 |
 | G08 严格分类、国家、类型、年份 | 字段与年份边界校验已实现和单测，无查询引擎 |
@@ -93,7 +114,7 @@ Round 01、Round 02 已留存，当前执行限定的 Round 03。原计划文件
 | --- | --- |
 | T01 基线与隔离 | 本地隔离、原有测试/构建/Lint 已核实；旧样本、设备矩阵等未完成 |
 | T02 规格冻结 | 数据契约及本轮持久化编码切片已通过纯测试；视觉／图标／交互等仍未完成，M01 未完成 |
-| T03 数据库与迁移 | Round 02 候选与 synthetic staging 保持；R03 主机回归通过，34 项原生测试因已核实的 ABI 不匹配仍为 0 执行；真实旧数据、runtime cutover 及整个 T03／M02 未完成 |
+| T03 数据库与迁移 | Round 02 候选与 synthetic staging 保持；R04 在专用 ARM64 AVD 实际执行 34/34 通过；真实旧数据、runtime cutover 及整个 T03／M02 未完成 |
 | T04 播放检查点 | 未开始 |
 | T05 身份与字段标准化 | 未开始 |
 | T06 来源能力与订阅 | 未开始 |
