@@ -49,6 +49,7 @@ internal object LegacyHandoffRuntime {
     }
     suspend fun capture(context: Context): LegacySnapshot = LegacySnapshotReader(stores(context)).capture(System.currentTimeMillis())
     suspend fun <T> legacyWrite(context: Context, action: suspend () -> T): T {
+        check(!BuildConfig.BROWSE_RESTORE_PROBE) { "浏览恢复测试禁止旧记录写入，请保留原数据" }
         if (!required(context) && !File(context.noBackupFilesDir, PROFILE).exists()) return action()
         val caller = currentCoroutineContext()
         return writers.legacy({ if (!present(context)) HandoffWriter.LEGACY else durableWriter(context) }) {
