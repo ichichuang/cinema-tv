@@ -2,6 +2,7 @@ package com.ichichuang.cinema.data.local
 
 import android.content.Context
 import androidx.room.Room
+import com.ichichuang.cinema.data.local.migration.PLAYBACK_MIGRATION_1_2
 
 /** Explicit candidate construction only; no singleton, legacy reads, or startup registration. */
 internal object CinemaDatabaseFactory {
@@ -9,6 +10,7 @@ internal object CinemaDatabaseFactory {
         require(databaseName.matches(Regex("[A-Za-z0-9_.-]+")) && databaseName != "." && databaseName != "..") {
             "A private candidate database name is required"
         }
-        return Room.databaseBuilder(context.applicationContext, CinemaDatabase::class.java, databaseName).build()
+        return Room.databaseBuilder(context.applicationContext, CinemaDatabase::class.java, databaseName)
+            .addMigrations(PLAYBACK_MIGRATION_1_2).build()
     }
 }

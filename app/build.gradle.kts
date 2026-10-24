@@ -95,6 +95,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true }
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
     lint { disable += "ExpiredTargetSdkVersion" }
     // Retain dependency license texts when several dependencies contribute the same name.
     packaging { resources { merges += listOf("/META-INF/AL2.0", "/META-INF/LGPL2.1") } }

@@ -194,7 +194,7 @@ class CinemaDatabaseTest : NativeStorageFixture() {
         database.close()
         withContext(Dispatchers.IO) {
             SQLiteDatabase.openDatabase(context.getDatabasePath(databaseName).path, null, SQLiteDatabase.OPEN_READWRITE).use {
-                it.version = 2
+                it.version = 3
             }
         }
         database = CinemaDatabaseFactory.open(context, databaseName)
@@ -202,7 +202,7 @@ class CinemaDatabaseTest : NativeStorageFixture() {
         database.close()
         withContext(Dispatchers.IO) {
             SQLiteDatabase.openDatabase(context.getDatabasePath(databaseName).path, null, SQLiteDatabase.OPEN_READONLY).use { sql ->
-                assertEquals(2, sql.version)
+                assertEquals(3, sql.version)
                 sql.rawQuery("SELECT COUNT(*) FROM favorites", null).use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
             }
         }
