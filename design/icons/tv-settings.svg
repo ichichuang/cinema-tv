@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- cinema-tv 原创图标母版：设置（概念 tv-settings） -->
+<!-- 作者：cinema-tv 项目（2026-10-25），本路径为本项目手工绘制，未复制任何第三方图标库数据。 -->
+<!-- 规则：24x24 网格；fill=none；stroke=currentColor；stroke-width=2；圆头端点与拐角。 -->
+<!-- 光学说明：三档滑杆：与齿轮区分，表达可调节而非机械。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="设置">
+  <path d="M4.5 7.2 H20 M4.5 12 H20 M4.5 16.8 H20 M7.5 7.2 A2 2 0 1 0 11.5 7.2 A2 2 0 1 0 7.5 7.2 M13 12 A2 2 0 1 0 17 12 A2 2 0 1 0 13 12 M6 16.8 A2 2 0 1 0 10 16.8 A2 2 0 1 0 6 16.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

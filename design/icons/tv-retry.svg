@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- cinema-tv 原创图标母版：重试（概念 tv-retry） -->
+<!-- 作者：cinema-tv 项目（2026-10-25），本路径为本项目手工绘制，未复制任何第三方图标库数据。 -->
+<!-- 规则：24x24 网格；fill=none；stroke=currentColor；stroke-width=2；圆头端点与拐角。 -->
+<!-- 光学说明：近整圈弧线+开口箭头，缺口留在右上，暗示可再次触发。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="重试">
+  <path d="M19.2 12.0 A7.2 7.2 0 1 1 15.9 6.3 M15.9 6.3 L16.4 2.9 M15.9 6.3 L12.6 6.0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

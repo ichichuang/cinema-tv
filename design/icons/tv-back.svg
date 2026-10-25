@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- cinema-tv 原创图标母版：返回（概念 tv-back） -->
+<!-- 作者：cinema-tv 项目（2026-10-25），本路径为本项目手工绘制，未复制任何第三方图标库数据。 -->
+<!-- 规则：24x24 网格；fill=none；stroke=currentColor；stroke-width=2；圆头端点与拐角。 -->
+<!-- 光学说明：单折线粗箭头（> 形），2 单位描边即视觉重量，无尾线。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="返回">
+  <path d="M14.6 4.8 L7.4 12.0 L14.6 19.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

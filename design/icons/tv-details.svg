@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- cinema-tv 原创图标母版：查看详情（概念 tv-details） -->
+<!-- 作者：cinema-tv 项目（2026-10-25），本路径为本项目手工绘制，未复制任何第三方图标库数据。 -->
+<!-- 规则：24x24 网格；fill=none；stroke=currentColor；stroke-width=2；圆头端点与拐角。 -->
+<!-- 光学说明：放大镜内置两行资料线，表达“检查细节”。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="查看详情">
+  <path d="M10.6 5.0 A5.6 5.6 0 1 0 10.6 16.2 A5.6 5.6 0 1 0 10.6 5.0 M14.7 14.7 L19.8 19.8 M8.2 9.2 H13.0 M8.2 11.8 H11.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
