@@ -125,10 +125,13 @@ internal class BrowseProbeRuntime(
     val isPlayer get() = navigation?.returnChain?.lastOrNull() == BrowseChildRoute.PLAYER
     val isDetail get() = navigation?.returnChain?.isNotEmpty() == true
 
+    /** R13 首页共享同一个人库实例；列表变化时同步通知首页重投影（只读，无第二写入者）。 */
+    var onPersonalChanged: (() -> Unit)? = null
+
     suspend fun start() {
         val ticket = restore.reserveLoad() // Before any asynchronous Room/fixture wait.
         BrowseProbeTestHooks.beforeLoad?.await()
-        personal?.start { personalListsChanged() }
+        personal?.start { personalListsChanged(); onPersonalChanged?.invoke() }
         val saved = store.loadActive() ?: RestoreNavigationState(fixture.initial)
         val token = restore.completeLoad(ticket, saved.snapshot)
         // A cancelled initial load may still populate an empty page after user input,
@@ -234,6 +237,26 @@ internal class BrowseProbeRuntime(
             flush()
         }
     }
+
+    /** R13 首页卡片入口：沿用既有详情/播放语义；续播走真实检查点并保持暂停恢复。 */
+    fun openFromHome(workId: WorkId, resume: Boolean) {
+        leave(cancelOnInput = true) { current ->
+            focused = workId; focusedControl = null
+            if (resume && personal != null) {
+                val prepared = personal.prepare(workId.value)
+                if (!current()) return@leave
+                selected = workId
+                personal.detailFocus = if (prepared) "播放暂停" else "详情返回"
+                val child = if (prepared) BrowseChildRoute.PLAYER else BrowseChildRoute.DETAIL
+                val state = requireNotNull(stateNow()).enter(child)
+                navigation = state; checkpointToken = checkpoint.begin(state)
+                flush()
+            } else openDetail()
+        }
+    }
+
+    /** R13 候选设置入口的真实筛选栏开关；与既有移除入口同域，不新增持久层。 */
+    fun setFilterBarVisible(visible: Boolean) { filterVisible = visible }
     fun back(exit: () -> Unit) {
         if (personal?.confirmation == true) { personal.confirmation = false; personal.detailFocus = "删除观看记录"; return }
         if (modal) { modal = false; controlTarget = modalReturnControl(modalInvoker, modalInvokerRow, toolbarControls(), "片库"); return }
@@ -343,7 +366,7 @@ internal class BrowseProbeRuntime(
     private fun personalResult(query: CatalogQuery): Pair<List<BrowseProbeFixture.Work>, CatalogResult>? {
         val owner = personal ?: return null
         val cards = when (top) {
-            BrowseTopLevel.LIBRARY -> return null
+            BrowseTopLevel.LIBRARY, BrowseTopLevel.HOME -> return null
             BrowseTopLevel.FAVORITES -> owner.favorites
             BrowseTopLevel.HISTORY -> owner.history
             BrowseTopLevel.CONTINUE -> owner.continuing

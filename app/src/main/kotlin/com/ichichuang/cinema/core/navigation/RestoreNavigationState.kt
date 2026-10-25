@@ -30,7 +30,9 @@ internal sealed interface RestoreOutcome {
 
 /** Only stable destinations can be persisted; modal/command routes cannot be represented. */
 internal enum class BrowseTopLevel(val route: String) {
-    LIBRARY("library"), FAVORITES("favorites"), HISTORY("history"), CONTINUE("continue");
+    LIBRARY("library"), FAVORITES("favorites"), HISTORY("history"), CONTINUE("continue"),
+    /** R13 visual home projection context; the browse runtime itself never switches to it. */
+    HOME("home");
     /** R10 query IDs are immutable identities: changed filters/sort/sources require a new queryId. */
     fun contextKey(query: CatalogQuery) = "$route:${query.queryId}"
 }

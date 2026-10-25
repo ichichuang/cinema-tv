@@ -155,22 +155,39 @@ fun CinemaNavHost(
 internal fun CinemaNavHost(
     probe: com.ichichuang.cinema.feature.browse.BrowseProbeRuntime,
     onExit: () -> Unit,
+    home: com.ichichuang.cinema.feature.home.visual.VisualHomeRuntime? = null,
 ) {
     check(com.ichichuang.cinema.BuildConfig.BROWSE_RESTORE_PROBE)
     val nav = rememberNavController()
-    val destination = when { probe.isPlayer -> "候选播放器"; probe.isDetail -> "候选详情"; else -> "候选浏览" }
+    // 候选根画面：R13 首页存在时以“候选首页”为根，浏览/设置成为根级目的地；
+    // 详情与播放器始终是浏览运行时的子层，叠在任何根画面之上。
+    val root = if (home != null) "候选首页" else "候选浏览"
+    val settingsActive = home != null && home.screen == com.ichichuang.cinema.feature.home.visual.HomeRootScreen.SETTINGS
+    val browseActive = home != null && home.screen == com.ichichuang.cinema.feature.home.visual.HomeRootScreen.BROWSE
+    val destination = when {
+        probe.isPlayer -> "候选播放器"
+        probe.isDetail -> "候选详情"
+        settingsActive -> "候选设置"
+        browseActive -> "候选浏览"
+        else -> root
+    }
     androidx.compose.runtime.LaunchedEffect(destination) {
-        when (destination) {
-            "候选播放器" -> {
-                if (com.ichichuang.cinema.core.navigation.BrowseChildRoute.DETAIL in probe.navigation!!.returnChain && nav.currentDestination?.route == "候选浏览") nav.navigate("候选详情")
-                if (nav.currentDestination?.route != destination) nav.navigate(destination)
+        if (nav.currentDestination?.route != destination) {
+            when (destination) {
+                "候选播放器" -> {
+                    if (com.ichichuang.cinema.core.navigation.BrowseChildRoute.DETAIL in probe.navigation!!.returnChain && nav.currentDestination?.route == root) nav.navigate("候选详情")
+                    if (nav.currentDestination?.route != destination) nav.navigate(destination)
+                }
+                else -> if (!nav.popBackStack(destination, false)) nav.navigate(destination)
             }
-            "候选详情" -> if (!nav.popBackStack(destination, false) && nav.currentDestination?.route != destination) nav.navigate(destination)
-            else -> nav.popBackStack("候选浏览", false)
         }
     }
-    NavHost(nav, startDestination = "候选浏览", enterTransition = { androidx.compose.animation.EnterTransition.None },
+    NavHost(nav, startDestination = root, enterTransition = { androidx.compose.animation.EnterTransition.None },
         exitTransition = { androidx.compose.animation.ExitTransition.None }) {
+        if (home != null) {
+            composable("候选首页") { com.ichichuang.cinema.feature.home.visual.TvHomeScreen(home, onExit) }
+            composable("候选设置") { com.ichichuang.cinema.feature.home.visual.CandidateSettingsScreen(home, onExit) }
+        }
         composable("候选浏览") { com.ichichuang.cinema.feature.browse.BrowseProbeScreen(probe, onExit) }
         composable("候选详情") { com.ichichuang.cinema.feature.browse.BrowseProbeDetail(probe, onExit) }
         composable("候选播放器") { com.ichichuang.cinema.feature.personal.PersonalLibraryPlayer(probe, onExit) }

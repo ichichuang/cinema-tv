@@ -34,6 +34,10 @@ internal object PersonalLibraryAuthorization {
 internal object PersonalLibraryTestHooks {
     var beforeProjection: CompletableDeferred<Unit>? = null
     val projectionDeliveries = java.util.concurrent.atomic.AtomicInteger(0)
+    /** R13 回执丢失注入：仅原生测试置位；下一次真实提交后的 UI 回执被丢弃一次（数据已落库）。 */
+    val lostReceiptAcknowledgements = java.util.concurrent.atomic.AtomicInteger(0)
+    fun consumeLostReceipt(): Boolean =
+        lostReceiptAcknowledgements.getAndUpdate { if (it > 0) it - 1 else 0 } > 0
 }
 
 /** Uses the same owned database and the existing Media3 bridge; no second progress writer. */
@@ -152,6 +156,15 @@ internal class PersonalLibraryRuntime(
             } else if (it == CommitResult.RejectedStale) {
                 pendingFavorites.remove(id); pendingUnfavorites.remove(id)
                 message = "收藏状态已变化，本次操作未执行，请重新确认"
+            }
+        }.also { result ->
+            // R13 回执丢失注入点：仓储已真实提交，UI 回执被丢弃一次。
+            // 待定意图必须延续 —— 否则重试会读到已提交状态而反向切换（R12-M1 歧义）；
+            // 重试按同一幂等目标值收敛，不伪造永久失败。
+            if (result == CommitResult.Committed && PersonalLibraryTestHooks.consumeLostReceipt()) {
+                pendingFavorites[id] = selected
+                message = "操作未保存或确认尚未完成，请重试并检查记录"
+                trace()
             }
         }
     }

@@ -60,6 +60,23 @@ if (personalLibraryProbe) {
     }
 }
 
+// The R13 visual home slice shares every earlier probe authority; it adds no new credential path.
+val homeVisualProbe = providers.gradleProperty("cinema.homeVisualProbe")
+    .map { it.toBooleanStrict() }.getOrElse(false)
+if (homeVisualProbe) {
+    val pair = setOf(":app:assembleDebug", ":app:assembleDebugAndroidTest")
+    if (gradle.startParameter.taskNames.toSet() != pair || !personalLibraryProbe || !browseRestoreProbe || !playbackRoomProbe || !storageTestArm64) {
+        throw GradleException("首页视觉探针仅允许完整 Debug / DebugAndroidTest 配对及已有个人记录、浏览、播放、ARM64 测试授权；禁止安装、Release、bundle、发布或签名。")
+    }
+    gradle.taskGraph.whenReady {
+        if (allTasks.any { it.name.contains("release", ignoreCase = true) ||
+                it.name.startsWith("publish", ignoreCase = true) || it.name.startsWith("install", ignoreCase = true) ||
+                it.name == "bundleDebug" }) {
+            throw GradleException("首页视觉探针任务图禁止 Release、bundle、发布、签名或安装。")
+        }
+    }
+}
+
 // This opt-in only assembles a disposable instrumentation APK pair; it never installs.
 if (storageTestArm64) {
     val allowedTasks = setOf(":app:assembleDebug", ":app:assembleDebugAndroidTest")
@@ -110,6 +127,7 @@ android {
         buildConfigField("boolean", "PLAYBACK_ROOM_PROBE", "false")
         buildConfigField("boolean", "BROWSE_RESTORE_PROBE", "false")
         buildConfigField("boolean", "PERSONAL_LIBRARY_PROBE", "false")
+        buildConfigField("boolean", "HOME_VISUAL_PROBE", "false")
     }
 
     signingConfigs {
@@ -134,6 +152,7 @@ android {
             buildConfigField("boolean", "PLAYBACK_ROOM_PROBE", playbackRoomProbe.toString())
             buildConfigField("boolean", "BROWSE_RESTORE_PROBE", browseRestoreProbe.toString())
             buildConfigField("boolean", "PERSONAL_LIBRARY_PROBE", personalLibraryProbe.toString())
+            buildConfigField("boolean", "HOME_VISUAL_PROBE", homeVisualProbe.toString())
             ndk { abiFilters += if (storageTestArm64) "arm64-v8a" else "armeabi-v7a" }
             // Contributor builds cannot replace the installed production application.
             applicationIdSuffix = ".debug"

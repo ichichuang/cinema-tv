@@ -130,7 +130,7 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
             Text(runtime.personal?.message?.takeIf { it.isNotBlank() } ?: runtime.status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("覆盖状态"))
             if (runtime.navigation != null) {
-                Text("${when(runtime.top) { BrowseTopLevel.LIBRARY -> "片库"; BrowseTopLevel.FAVORITES -> "收藏"; BrowseTopLevel.HISTORY -> "历史"; BrowseTopLevel.CONTINUE -> "继续观看" }} · ${result?.items?.size ?: 0} 项已核对", color = MaterialTheme.colorScheme.onSurface)
+                Text("${when(runtime.top) { BrowseTopLevel.LIBRARY -> "片库"; BrowseTopLevel.FAVORITES -> "收藏"; BrowseTopLevel.HISTORY -> "历史"; BrowseTopLevel.CONTINUE -> "继续观看"; BrowseTopLevel.HOME -> "首页" }} · ${result?.items?.size ?: 0} 项已核对", color = MaterialTheme.colorScheme.onSurface)
             }
             if (runtime.personal != null && runtime.top != BrowseTopLevel.LIBRARY && items.isEmpty()) {
                 Text(when (runtime.top) { BrowseTopLevel.FAVORITES -> "暂无收藏"; BrowseTopLevel.HISTORY -> "暂无实际观看记录"; else -> "暂无可继续观看的记录" },
