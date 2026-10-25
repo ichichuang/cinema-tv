@@ -19,6 +19,15 @@ internal class BrowseProbeFixture(context: Context) {
     val savedOrder = data.getJSONArray("order").let { array -> (0 until array.length()).map { WorkId(array.getString(it)) } }
     val complete = data.getBoolean("complete")
     val saveDelayMillis = data.optLong("saveDelayMillis", 0).also { require(it in 0..10_000) }
+    /** R14 片库合成查询计划：旧 fixture 无此对象时使用全默认值，浏览/个人座行为不变。 */
+    val library: LibraryPlan = data.optJSONObject("library")?.let { plan -> LibraryPlan(
+        plan.optInt("pageSize", 25).also { require(it in 1..100) },
+        plan.optJSONArray("failingSources")?.let { array -> (0 until array.length()).map { array.getString(it) }.toSet() } ?: emptySet(),
+        plan.optJSONObject("mirrorSources")?.let { obj -> obj.keys().asSequence().associateWith { obj.getString(it) } } ?: emptyMap()) } ?: LibraryPlan()
+
+    /** 镜像来源声明：同一已证作品在第二来源的合成再发布；vod_id 不同、作品身份相同。 */
+    data class LibraryPlan(val pageSize: Int = 25, val failingSources: Set<String> = emptySet(),
+        val mirrorSources: Map<String, String> = emptyMap())
     data class Work(val id: WorkId, val title: String, val source: SourceId,
         val facts: StrictWorkFacts, val favorite: Boolean, val history: Boolean,
         /** R13 测试专用合成图（可选）；旧 fixture 无此字段即 null，生产数据无图即无图。 */
