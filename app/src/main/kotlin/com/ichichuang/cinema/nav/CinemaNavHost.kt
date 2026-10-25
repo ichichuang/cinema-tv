@@ -156,6 +156,7 @@ internal fun CinemaNavHost(
     probe: com.ichichuang.cinema.feature.browse.BrowseProbeRuntime,
     onExit: () -> Unit,
     home: com.ichichuang.cinema.feature.home.visual.VisualHomeRuntime? = null,
+    detail: com.ichichuang.cinema.feature.detail.WorkDetailRuntime? = null,
 ) {
     check(com.ichichuang.cinema.BuildConfig.BROWSE_RESTORE_PROBE)
     val nav = rememberNavController()
@@ -196,7 +197,11 @@ internal fun CinemaNavHost(
             }
         }
         composable("候选浏览") { com.ichichuang.cinema.feature.browse.BrowseProbeScreen(probe, onExit) }
-        composable("候选详情") { com.ichichuang.cinema.feature.browse.BrowseProbeDetail(probe, onExit) }
+        composable("候选详情") {
+            // R15 详情切片仅在全部探针配对就位时替换详情层渲染；否则维持 R12 详情层。
+            if (detail != null) com.ichichuang.cinema.feature.detail.TvWorkDetailScreen(detail, onExit)
+            else com.ichichuang.cinema.feature.browse.BrowseProbeDetail(probe, onExit)
+        }
         composable("候选播放器") { com.ichichuang.cinema.feature.personal.PersonalLibraryPlayer(probe, onExit) }
     }
 }

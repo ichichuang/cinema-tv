@@ -454,6 +454,16 @@ internal class BrowseProbeRuntime(
         }
     }
 
+    /** R15 详情切片：精确（作品,剧集,版本）已由既有管线就绪后进入播放器子层。 */
+    fun enterPlayerPrepared(id: WorkId) {
+        val owner = personal ?: return
+        leave(cancelOnInput = true) {
+            selected = id; owner.detailFocus = "播放暂停"
+            val state = requireNotNull(stateNow()).enter(BrowseChildRoute.PLAYER)
+            navigation = state; checkpointToken = checkpoint.begin(state); flush()
+        }
+    }
+
     private fun trace() {
         val snapshot = navigation?.snapshot
         File(context.noBackupFilesDir, "round11-browse-trace.json").writeText(org.json.JSONObject()

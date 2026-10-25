@@ -93,8 +93,10 @@ internal fun TvLibraryScreen(runtime: LibraryRuntime, onExit: () -> Unit) {
                 ?: return@LaunchedEffect
             if (positioning.workId != null) {
                 val anchorIndex = items.indexOfFirst { it.workId == positioning.workId.value }
-                if (anchorIndex < 0) return@LaunchedEffect
-                grid.scrollToItem(anchorIndex, (-positioning.relativeOffset * viewportHeight).toInt().coerceAtLeast(0))
+                // R15：锚点作品已从结果消失时不再卡死定位——跳过滚动但放行恢复判定，
+                // 由协调器按全量已知序回退到原行最近存活邻居（无邻居才回控制层）。
+                if (anchorIndex >= 0)
+                    grid.scrollToItem(anchorIndex, (-positioning.relativeOffset * viewportHeight).toInt().coerceAtLeast(0))
             }
             if (runtime.restoreToken != token || runtime.layoutToken != pass) return@LaunchedEffect
             anchorPositioned = true

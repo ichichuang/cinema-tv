@@ -39,12 +39,26 @@ internal class BrowseProbeFixture(context: Context) {
         fun ids(name: String) = FactIds.of(item.getJSONArray(name).let { values ->
             (0 until values.length()).map { values.getString(it) }.toSet() })
         val languages = ids("languages")
+        // R15 可选证据字段：旧 fixture 不带即保持既有全部 Confirmed 行为（回归零变化）。
+        val yearEvidence = when {
+            item.optString("yearEvidence") == "unknown" -> FieldEvidence.Unknown()
+            item.optJSONArray("yearClaims") != null -> FieldEvidence.Conflict.of(
+                (0 until item.getJSONArray("yearClaims").length()).map {
+                    FieldEvidence.SourceReported(item.getJSONArray("yearClaims").getInt(it), reference) })
+            else -> FieldEvidence.Confirmed(item.getInt("year"), reference)
+        }
+        val languageEvidence = item.optJSONArray("languageClaims")?.let { claims ->
+            FieldEvidence.Conflict.of((0 until claims.length()).map { c ->
+                val claim = claims.getJSONArray(c)
+                FieldEvidence.SourceReported(FactIds.of((0 until claim.length()).map { claim.getString(it) }.toSet()), reference)
+            })
+        } ?: FieldEvidence.Confirmed(languages, reference)
         Work(WorkId(item.getString("id")), item.getString("title"), source,
-            StrictWorkFacts(FieldEvidence.Confirmed(item.getInt("year"), reference),
+            StrictWorkFacts(yearEvidence,
                 FieldEvidence.Confirmed(ids("countries"), reference),
                 FieldEvidence.Confirmed(ids("genres"), reference),
                 FieldEvidence.Confirmed(ContentKind.valueOf(item.getString("kind")), reference),
-                FieldEvidence.Confirmed(languages, reference), FieldEvidence.Confirmed(languages, reference)),
+                languageEvidence, languageEvidence),
             item.getBoolean("favorite"), item.getBoolean("history"),
             item.optString("artwork").takeIf { it.isNotBlank() },
             when (item.optString("artworkShape")) { "portrait" -> HomeImageShape.PORTRAIT; "landscape" -> HomeImageShape.LANDSCAPE; else -> HomeImageShape.UNKNOWN })

@@ -240,6 +240,24 @@ internal class PersonalLibraryRuntime(
         }
         catch (_: Exception) { message = "播放资料读取失败，请重试；原记录保持"; false }
     }
+    /** R15 详情切片：按用户确认的精确（作品,剧集,版本）准备并保持暂停；
+     *  续播位置只映射完全相同的目标，绝不携带其他版本的检查点。 */
+    suspend fun prepareTarget(id: String, episodeId: String, variantId: String): Boolean {
+        val media = catalog.probeMedia.singleOrNull {
+            it.target.workId.value == id && it.target.episodeId?.value == episodeId && it.target.variantId?.value == variantId
+        }
+        if (media == null) { message = availability(id); return false }
+        if (remember(id) != CommitResult.Committed) { message = "作品资料未保存，请重试"; return false }
+        return try {
+            val selected = probe.select(catalog, media.detail, media.lineIndex, media.episodeIndex, autoPlay = false)
+                ?: return false
+            versionChoiceWork = null; explicitChoiceTarget = null; versionChoiceDescription = ""
+            selectedMedia = selected; requestedResumePosition = player.currentPosition
+            player.pause(); message = "已按所选线路与集数准备，按播放后才会开始"; trace(); true
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: IllegalArgumentException) { message = "所选剧集或版本与已存进度不一致，原记录保持"; false }
+        catch (_: Exception) { message = "播放资料读取失败，请重试；原记录保持"; false }
+    }
     fun togglePlaying() { if (player.isPlaying) player.pause() else player.play(); trace() }
     suspend fun retry() { probe.retry() }
     fun pause() { player.pause(); scope.launch { probe.boundary(); trace() } }

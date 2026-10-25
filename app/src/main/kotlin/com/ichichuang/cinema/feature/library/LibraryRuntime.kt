@@ -231,7 +231,7 @@ internal class LibraryRuntime(
         // 重开已提交查询时沿用其编号起点，后续用户查询只递增、不回卷复用。
         queryCounter = initial.queryId.substringAfterLast('-').toLongOrNull() ?: 0
         installQuery(initial, saved?.snapshot, ticket)
-        LibraryTestHooks.traceFocus("start installed=${initial.queryId} saved=${saved != null}")
+        LibraryTestHooks.traceFocus("start installed=${initial.queryId} saved=${saved != null} savedFocused=${saved?.snapshot?.focusedWorkId?.value} savedAnchor=${saved?.snapshot?.anchorWorkId?.value}")
     }
 
     /** 新查询身份只能由用户意图触发：完整字段、新上下文键、新结果上下文。 */
@@ -530,6 +530,9 @@ internal class LibraryRuntime(
         focused = null; focusedControl = key
         if (controlTarget == key) controlTarget = null
     }
+
+    /** 当前结果修订号（只读）：供测试把真实 observation 与真实协调器对账（R15 N10）。 */
+    internal val currentResultRevision: Long get() = revision
 
     fun observation(ready: Set<String>, pass: RestoreLayoutToken, pageReady: Boolean): RestoreObservation {
         val state = requireNotNull(navigation)

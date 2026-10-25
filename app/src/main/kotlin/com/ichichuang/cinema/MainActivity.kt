@@ -42,6 +42,8 @@ class MainActivity : ComponentActivity(), KoinComponent {
         private set
     internal var libraryProbe by mutableStateOf<com.ichichuang.cinema.feature.library.LibraryRuntime?>(null)
         private set
+    internal var detailProbe by mutableStateOf<com.ichichuang.cinema.feature.detail.WorkDetailRuntime?>(null)
+        private set
     private var probeError by mutableStateOf<String?>(null)
 
     override fun onPause() {
@@ -68,7 +70,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
             val ordinaryCallback = requireNotNull(window.callback)
             window.callback = object : android.view.Window.Callback by ordinaryCallback {
                 override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-                    // 首页是候选根画面：先由首页处理；浏览/子层按键再交浏览运行时。
+                    // 详情是浏览运行时的最上层子画面：先由 R15 详情运行时处理；
+                    // 首页是候选根画面：再由首页处理；浏览/子层按键最后交浏览运行时。
+                    if (detailProbe?.key(event) { finish() } == true) return true
                     if (homeProbe?.key(event) { finish() } == true) return true
                     if (browseProbe?.key(event) { homeProbe?.returnToHome() ?: finish() } == true) return true
                     return ordinaryCallback.dispatchKeyEvent(event)
@@ -80,10 +84,12 @@ class MainActivity : ComponentActivity(), KoinComponent {
                     BrowseProbeTestHooks.activeLeases.incrementAndGet()
                     com.ichichuang.cinema.feature.home.visual.VisualHomeTestHooks.activeLeases.incrementAndGet()
                     com.ichichuang.cinema.feature.library.LibraryTestHooks.activeLeases.incrementAndGet()
+                    com.ichichuang.cinema.feature.detail.WorkDetailTestHooks.activeLeases.incrementAndGet()
                     try {
                         if (BuildConfig.PERSONAL_LIBRARY_PROBE) com.ichichuang.cinema.feature.personal.PersonalLibraryAuthorization.requireOwned(this@MainActivity)
                         if (BuildConfig.HOME_VISUAL_PROBE) com.ichichuang.cinema.feature.home.visual.VisualHomeAuthorization.requireOwned(this@MainActivity)
                         if (BuildConfig.LIBRARY_FILTER_PROBE) com.ichichuang.cinema.feature.library.LibraryAuthorization.requireOwned(this@MainActivity)
+                        if (BuildConfig.DETAIL_PROBE) com.ichichuang.cinema.feature.detail.WorkDetailAuthorization.requireOwned(this@MainActivity)
                         DebugBrowseProbeGate.withOwnedProfile(this@MainActivity) { database ->
                             coroutineScope {
                                 val fixture = withContext(Dispatchers.IO) { BrowseProbeFixture(this@MainActivity) }
@@ -94,9 +100,19 @@ class MainActivity : ComponentActivity(), KoinComponent {
                                     com.ichichuang.cinema.feature.library.LibraryRuntime(this@MainActivity, runtime, database, this, fixture) else null
                                 val home = if (BuildConfig.HOME_VISUAL_PROBE && BuildConfig.PERSONAL_LIBRARY_PROBE)
                                     com.ichichuang.cinema.feature.home.visual.VisualHomeRuntime(this@MainActivity, runtime, database, this, fixture, library) else null
+                                // R15 详情切片：链在全部既有探针授权之上（缺一即不构造），不新增激活入口。
+                                val detail = if (BuildConfig.DETAIL_PROBE && BuildConfig.LIBRARY_FILTER_PROBE &&
+                                    BuildConfig.HOME_VISUAL_PROBE && BuildConfig.PERSONAL_LIBRARY_PROBE)
+                                    com.ichichuang.cinema.feature.detail.WorkDetailRuntime(this@MainActivity, runtime, this, fixture) else null
+                                // 个人记录变化既通知首页重投影，也让 R15 详情按钮/徽标反映已提交状态。
+                                if (detail != null) {
+                                    val priorChanged = runtime.onPersonalChanged
+                                    runtime.onPersonalChanged = { priorChanged?.invoke(); detail.personalRecordsChanged() }
+                                }
                                 // 先就位首页再发布浏览运行时，导航图一次成型（候选首页为根）。
                                 homeProbe = home
                                 libraryProbe = library
+                                detailProbe = detail
                                 browseProbe = runtime
                                 try {
                                     runtime.start()
@@ -114,8 +130,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
                             }
                         }
                     } catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { homeProbe = null; libraryProbe = null; browseProbe = null; probeError = "无法进入浏览测试，请检查独立测试授权与本地资料" }
+                    catch (_: Exception) { homeProbe = null; libraryProbe = null; detailProbe = null; browseProbe = null; probeError = "无法进入浏览测试，请检查独立测试授权与本地资料" }
                     finally {
+                        com.ichichuang.cinema.feature.detail.WorkDetailTestHooks.activeLeases.decrementAndGet()
                         com.ichichuang.cinema.feature.library.LibraryTestHooks.activeLeases.decrementAndGet()
                         com.ichichuang.cinema.feature.home.visual.VisualHomeTestHooks.activeLeases.decrementAndGet()
                         BrowseProbeTestHooks.activeLeases.decrementAndGet()
@@ -125,7 +142,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
             setContent {
                 CinemaTheme {
                     val runtime = browseProbe
-                    if (runtime != null) CinemaNavHost(runtime, onExit = { finish() }, home = homeProbe)
+                    if (runtime != null) CinemaNavHost(runtime, onExit = { finish() }, home = homeProbe, detail = detailProbe)
                     else Text(probeError ?: "正在核验独立浏览测试环境", modifier = androidx.compose.ui.Modifier.then(
                         if (probeError != null) androidx.compose.ui.Modifier.testTag("浏览测试不可用") else androidx.compose.ui.Modifier))
                 }
