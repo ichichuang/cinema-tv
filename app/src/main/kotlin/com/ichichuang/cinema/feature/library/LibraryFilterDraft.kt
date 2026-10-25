@@ -82,6 +82,9 @@ internal object LibraryFilterController {
     }
 
     fun begin(applied: CatalogQuery): LibraryFilterDraft {
+        // 半有界年份（仅一端有界）在 CatalogQuery 合法，但草稿无法如实表达“开区间端”：
+        // 静默捏造默认端会让无变化确认收紧查询（F12）。fail-fast，未来需要时显式扩展模型。
+        require((applied.yearStart == null) == (applied.yearEnd == null)) { "草稿编辑要求年份双有界或双无界" }
         val mode = when {
             applied.yearStart == null && applied.yearEnd == null -> LibraryYearMode.NONE
             applied.yearStart != null && applied.yearStart == applied.yearEnd -> LibraryYearMode.EXACT
@@ -154,8 +157,6 @@ internal object LibraryFilterLabels {
     val kinds = mapOf(
         "movie" to "电影", "series" to "剧集", "variety" to "综艺", "animation" to "动画",
         "documentary" to "纪录片", "other" to "其他")
-    val sorts = mapOf(
-        "default" to "默认排序", "ascending" to "年份从早到晚", "descending" to "年份从晚到早")
 
     fun country(id: String) = countries[id] ?: id
     fun genre(id: String) = genres[id] ?: id

@@ -163,6 +163,19 @@ class LibraryFilterDraftTest {
         assertEquals(MatchVerdict.INDETERMINATE, StrictFilterEvaluator.evaluate(nonChinese, unknownLanguage).verdict)
     }
 
+    @Test fun half_bounded_year_query_rejected_by_draft_editor() {
+        // 半有界年份（仅一端）在 CatalogQuery 合法，但草稿无法如实表达开区间端：
+        // 编辑入口必须 fail-fast，不得静默捏造默认端（无变化确认会收紧查询）。
+        val halfBounded = CatalogQuery.create("半有界", null, LanguageScope.ALL, emptySet(), emptySet(),
+            1990, null, CatalogSort.DEFAULT, setOf(source))
+        try {
+            LibraryFilterController.begin(halfBounded)
+            fail("半有界年份必须被草稿编辑器显式拒绝")
+        } catch (expected: IllegalArgumentException) {
+            assertTrue(expected.message!!.contains("双有界"))
+        }
+    }
+
     @Test fun draft_round_trip_preserves_every_query_field() {
         val applied = query(id = "完整查询", yearStart = 1977, yearEnd = 2006, countries = setOf("JP", "TH"),
             genres = setOf("horror", "thriller"), scope = LanguageScope.NON_CHINESE, kind = ContentKind.MOVIE,

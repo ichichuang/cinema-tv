@@ -306,7 +306,7 @@ internal class LibraryRuntime(
         LibraryTestHooks.appliedQueries.incrementAndGet()
         restore.onUserInput(); inputEpoch++; restoreToken = null
         auditText = auditReason
-        userTarget = null; focused = null
+        userTarget = null; focused = null; focusedControl = null
         val ticket = restore.reserveLoad()
         installQuery(next, null, ticket)
         controlTarget = FILTER_ENTRY
@@ -392,10 +392,11 @@ internal class LibraryRuntime(
             key.startsWith("genre-") -> LibraryFilterLabels.genre(key.removePrefix("genre-"))
             key.startsWith("sort-") -> SORT_LABELS.first { it.first == key.removePrefix("sort-") }.second
             key.startsWith("source-") -> "来源 ${key.removePrefix("source-")}"
-            key.startsWith("year-exact") -> if (key.endsWith("minus")) "年份减一" else "年份加一"
-            key.startsWith("year-decade") -> if (key.endsWith("minus")) "年代提前" else "年代推后"
-            key.startsWith("year-start") -> if (key.endsWith("minus")) "起点减一" else "起点加一"
-            key.startsWith("year-end") -> if (key.endsWith("minus")) "终点减一" else "终点加一"
+            // 步进器可访问描述携带当前值：只听操作名无法得知“当前 1994”。
+            key.startsWith("year-exact") -> "年份${if (key.endsWith("minus")) "减一" else "加一"}（当前 ${draft?.exactYear ?: "未编辑"}）"
+            key.startsWith("year-decade") -> "年代${if (key.endsWith("minus")) "提前" else "推后"}（当前 ${draft?.decadeStart ?: "未编辑"}）"
+            key.startsWith("year-start") -> "起点${if (key.endsWith("minus")) "减一" else "加一"}（当前 ${draft?.rangeStart ?: "未编辑"}）"
+            key.startsWith("year-end") -> "终点${if (key.endsWith("minus")) "减一" else "加一"}（当前 ${draft?.rangeEnd ?: "未编辑"}）"
             key == "panel-reset" -> "重置"
             key == "panel-cancel" -> "取消"
             key == "panel-apply" -> "应用"
@@ -533,9 +534,12 @@ internal class LibraryRuntime(
     fun observation(ready: Set<String>, pass: RestoreLayoutToken, pageReady: Boolean): RestoreObservation {
         val state = requireNotNull(navigation)
         val ids = display.items.map { it.workId }
-        val savedIndex = ids.indexOf(state.snapshot.focusedWorkId?.value ?: "").coerceAtLeast(0)
+        // 保存序用全量已知作品（含已从当前结果消失的锚点），与 R11 浏览的 savedOrder 同构：
+        // 锚点被移除时邻居搜索才能落在“原行最近存活项”，而非退化为页面默认。
+        val original = fixture.works.map { it.id.value }
+        val savedIndex = original.indexOf(state.snapshot.focusedWorkId?.value ?: "").coerceAtLeast(0)
         val rowStart = (savedIndex / columns) * columns
-        val row = ids.drop(rowStart).take(columns)
+        val row = original.drop(rowStart).take(columns)
         return RestoreObservation(state.snapshot.query, revision,
             mapOf("原行" to ids.filter { it in row }.map(::WorkId), "其余" to ids.filter { it !in row }.map(::WorkId)),
             result?.coverage == QueryCoverage.COMPLETE, ready.map(::WorkId).toSet(), pageReady, "原行",
