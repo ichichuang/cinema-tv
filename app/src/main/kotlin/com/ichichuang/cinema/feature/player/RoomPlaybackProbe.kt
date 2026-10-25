@@ -50,19 +50,21 @@ internal class RoomPlaybackProbe(
     private val context: Context,
     scope: CoroutineScope,
     private val player: Player,
+    sharedDatabase: com.ichichuang.cinema.data.local.CinemaDatabase? = null,
+    confirmedPlayback: suspend (String) -> CommitResult = { CommitResult.Committed },
     private val outcome: (CommitResult) -> Unit,
 ) {
     private val handoff = if (LegacyHandoffRuntime.required(context)) LegacyHandoffController.open(context) else null
-    private val database = handoff?.database ?: CinemaDatabaseFactory.open(context, "round06-playback-probe.db")
+    private val database = sharedDatabase ?: handoff?.database ?: CinemaDatabaseFactory.open(context, "round06-playback-probe.db")
     private val store = RoomPlaybackProgressStore(database)
     private suspend fun <T> authorized(action: suspend () -> T): T = if (handoff == null) action() else handoff.room(action)
     private suspend fun commitAuthorized(action: suspend () -> CommitResult): CommitResult =
         try { authorized(action) } catch (_: HandoffUnavailableException) { CommitResult.Failed("handoff_unavailable") }
-    private val queue = PlaybackEventQueue(scope) { database.close() }
+    private val queue = PlaybackEventQueue(scope) { if (sharedDatabase == null) database.close() }
     private val clock = PlaybackClock { SystemClock.elapsedRealtime() }
     private val bridge = PlaybackRuntimeBridge(object : PlaybackProgressStore {
         override suspend fun commit(snapshot: PlaybackSnapshot) = commitAuthorized { store.commit(snapshot) }
-    }, { target, id -> commitAuthorized { store.beginSession(target, id) } }, clock, System::currentTimeMillis)
+    }, { target, id -> commitAuthorized { store.beginSession(target, id) } }, clock, System::currentTimeMillis, confirmedPlayback)
     private var preparedId: String? = null
     private var pauseId: String? = null
     private var pauseRevision = 0L
@@ -86,7 +88,10 @@ internal class RoomPlaybackProbe(
             if (player.playbackState != Player.STATE_ENDED || events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED)) observe(capture(intent))
         }
     }
-    init { player.addListener(listener) }
+    init {
+        check(sharedDatabase == null || (BuildConfig.PERSONAL_LIBRARY_PROBE && BuildConfig.BROWSE_RESTORE_PROBE)) { "共享个人数据库仅限已授权候选入口" }
+        player.addListener(listener)
+    }
 
     private fun capture(intent: RuntimeIntent = RuntimeIntent.SAMPLE) = RuntimeObservation(
         player.currentMediaItem?.mediaId.orEmpty(), clock.elapsedRealtimeMs(), when (player.playbackState) {
@@ -117,6 +122,9 @@ internal class RoomPlaybackProbe(
         }
     }
 
+    suspend fun loadResume(workId: com.ichichuang.cinema.domain.model.catalog.WorkId): PlaybackSnapshot? =
+        queue.await { authorized { store.loadResume(workId) } }
+
     suspend fun start(catalog: PlaybackProbeCatalog, detail: MovieDetail): ProbeMedia? {
         verifyHandoffCatalog(catalog)
         val candidates = catalog.probeMedia.filter { it.detail == detail }
@@ -128,7 +136,8 @@ internal class RoomPlaybackProbe(
     }
 
     suspend fun select(catalog: PlaybackProbeCatalog, detail: MovieDetail, line: Int, episode: Int,
-        autoPlay: Boolean, resume: PlaybackSnapshot? = null): ProbeMedia? {
+        autoPlay: Boolean, resume: PlaybackSnapshot? = null, startAtBeginning: Boolean = false): ProbeMedia? {
+        require(!startAtBeginning || resume == null) { "从头播放不能同时映射旧版本位置" }
         val media = ProbeIdentity.resolve(catalog, detail, line, episode)
             ?: throw IllegalArgumentException("测试剧集身份缺失、重复或列表已变化")
         val item = detail.lines[line].episodes[episode]
@@ -142,7 +151,7 @@ internal class RoomPlaybackProbe(
             val saved = bridge.accept(previous)
             report(saved)
             if (saved != null && saved != CommitResult.Committed) return@await null
-            val restored = resume ?: authorized { database.playbackSnapshots().find(media.target.workId.value,
+            val restored = if (startAtBeginning) null else resume ?: authorized { database.playbackSnapshots().find(media.target.workId.value,
                 media.target.episodeId!!.value, media.target.variantId!!.value)?.snapshot() }
             val id = UUID.randomUUID().toString()
             val result = bridge.select(media.target, id, restored)
@@ -184,4 +193,5 @@ internal class RoomPlaybackProbe(
         }
     }
     fun close() { player.removeListener(listener); queue.close() }
+    suspend fun closeAndJoin() { player.removeListener(listener); queue.closeAndJoin() }
 }

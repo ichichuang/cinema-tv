@@ -28,6 +28,28 @@ class PlaybackRuntimeBridgeTest {
     }
     private suspend fun qualify(b: PlaybackRuntimeBridge) { start(b); time = 5_000; b.accept(sample(pos = 6_000)) }
 
+    @Test fun confirmed_actual_play_is_recorded_before_resume_threshold_once_per_session() = runBlocking<Unit> {
+        val confirmations = mutableListOf<String>()
+        val b = PlaybackRuntimeBridge(store, { _, _ -> CommitResult.Committed }, PlaybackClock { time }, { -9 },
+            confirmedPlayback = { id -> confirmations += id; CommitResult.Committed })
+        b.select(target, "actual")
+        b.accept(sample(id = "actual", playing = false))
+        b.accept(sample(id = "actual", state = RuntimeState.BUFFERING))
+        assertTrue(confirmations.isEmpty())
+        b.accept(sample(id = "actual")); time = 100; b.accept(sample(id = "actual"))
+        assertEquals(listOf("actual"), confirmations)
+        assertTrue(writes.isEmpty())
+    }
+    @Test fun failed_history_commit_is_retryable_and_not_acknowledged() = runBlocking<Unit> {
+        var attempts = 0
+        val b = PlaybackRuntimeBridge(store, { _, _ -> CommitResult.Committed }, PlaybackClock { time }, { -9 },
+            confirmedPlayback = { attempts++; if (attempts == 1) CommitResult.Failed("io") else CommitResult.Committed })
+        b.select(target, "actual")
+        assertEquals(CommitResult.Failed("io"), b.accept(sample(id = "actual")))
+        b.accept(sample(id = "actual")); b.accept(sample(id = "actual"))
+        assertEquals(2, attempts)
+    }
+
     @Test fun probe_off_keeps_legacy_writer_even_with_marker_or_old_files() {
         assertEquals(PlaybackRuntimeMode.LEGACY, PlaybackProbeGate.select(false, true, true, true))
     }

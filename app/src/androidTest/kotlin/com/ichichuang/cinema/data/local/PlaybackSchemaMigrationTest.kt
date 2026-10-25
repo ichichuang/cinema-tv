@@ -78,7 +78,7 @@ class PlaybackSchemaMigrationTest : NativeStorageFixture() {
         assertEquals(1, database.userRecords().favoriteCount())
         withContext(Dispatchers.IO) {
             val sql = database.openHelper.writableDatabase
-            assertEquals(5, sql.version)
+            assertEquals(6, sql.version)
             assertEquals(before, rows(tables) { sql.query(it) })
         }
         if (version == 1) assertNull(RoomPlaybackProgressStore(database).loadResume(target.workId))

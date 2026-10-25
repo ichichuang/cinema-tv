@@ -10,7 +10,7 @@ import com.ichichuang.cinema.domain.repository.FavoritesStore
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
-internal class RoomFavoritesStore(private val database: CinemaDatabase) : FavoritesStore {
+internal class RoomFavoritesStore(private val database: CinemaDatabase, private val beforeCommit:suspend ()->Unit={}) : FavoritesStore {
     override suspend fun setFavorite(workId: String, selected: Boolean): CommitResult {
         currentCoroutineContext().ensureActive()
         val id = try { WorkId(workId) } catch (_: IllegalArgumentException) { return CommitResult.Failed("invalid_work_id") }
@@ -19,8 +19,21 @@ internal class RoomFavoritesStore(private val database: CinemaDatabase) : Favori
                 val dao = database.userRecords()
                 if (selected) {
                     dao.insertReference(WorkReferenceEntity(id.value))
-                    dao.insertFavorite(FavoriteEntity(id.value))
-                } else dao.removeFavorite(id.value)
+                    if (dao.favorite(id.value) == null) {
+                        val library = database.personalLibrary()
+                        val state = library.state(id.value) ?: com.ichichuang.cinema.data.local.entity.PersonalLibraryStateEntity(id.value)
+                        val revision=library.nextFavoriteRevision()
+                        library.putState(state.copy(favoriteOrder=revision,favoriteRevision=revision,undoneRevision=0))
+                        dao.insertFavorite(FavoriteEntity(id.value))
+                    }
+                } else if (dao.favorite(id.value) != null) {
+                    val library = database.personalLibrary()
+                    val state = library.state(id.value) ?: com.ichichuang.cinema.data.local.entity.PersonalLibraryStateEntity(id.value)
+                    library.putState(state.copy(favoriteRevision=library.nextFavoriteRevision(),undoneRevision=0))
+                    dao.removeFavorite(id.value)
+                }
+                beforeCommit()
+                currentCoroutineContext().ensureActive()
             }
         }
     }

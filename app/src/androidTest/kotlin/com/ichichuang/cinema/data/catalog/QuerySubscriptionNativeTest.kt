@@ -74,7 +74,7 @@ class QuerySubscriptionNativeTest : NativeStorageFixture() {
         database=CinemaDatabaseFactory.open(context,databaseName)
         withContext(Dispatchers.IO) {
             val sql=database.openHelper.writableDatabase
-            sql.query("PRAGMA user_version").use { assertTrue(it.moveToFirst());assertEquals(5,it.getInt(0)) }
+            sql.query("PRAGMA user_version").use { assertTrue(it.moveToFirst());assertEquals(6,it.getInt(0)) }
             assertEquals(before,rows(tables) { sql.query(it) })
             sql.query("PRAGMA foreign_key_check").use { assertFalse(it.moveToFirst()) }
         }

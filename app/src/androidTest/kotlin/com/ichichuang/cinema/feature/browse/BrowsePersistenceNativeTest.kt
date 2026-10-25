@@ -136,7 +136,7 @@ class BrowsePersistenceNativeTest {
             assertEquals(1, db.metadataCache().evictAll())
         }
         DebugBrowseProbeGate.withOwnedProfile(context) { db ->
-            assertEquals(5, withContext(Dispatchers.IO) { db.openHelper.readableDatabase.version })
+            assertEquals(6, withContext(Dispatchers.IO) { db.openHelper.readableDatabase.version })
             states.forEach { expected ->
                 val store = RoomBrowseStateStore(db)
                 assertEquals(expected.snapshot, store.load(expected.snapshot.contextKey))
@@ -150,7 +150,7 @@ class BrowsePersistenceNativeTest {
             assertNull(db.metadataCache().find(target.value))
         }
         val after = LegacyHandoffRuntime.writers.exclusive { hashes() }
-        recordEvidence("preservation", JSONObject().put("before", JSONObject(before)).put("after", JSONObject(after)).put("schema", 5))
+        recordEvidence("preservation", JSONObject().put("before", JSONObject(before)).put("after", JSONObject(after)).put("schema", 6))
         assertEquals(before, after)
     }
     @Test fun activity_recreation_same_pid_preserves_query_focus_and_drops_modal() {

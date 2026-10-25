@@ -97,6 +97,24 @@ class LegacyHandoffNativeTest {
         reopen(); assertEquals(newer, RoomPlaybackProgressStore(controller.database).loadResume(HANDOFF_TARGET.workId))
         assertEquals(before, legacyHashes(context))
     }
+    @Test fun explicitly_deleted_history_is_not_replayed_by_active_handoff_retry() = runBlocking<Unit> {
+        activate()
+        val repo=RoomPersonalLibraryRepository(controller.database)
+        val store=RoomPlaybackProgressStore(controller.database)
+        val imported=store.loadResume(HANDOFF_TARGET.workId)!!
+        repo.setFavorite(HANDOFF_TARGET.workId.value,true)
+        assertEquals(CommitResult.Committed,repo.deleteWatchHistory(HANDOFF_TARGET.workId.value))
+        val stagedBefore=controller.database.legacyImports().records(1,manifest.expectedDigest)
+        assertTrue(controller.prepare(manifest).eligible)
+        assertEquals(CommitResult.Committed,controller.activate(manifest,manifest.expectedDigest))
+        assertEquals(CommitResult.RejectedStale,store.beginSession(HANDOFF_TARGET,imported.sessionId))
+        reopen()
+        assertNull(RoomPlaybackProgressStore(controller.database).loadResume(HANDOFF_TARGET.workId))
+        assertTrue(RoomPersonalLibraryRepository(controller.database).recentHistory().isEmpty())
+        assertEquals(1,controller.database.userRecords().favoriteCount())
+        assertEquals(stagedBefore,controller.database.legacyImports().records(1,manifest.expectedDigest))
+        assertEquals(before,legacyHashes(context))
+    }
     @Test fun storage_full_exception_inside_activation_rolls_back_marker_and_all_progress() = runBlocking<Unit> {
         prepare(); reopen { if (it == HandoffPhase.ACTIVATING) throw SQLiteFullException("synthetic full") }
         assertNotEquals(CommitResult.Committed, controller.activate(manifest, manifest.expectedDigest))

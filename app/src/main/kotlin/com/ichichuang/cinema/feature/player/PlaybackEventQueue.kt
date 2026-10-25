@@ -38,4 +38,5 @@ internal class PlaybackEventQueue(scope: CoroutineScope, onClosed: () -> Unit = 
         return try { reply.await() } finally { request.cancel(); if (!reply.isCompleted) reply.cancel() }
     }
     fun close() { worker.cancel(); commands.cancel() }
+    suspend fun closeAndJoin() { close(); worker.join() }
 }

@@ -71,10 +71,12 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 scope.launch {
                     BrowseProbeTestHooks.activeLeases.incrementAndGet()
                     try {
+                        if (BuildConfig.PERSONAL_LIBRARY_PROBE) com.ichichuang.cinema.feature.personal.PersonalLibraryAuthorization.requireOwned(this@MainActivity)
                         DebugBrowseProbeGate.withOwnedProfile(this@MainActivity) { database ->
                             coroutineScope {
                                 val runtime = BrowseProbeRuntime(this@MainActivity, RoomBrowseStateStore(database), this,
-                                    withContext(Dispatchers.IO) { BrowseProbeFixture(this@MainActivity) })
+                                    withContext(Dispatchers.IO) { BrowseProbeFixture(this@MainActivity) },
+                                    personalDatabase = if (BuildConfig.PERSONAL_LIBRARY_PROBE) database else null)
                                 browseProbe = runtime
                                 try { runtime.start(); awaitCancellation() }
                                 finally { withContext(NonCancellable) { runtime.shutdown() } }

@@ -111,7 +111,7 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
         .semantics { testTagsAsResourceId = true }.testTag("候选浏览")) {
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                (listOf("片库", "收藏", "历史") + (if (runtime.filterVisible) listOf("筛选") else emptyList()) + listOf("列数", "刷新")).forEach { label ->
+                runtime.toolbarControls().forEach { label ->
                     val requester = remember(label) { controls.getOrPut(label) { FocusRequester() } }
                     var focus by remember(label) { mutableStateOf(false) }
                     Text(label, color = if (focus) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
@@ -119,7 +119,7 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
                             .padding(12.dp, 8.dp).testTag(label).focusRequester(requester)
                             .focusProperties { canFocus = !runtime.modal && !runtime.isDetail }
                             .onFocusChanged { focus = it.isFocused; if (it.isFocused) runtime.controlFocused(label) }
-                            .semantics { selected = runtime.top.route == when (label) { "片库" -> "library"; "收藏" -> "favorites"; "历史" -> "history"; else -> "" } }
+                            .semantics { selected = runtime.top.route == when (label) { "片库" -> "library"; "收藏" -> "favorites"; "历史" -> "history"; "继续观看" -> "continue"; else -> "" } }
                             .focusable().onGloballyPositioned {
                                 pageReady = true
                                 if (windowFocused && runtime.controlTarget == label) requester.requestFocus()
@@ -127,10 +127,14 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
                             })
                 }
             }
-            Text(runtime.status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Text(runtime.personal?.message?.takeIf { it.isNotBlank() } ?: runtime.status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("覆盖状态"))
             if (runtime.navigation != null) {
-                Text("${when(runtime.top) { BrowseTopLevel.LIBRARY -> "片库"; BrowseTopLevel.FAVORITES -> "收藏"; BrowseTopLevel.HISTORY -> "历史" }} · ${result?.items?.size ?: 0} 项已核对", color = MaterialTheme.colorScheme.onSurface)
+                Text("${when(runtime.top) { BrowseTopLevel.LIBRARY -> "片库"; BrowseTopLevel.FAVORITES -> "收藏"; BrowseTopLevel.HISTORY -> "历史"; BrowseTopLevel.CONTINUE -> "继续观看" }} · ${result?.items?.size ?: 0} 项已核对", color = MaterialTheme.colorScheme.onSurface)
+            }
+            if (runtime.personal != null && runtime.top != BrowseTopLevel.LIBRARY && items.isEmpty()) {
+                Text(when (runtime.top) { BrowseTopLevel.FAVORITES -> "暂无收藏"; BrowseTopLevel.HISTORY -> "暂无实际观看记录"; else -> "暂无可继续观看的记录" },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("个人列表为空"))
             }
             key(pass, BrowseProbeTestHooks.blockPlacement) {
                 LazyVerticalGrid(GridCells.Fixed(columns), Modifier.weight(1f).testTag("作品列表").onSizeChanged { if (runtime.layoutToken == pass) runtime.viewportChanged(it.width, it.height) }.onGloballyPositioned { runtime.placed(columns) }, state = grid,
@@ -154,7 +158,14 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
                                 requestRestore()
                             }.padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
                             Text(work.title, color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
-                            Text(if (runtime.selected == work.id) "已选择" else "按确认查看", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            Text(runtime.personal?.let { owner -> (when (runtime.top) {
+                                    BrowseTopLevel.FAVORITES -> owner.favorites
+                                    BrowseTopLevel.HISTORY -> owner.history
+                                    BrowseTopLevel.CONTINUE -> owner.continuing
+                                    else -> emptyList()
+                                }).firstOrNull { it.workId == work.id.value }?.let { card ->
+                                if (card.completedEpisode) "本集已看完；全剧完结情况未知" else card.snapshot?.let { "${it.episodeId?.value} · ${it.positionMs / 1000} 秒" } ?: card.episodeId?.let { "$it · 已确认实际观看，进度尚未保存" }
+                            } ?: owner.availability(work.id.value) } ?: if (runtime.selected == work.id) "已选择" else "按确认查看", color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall)
                         }
                     }
@@ -179,6 +190,7 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
 
 @Composable
 internal fun BrowseProbeDetail(runtime: BrowseProbeRuntime, onExit: () -> Unit) {
+    if (runtime.personal != null) { com.ichichuang.cinema.feature.personal.PersonalLibraryDetail(runtime, onExit); return }
     val requester = remember { FocusRequester() }
     val windowFocused = LocalWindowInfo.current.isWindowFocused && runtime.foreground && !BrowseProbeTestHooks.holdWindowReady
     var placed by remember { mutableStateOf(false) }

@@ -37,7 +37,7 @@ internal class BrowseProbeFixture(context: Context) {
     } }.also { require(it.map(Work::id).distinct().size == it.size) }
     fun query(query: CatalogQuery, top: BrowseTopLevel, revision: Long): Pair<List<Work>, CatalogResult> {
         val scoped = works.filter { it.source in query.enabledSourceIds && when (top) {
-            BrowseTopLevel.LIBRARY -> true; BrowseTopLevel.FAVORITES -> it.favorite; BrowseTopLevel.HISTORY -> it.history
+            BrowseTopLevel.LIBRARY -> true; BrowseTopLevel.FAVORITES -> it.favorite; BrowseTopLevel.HISTORY -> it.history; BrowseTopLevel.CONTINUE -> false
         } }
         val evaluated = scoped.map { it to StrictFilterEvaluator.evaluate(query, it.facts).verdict }
         val matches = evaluated.filter { it.second == MatchVerdict.MATCH }.map { it.first }

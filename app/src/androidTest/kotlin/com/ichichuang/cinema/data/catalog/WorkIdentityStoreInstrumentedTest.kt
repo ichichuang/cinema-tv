@@ -181,7 +181,7 @@ class WorkIdentityStoreInstrumentedTest : NativeStorageFixture() {
             rowSnapshot { sql.rawQuery(it,null) }
         } }
         database=CinemaDatabaseFactory.open(context,databaseName)
-        assertEquals(5L,scalar("PRAGMA user_version")); assertEquals(beforeMigration,oldRows());val before=oldRows();seedPair(store());reopen()
+        assertEquals(6L,scalar("PRAGMA user_version")); assertEquals(beforeMigration,oldRows());val before=oldRows();seedPair(store());reopen()
         assertEquals(before.getValue("favorites"),oldRows().getValue("favorites"))
         assertEquals(before.getValue("browse_snapshots"),oldRows().getValue("browse_snapshots"))
         assertEquals(beforeMigration.filterKeys { it != "work_references" },oldRows().filterKeys { it != "work_references" })

@@ -158,13 +158,21 @@ internal fun CinemaNavHost(
 ) {
     check(com.ichichuang.cinema.BuildConfig.BROWSE_RESTORE_PROBE)
     val nav = rememberNavController()
-    androidx.compose.runtime.LaunchedEffect(probe.isDetail) {
-        if (probe.isDetail && nav.currentDestination?.route != "候选详情") nav.navigate("候选详情")
-        else if (!probe.isDetail && nav.currentDestination?.route == "候选详情") nav.popBackStack()
+    val destination = when { probe.isPlayer -> "候选播放器"; probe.isDetail -> "候选详情"; else -> "候选浏览" }
+    androidx.compose.runtime.LaunchedEffect(destination) {
+        when (destination) {
+            "候选播放器" -> {
+                if (com.ichichuang.cinema.core.navigation.BrowseChildRoute.DETAIL in probe.navigation!!.returnChain && nav.currentDestination?.route == "候选浏览") nav.navigate("候选详情")
+                if (nav.currentDestination?.route != destination) nav.navigate(destination)
+            }
+            "候选详情" -> if (!nav.popBackStack(destination, false) && nav.currentDestination?.route != destination) nav.navigate(destination)
+            else -> nav.popBackStack("候选浏览", false)
+        }
     }
     NavHost(nav, startDestination = "候选浏览", enterTransition = { androidx.compose.animation.EnterTransition.None },
         exitTransition = { androidx.compose.animation.ExitTransition.None }) {
         composable("候选浏览") { com.ichichuang.cinema.feature.browse.BrowseProbeScreen(probe, onExit) }
         composable("候选详情") { com.ichichuang.cinema.feature.browse.BrowseProbeDetail(probe, onExit) }
+        composable("候选播放器") { com.ichichuang.cinema.feature.personal.PersonalLibraryPlayer(probe, onExit) }
     }
 }

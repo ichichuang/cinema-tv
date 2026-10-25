@@ -43,6 +43,23 @@ if (browseRestoreProbe) {
     }
 }
 
+// Personal records share the existing guarded native route and exclusive writer lease.
+val personalLibraryProbe = providers.gradleProperty("cinema.personalLibraryProbe")
+    .map { it.toBooleanStrict() }.getOrElse(false)
+if (personalLibraryProbe) {
+    val pair = setOf(":app:assembleDebug", ":app:assembleDebugAndroidTest")
+    if (gradle.startParameter.taskNames.toSet() != pair || !browseRestoreProbe || !playbackRoomProbe || !storageTestArm64) {
+        throw GradleException("个人记录探针仅允许完整 Debug / DebugAndroidTest 配对及已有浏览、播放、ARM64 测试授权；禁止 Release、bundle、发布、签名或安装。")
+    }
+    gradle.taskGraph.whenReady {
+        if (allTasks.any { it.name.contains("release", ignoreCase = true) ||
+                it.name.startsWith("publish", ignoreCase = true) || it.name.startsWith("install", ignoreCase = true) ||
+                it.name == "bundleDebug" }) {
+            throw GradleException("个人记录探针任务图禁止 Release、bundle、发布、签名或安装。")
+        }
+    }
+}
+
 // This opt-in only assembles a disposable instrumentation APK pair; it never installs.
 if (storageTestArm64) {
     val allowedTasks = setOf(":app:assembleDebug", ":app:assembleDebugAndroidTest")
@@ -92,6 +109,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "PLAYBACK_ROOM_PROBE", "false")
         buildConfigField("boolean", "BROWSE_RESTORE_PROBE", "false")
+        buildConfigField("boolean", "PERSONAL_LIBRARY_PROBE", "false")
     }
 
     signingConfigs {
@@ -115,6 +133,7 @@ android {
         debug {
             buildConfigField("boolean", "PLAYBACK_ROOM_PROBE", playbackRoomProbe.toString())
             buildConfigField("boolean", "BROWSE_RESTORE_PROBE", browseRestoreProbe.toString())
+            buildConfigField("boolean", "PERSONAL_LIBRARY_PROBE", personalLibraryProbe.toString())
             ndk { abiFilters += if (storageTestArm64) "arm64-v8a" else "armeabi-v7a" }
             // Contributor builds cannot replace the installed production application.
             applicationIdSuffix = ".debug"

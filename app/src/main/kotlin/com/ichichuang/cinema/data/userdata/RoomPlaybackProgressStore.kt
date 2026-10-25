@@ -24,7 +24,7 @@ internal class RoomPlaybackProgressStore(
                 val dao = database.playbackSessions()
                 val existing = dao.session(sessionId)
                 if (existing != null) {
-                    if (existing.matches(target)) CommitResult.Committed else CommitResult.RejectedStale
+                    if (existing.matches(target) && existing.generation > (database.personalLibrary().state(existing.workId)?.deletedThroughGeneration ?: -1)) CommitResult.Committed else CommitResult.RejectedStale
                 } else {
                     database.userRecords().insertReference(WorkReferenceEntity(target.workId.value))
                     val generation = dao.insertSession(PlaybackSessionEntity(sessionId = sessionId,
@@ -41,6 +41,8 @@ internal class RoomPlaybackProgressStore(
         val outcome = database.withTransaction {
             val dao = database.playbackSessions()
             val session = dao.session(snapshot.sessionId) ?: return@withTransaction CommitResult.RejectedStale
+            if (session.generation <= (database.personalLibrary().state(session.workId)?.deletedThroughGeneration ?: -1))
+                return@withTransaction CommitResult.RejectedStale
             val target = PlaybackTarget(snapshot.workId, snapshot.episodeId, snapshot.variantId)
             if (!session.matches(target)) return@withTransaction CommitResult.RejectedStale
             val order = dao.order(session.workId, session.episodeKey, session.variantKey)

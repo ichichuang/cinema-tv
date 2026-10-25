@@ -27,10 +27,12 @@ internal data class RuntimeObservation(val sessionId: String, val atMs: Long, va
     val playing: Boolean, val positionMs: Long, val durationMs: Long, val intent: RuntimeIntent = RuntimeIntent.SAMPLE)
 
 internal class PlaybackRuntimeBridge(store: PlaybackProgressStore,
-    allocate: suspend (PlaybackTarget, String) -> CommitResult, private val clock: PlaybackClock, capturedAt: () -> Long) {
+    allocate: suspend (PlaybackTarget, String) -> CommitResult, private val clock: PlaybackClock, capturedAt: () -> Long,
+    private val confirmedPlayback: suspend (String) -> CommitResult = { CommitResult.Committed }) {
     private val mutex = Mutex()
     private var eventTime = 0L
     private val coordinator = PlaybackCheckpointCoordinator(store, allocate, PlaybackClock { eventTime }, capturedAt)
+    private var confirmedSessionId: String? = null
     private var sessionId: String? = null
     var positionMs = 0L
         private set
@@ -53,6 +55,12 @@ internal class PlaybackRuntimeBridge(store: PlaybackProgressStore,
         if (sessionId != value.sessionId) return@withLock null
         eventTime = value.atMs
         val id = value.sessionId
+        // Actual selected Media3 playback is history evidence independently of resume promotion.
+        if (value.state == RuntimeState.READY && value.playing && confirmedSessionId != id) {
+            val committed = confirmedPlayback(id)
+            if (committed != CommitResult.Committed) return@withLock committed
+            confirmedSessionId = id
+        }
         val duration = value.durationMs.takeIf { it >= 0 }
         if (value.state == RuntimeState.READY || value.state == RuntimeState.ENDED) {
             require(value.positionMs >= 0)

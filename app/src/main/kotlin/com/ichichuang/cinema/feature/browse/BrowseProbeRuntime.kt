@@ -32,7 +32,9 @@ internal class BrowseProbeRuntime(
     private val store: BrowseNavigationStore,
     val scope: CoroutineScope,
     private val fixture: BrowseProbeFixture,
+    personalDatabase: com.ichichuang.cinema.data.local.CinemaDatabase? = null,
 ) {
+    val personal = personalDatabase?.let { com.ichichuang.cinema.feature.personal.PersonalLibraryRuntime(context, it, scope, fixture) }
     val restore = BrowseRestoreCoordinator()
     private val checkpoint = BrowseCheckpointCoordinator(object : BrowseNavigationStore by store {
         override suspend fun saveActive(state: RestoreNavigationState): CommitResult {
@@ -120,16 +122,28 @@ internal class BrowseProbeRuntime(
     private val held = mutableSetOf<Int>()
     private var stopped = false
     val top: BrowseTopLevel get() = BrowseTopLevel.entries.firstOrNull { it.route == navigation?.snapshot?.route } ?: BrowseTopLevel.LIBRARY
+    val isPlayer get() = navigation?.returnChain?.lastOrNull() == BrowseChildRoute.PLAYER
     val isDetail get() = navigation?.returnChain?.isNotEmpty() == true
 
     suspend fun start() {
         val ticket = restore.reserveLoad() // Before any asynchronous Room/fixture wait.
         BrowseProbeTestHooks.beforeLoad?.await()
+        personal?.start { personalListsChanged() }
         val saved = store.loadActive() ?: RestoreNavigationState(fixture.initial)
         val token = restore.completeLoad(ticket, saved.snapshot)
         // A cancelled initial load may still populate an empty page after user input,
         // but it must never replace a newer explicit query/context already installed.
         if (token != null || navigation == null) install(saved, token)
+        if (isPlayer && personal != null) navigation?.snapshot?.focusedWorkId?.let { id ->
+            if (personal.prepare(id.value)) personal.detailFocus = "播放暂停"
+            else {
+                // A persisted PLAYER is an origin context, never permission to map an
+                // unavailable timeline or leave an unusable player above the choice UI.
+                selected = id; personal.detailFocus = "详情返回"
+                val detail = requireNotNull(navigation).copy(returnChain = listOf(BrowseChildRoute.DETAIL))
+                navigation = detail; checkpointToken = checkpoint.begin(detail); flush()
+            }
+        }
     }
     private fun install(state: RestoreNavigationState, token: RestoreToken?) {
         val priorControl = focusedControl
@@ -142,9 +156,15 @@ internal class BrowseProbeRuntime(
         // A new Activity/process must not restart below the durable result generation.
         revision = maxOf(revision, state.snapshot.resultRevision ?: 0L)
         if (revision < Long.MAX_VALUE) revision++
-        val found = fixture.query(query, top, revision)
+        val found = personalResult(query) ?: fixture.query(query, top, revision)
         items = found.first; result = found.second
-        layoutToken = token?.let { restore.advanceLayout(it, revision) }
+        if (personal != null && top != BrowseTopLevel.LIBRARY && state.snapshot.focusedWorkId == null && items.isNotEmpty()) {
+            val first = items.first().id
+            val initial = state.copy(snapshot = state.snapshot.copy(focusedWorkId = first, anchorWorkId = first))
+            navigation = initial; checkpointToken = checkpoint.begin(initial)
+            restoreToken = token?.let { restore.begin(initial.snapshot) }
+        }
+        layoutToken = restoreToken?.let { restore.advanceLayout(it, revision) }
         status = if (result?.coverage == QueryCoverage.COMPLETE) "当前测试来源已完整核对" else "当前测试来源仅有部分结果，缺失不表示已移除"
         if (token == null) controlTarget = priorControl ?: controlTarget ?: "片库"
         trace()
@@ -165,9 +185,9 @@ internal class BrowseProbeRuntime(
         trace(); return result
     }
     fun background() { scope.launch { flush() } }
-    fun pause() { foreground = false; background() }
+    fun pause() { foreground = false; personal?.pause(); background() }
     fun resume() { if (!stopped) foreground = true }
-    suspend fun shutdown() { stopped = true; if (checkpoint.hasPending) flush() }
+    suspend fun shutdown() { stopped = true; try { if (checkpoint.hasPending) flush() } finally { personal?.close() } }
     private val routeChanges = Mutex()
     private var routeRequest = 0L
     /** Capture before launching: later physical actions supersede an unexecuted navigation. */
@@ -205,23 +225,31 @@ internal class BrowseProbeRuntime(
     }
     fun openDetail() {
         val id = focused ?: return
+        if (personal != null && top == BrowseTopLevel.CONTINUE) { openPlayer(id); return }
         leave(cancelOnInput = true) {
             selected = id
+            personal?.detailFocus = "详情返回"
             val state = requireNotNull(stateNow()).enter(BrowseChildRoute.DETAIL)
             navigation = state; checkpointToken = checkpoint.begin(state)
             flush()
         }
     }
     fun back(exit: () -> Unit) {
+        if (personal?.confirmation == true) { personal.confirmation = false; personal.detailFocus = "删除观看记录"; return }
         if (modal) { modal = false; controlTarget = modalReturnControl(modalInvoker, modalInvokerRow, toolbarControls(), "片库"); return }
         if (!isDetail) { leave { exit() }; return }
         val ticket = restore.reserveLoad()
         leave {
+            if (isPlayer && personal != null) {
+                val saved = personal.boundary()
+                if (saved != null && saved != CommitResult.Committed) return@leave
+                personal.detailFocus = "详情返回"
+            }
             val state = requireNotNull(navigation?.back())
             install(state, restore.completeLoad(ticket, state.snapshot))
         }
     }
-    private fun toolbarControls() = listOf("片库", "收藏", "历史") + (if (filterVisible) listOf("筛选") else emptyList()) + listOf("列数", "刷新")
+    fun toolbarControls() = listOf("片库", "收藏", "历史") + (if (personal != null) listOf("继续观看") else emptyList()) + (if (filterVisible) listOf("筛选") else emptyList()) + listOf("列数", "刷新") + (if (personal != null && top == BrowseTopLevel.CONTINUE) listOf("移出继续观看") else emptyList())
     fun openModal() { modalInvoker = focusedControl ?: "筛选"; modalInvokerRow = toolbarControls(); modal = true; focused = null; focusedControl = null }
     fun removeModalInvoker() { filterVisible = false }
     fun changeColumns() {
@@ -270,12 +298,23 @@ internal class BrowseProbeRuntime(
         restore.onUserInput(); inputEpoch++; restoreToken = null
         if (code == KeyEvent.KEYCODE_BACK) { back(exit); return true }
         if (modal) { if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) back(exit); return true }
-        if (isDetail) return true
+        if (isDetail) {
+            if (personal != null) {
+                val actions = detailActions()
+                val index = actions.indexOf(personal.detailFocus).coerceAtLeast(0)
+                if (code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_LEFT) personal.detailFocus = actions[(index - 1).coerceAtLeast(0)]
+                if (code == KeyEvent.KEYCODE_DPAD_DOWN || code == KeyEvent.KEYCODE_DPAD_RIGHT) personal.detailFocus = actions[(index + 1).coerceAtMost(actions.lastIndex)]
+                if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) activateDetail(personal.detailFocus, exit)
+            }
+            return true
+        }
         if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
             when (focusedControl) {
                 "片库" -> switch(BrowseTopLevel.LIBRARY); "收藏" -> switch(BrowseTopLevel.FAVORITES)
-                "历史" -> switch(BrowseTopLevel.HISTORY); "筛选" -> openModal()
-                "列数" -> changeColumns(); "刷新" -> refresh(); else -> openDetail()
+                "历史" -> switch(BrowseTopLevel.HISTORY); "继续观看" -> switch(BrowseTopLevel.CONTINUE); "筛选" -> openModal()
+                "列数" -> changeColumns(); "刷新" -> refresh()
+                "移出继续观看" -> navigation?.snapshot?.focusedWorkId?.let { id -> scope.launch { personal?.remove(id.value); personalListsChanged() } }
+                else -> openDetail()
             }
             return true
         }
@@ -300,6 +339,98 @@ internal class BrowseProbeRuntime(
         }
         return true
     }
+
+    private fun personalResult(query: CatalogQuery): Pair<List<BrowseProbeFixture.Work>, CatalogResult>? {
+        val owner = personal ?: return null
+        val cards = when (top) {
+            BrowseTopLevel.LIBRARY -> return null
+            BrowseTopLevel.FAVORITES -> owner.favorites
+            BrowseTopLevel.HISTORY -> owner.history
+            BrowseTopLevel.CONTINUE -> owner.continuing
+        }
+        val works = cards.map { card ->
+            val known = fixture.works.firstOrNull { it.id.value == card.workId }
+            known?.copy(title = card.title) ?: BrowseProbeFixture.Work(WorkId(card.workId), card.title,
+                SourceId(card.sourceLabel?.takeIf { it.isNotBlank() } ?: "unavailable-personal-source"),
+                com.ichichuang.cinema.domain.filter.StrictWorkFacts(), owner.isFavorite(card.workId), card.snapshot != null)
+        }
+        val result = CatalogResult.create(query.queryId, works.map { CatalogItem(it.id, it.title, it.facts.year, it.facts.originalLanguages, it.facts.countries) },
+            QueryCoverage.COMPLETE, knownMatchedCount = works.size.toLong(), hasMore = false, snapshotRevision = revision)
+        return works to result
+    }
+    fun personalListsChanged() {
+        val state = navigation ?: return
+        if (top == BrowseTopLevel.LIBRARY) return
+        val previous = items
+        val priorId = focused ?: state.snapshot.focusedWorkId
+        val priorIndex = previous.indexOfFirst { it.id == priorId }
+        val query = requireNotNull(state.snapshot.query)
+        // Room invalidates flows for table writes even when this page's projection is unchanged.
+        // Retain the original layout proof for identical data; a real new projection requires
+        // a fresh placement pass tied to the existing, still-cancellable restore intent.
+        if (personalResult(query)?.first == items) { trace(); return }
+        if (revision < Long.MAX_VALUE) revision++
+        val found = personalResult(query) ?: return
+        items = found.first; result = found.second
+        restoreToken?.let { layoutToken = restore.advanceLayout(it, revision) }
+        if (priorId != null && items.none { it.id == priorId }) {
+            val neighbor = items.getOrNull(priorIndex.coerceAtLeast(0).coerceAtMost((items.size - 1).coerceAtLeast(0)))?.id
+            navigation = state.copy(snapshot = state.snapshot.copy(focusedWorkId = neighbor, anchorWorkId = neighbor, relativeOffset = 0f))
+            anchor = neighbor; offset = 0f
+            checkpointToken?.let { checkpoint.update(it, requireNotNull(navigation)) }
+            restore.onUserInput(); restoreToken = null
+            if (!isDetail) { focused = null; if (neighbor != null) userTarget = neighbor else controlTarget = toolbarControls().first() }
+        }
+        trace()
+    }
+    fun detailActions(): List<String> = when {
+        personal?.confirmation == true -> listOf("取消删除", "确认删除")
+        isPlayer -> listOf("播放暂停", "重试播放", "播放器返回")
+        else -> listOf("详情返回", "收藏操作", "播放本地测试媒体", "移出继续观看", "删除观看记录") +
+            (if (personal?.undoWork != null) listOf("撤销取消收藏") else emptyList()) +
+            (if (personal?.versionChoiceWork != null && personal.versionChoiceWork == (selected ?: navigation?.snapshot?.focusedWorkId)?.value) listOf("从头准备当前版本") else emptyList())
+    }
+    fun activateDetail(label: String, exit: () -> Unit) {
+        val owner = personal ?: return
+        val id = selected ?: navigation?.snapshot?.focusedWorkId ?: return
+        when (label) {
+            "详情返回", "播放器返回" -> back(exit)
+            "删除观看记录" -> { owner.confirmation = true; owner.detailFocus = "取消删除" }
+            "取消删除" -> { owner.confirmation = false; owner.detailFocus = "删除观看记录" }
+            "播放本地测试媒体" -> openPlayer(id)
+            "从头准备当前版本" -> openPlayer(id, fromBeginning = true)
+            "播放暂停" -> owner.togglePlaying()
+            "重试播放" -> scope.launch { owner.retry() }
+            else -> scope.launch {
+                when (label) {
+                    "收藏操作" -> owner.favorite(id.value)
+                    "移出继续观看" -> owner.remove(id.value)
+                    "确认删除" -> { owner.delete(id.value); owner.confirmation = false; owner.detailFocus = "删除观看记录" }
+                    "撤销取消收藏" -> { if (owner.undo() == CommitResult.Committed) owner.detailFocus = "收藏操作" }
+                }
+                personalListsChanged()
+            }
+        }
+    }
+    private fun openPlayer(id: WorkId, fromBeginning: Boolean = false) {
+        val owner = personal ?: return
+        leave(cancelOnInput = true) { current ->
+            val prepared = owner.prepare(id.value, fromBeginning)
+            if (!current()) return@leave
+            if (prepared) {
+                selected = id; owner.detailFocus = "播放暂停"
+                val state = requireNotNull(stateNow()).enter(BrowseChildRoute.PLAYER)
+                navigation = state; checkpointToken = checkpoint.begin(state); flush()
+            } else if (!isDetail) {
+                // Continue opens the same existing detail route when explicit version
+                // choice is required, preserving its original top-level return context.
+                selected = id; owner.detailFocus = "详情返回"
+                val state = requireNotNull(stateNow()).enter(BrowseChildRoute.DETAIL)
+                navigation = state; checkpointToken = checkpoint.begin(state); flush()
+            }
+        }
+    }
+
     private fun trace() {
         val snapshot = navigation?.snapshot
         File(context.noBackupFilesDir, "round11-browse-trace.json").writeText(org.json.JSONObject()
