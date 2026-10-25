@@ -12,8 +12,8 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * R14 片库进程边界测试；仅运行于六授权全开配对。外部 force-stop 实验由宿主脚本
- * 单独执行并按 PROC 记录，不混入仪器化方法计数。
+ * R14 片库恢复测试；仅运行于六授权全开配对。真实进程终止实验由
+ * TvLibraryProcessReplayTest 两阶段方法 + 宿主 force-stop 编排单独执行。
  */
 class TvLibraryRecoveryTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -130,35 +130,6 @@ class TvLibraryRecoveryTest {
             assertEquals(applied[0]!!.genreIds, restored.genreIds)
             assertEquals(applied[0]!!.sort, restored.sort)
             assertEquals(applied[0]!!.enabledSourceIds, restored.enabledSourceIds)
-        }
-    }
-
-    /** 真实进程终止（am kill，仅后台进程）：重开恢复最近一次已提交查询。 */
-    @Test fun am_kill_reopens_committed_query() {
-        scenario = ActivityScenario.launch(MainActivity::class.java)
-        LibraryNativeFixture.scenarioRef = scenario
-        enterLibrary()
-        LibraryNativeFixture.screenReach(scenario!!, "筛选"); key(KeyEvent.KEYCODE_DPAD_CENTER)
-        until { semantics().any { it.tag == "筛选面板" } }
-        panelSelect("year-mode-DECADE")
-        panelSelect("year-decade-minus")
-        panelSelect("panel-apply")
-        until { var size = -1; library { size = it.display.items.size }; size == LibraryNativeFixture.decadeIndices.count() }
-        Thread.sleep(900)
-        // 后台化后被系统 am kill：不得与仪器化进程冲突。
-        scenario!!.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
-        instrumentation.uiAutomation.executeShellCommand("am kill com.ichichuang.cinema.debug").close()
-        Thread.sleep(800)
-        scenario!!.close(); scenario = null
-        scenario = ActivityScenario.launch(MainActivity::class.java)
-        LibraryNativeFixture.scenarioRef = scenario
-        until { semantics().any { it.tag == "候选首页" } }
-        navTo("片库"); key(KeyEvent.KEYCODE_DPAD_CENTER)
-        until { semantics().any { it.tag == "候选片库" } }
-        until { var size = -1; library { size = it.display.items.size }; size == LibraryNativeFixture.decadeIndices.count() }
-        library {
-            assertEquals(1980, it.appliedQuery!!.yearStart)
-            assertEquals(1989, it.appliedQuery!!.yearEnd)
         }
     }
 

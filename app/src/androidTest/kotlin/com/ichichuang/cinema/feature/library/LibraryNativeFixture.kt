@@ -37,7 +37,8 @@ internal object LibraryNativeFixture {
         else -> 1994
     }
 
-    fun setup(context: Context) {
+    /** phaseAware=false 清库重写档案（常规类）；true 保留既有数据库与档案（两阶段进程实验的阶段 B）。 */
+    fun setup(context: Context, phaseAware: Boolean = false) {
         val arguments = InstrumentationRegistry.getArguments()
         check(com.ichichuang.cinema.BuildConfig.BROWSE_RESTORE_PROBE && com.ichichuang.cinema.BuildConfig.PLAYBACK_ROOM_PROBE)
         check(arguments.getString("cinema.browse") == "round11")
@@ -57,7 +58,7 @@ internal object LibraryNativeFixture {
             .writeText(com.ichichuang.cinema.feature.home.visual.VisualHomeAuthorization.TOKEN)
         File(context.noBackupFilesDir, LibraryAuthorization.FILE).writeText(LibraryAuthorization.TOKEN)
         check(!LegacyHandoffRuntime.present(context))
-        context.deleteDatabase(DebugBrowseProbeGate.DATABASE)
+        if (!phaseAware) context.deleteDatabase(DebugBrowseProbeGate.DATABASE)
         BrowseProbeTestHooks.holdWindowReady = false; BrowseProbeTestHooks.disableWorkFocus = false
         BrowseProbeTestHooks.failedFocusRequests.set(0); BrowseProbeTestHooks.focusTrace.clear()
         BrowseProbeTestHooks.beforeLoad = null; BrowseProbeTestHooks.beforeTopLevelLoad = null
@@ -67,7 +68,8 @@ internal object LibraryNativeFixture {
         LibraryTestHooks.disableWorkFocus = false; LibraryTestHooks.failedFocusRequests.set(0)
         LibraryTestHooks.focusTrace.clear()
         LibraryTestHooks.appliedQueries.set(0); LibraryTestHooks.continuedLoads.set(0)
-        writeFixture(context)
+        // 两阶段实验共享同一份档案：仅阶段 A 重写。
+        if (!phaseAware || !File(context.noBackupFilesDir, BrowseProbeFixture.FILE).isFile) writeFixture(context)
     }
 
     fun writeFixture(context: Context, works: JSONArray = defaultWorks()) {
