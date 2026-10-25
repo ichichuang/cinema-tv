@@ -40,6 +40,8 @@ class MainActivity : ComponentActivity(), KoinComponent {
         private set
     internal var homeProbe by mutableStateOf<com.ichichuang.cinema.feature.home.visual.VisualHomeRuntime?>(null)
         private set
+    internal var libraryProbe by mutableStateOf<com.ichichuang.cinema.feature.library.LibraryRuntime?>(null)
+        private set
     private var probeError by mutableStateOf<String?>(null)
 
     override fun onPause() {
@@ -77,35 +79,44 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 scope.launch {
                     BrowseProbeTestHooks.activeLeases.incrementAndGet()
                     com.ichichuang.cinema.feature.home.visual.VisualHomeTestHooks.activeLeases.incrementAndGet()
+                    com.ichichuang.cinema.feature.library.LibraryTestHooks.activeLeases.incrementAndGet()
                     try {
                         if (BuildConfig.PERSONAL_LIBRARY_PROBE) com.ichichuang.cinema.feature.personal.PersonalLibraryAuthorization.requireOwned(this@MainActivity)
                         if (BuildConfig.HOME_VISUAL_PROBE) com.ichichuang.cinema.feature.home.visual.VisualHomeAuthorization.requireOwned(this@MainActivity)
+                        if (BuildConfig.LIBRARY_FILTER_PROBE) com.ichichuang.cinema.feature.library.LibraryAuthorization.requireOwned(this@MainActivity)
                         DebugBrowseProbeGate.withOwnedProfile(this@MainActivity) { database ->
                             coroutineScope {
                                 val fixture = withContext(Dispatchers.IO) { BrowseProbeFixture(this@MainActivity) }
                                 val runtime = BrowseProbeRuntime(this@MainActivity, RoomBrowseStateStore(database), this,
                                     fixture, personalDatabase = if (BuildConfig.PERSONAL_LIBRARY_PROBE) database else null)
+                                // R14 片库切片：挂在既有授权链上（首页+个人库必须同开），不新增激活入口。
+                                val library = if (BuildConfig.LIBRARY_FILTER_PROBE && BuildConfig.HOME_VISUAL_PROBE && BuildConfig.PERSONAL_LIBRARY_PROBE)
+                                    com.ichichuang.cinema.feature.library.LibraryRuntime(this@MainActivity, runtime, database, this, fixture) else null
                                 val home = if (BuildConfig.HOME_VISUAL_PROBE && BuildConfig.PERSONAL_LIBRARY_PROBE)
-                                    com.ichichuang.cinema.feature.home.visual.VisualHomeRuntime(this@MainActivity, runtime, database, this, fixture) else null
+                                    com.ichichuang.cinema.feature.home.visual.VisualHomeRuntime(this@MainActivity, runtime, database, this, fixture, library) else null
                                 // 先就位首页再发布浏览运行时，导航图一次成型（候选首页为根）。
                                 homeProbe = home
+                                libraryProbe = library
                                 browseProbe = runtime
                                 try {
                                     runtime.start()
+                                    library?.start()
                                     home?.start()
                                     awaitCancellation()
                                 }
                                 finally {
                                     withContext(NonCancellable) {
                                         home?.shutdown()
+                                        library?.shutdown()
                                         runtime.shutdown()
                                     }
                                 }
                             }
                         }
                     } catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { homeProbe = null; browseProbe = null; probeError = "无法进入浏览测试，请检查独立测试授权与本地资料" }
+                    catch (_: Exception) { homeProbe = null; libraryProbe = null; browseProbe = null; probeError = "无法进入浏览测试，请检查独立测试授权与本地资料" }
                     finally {
+                        com.ichichuang.cinema.feature.library.LibraryTestHooks.activeLeases.decrementAndGet()
                         com.ichichuang.cinema.feature.home.visual.VisualHomeTestHooks.activeLeases.decrementAndGet()
                         BrowseProbeTestHooks.activeLeases.decrementAndGet()
                     }

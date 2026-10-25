@@ -164,10 +164,14 @@ internal fun CinemaNavHost(
     val root = if (home != null) "候选首页" else "候选浏览"
     val settingsActive = home != null && home.screen == com.ichichuang.cinema.feature.home.visual.HomeRootScreen.SETTINGS
     val browseActive = home != null && home.screen == com.ichichuang.cinema.feature.home.visual.HomeRootScreen.BROWSE
+    // R14 片库切片仅在片库运行时就位（探针配对）时成为独立根目的地。
+    val libraryActive = home != null && home.library != null &&
+        home.screen == com.ichichuang.cinema.feature.home.visual.HomeRootScreen.LIBRARY
     val destination = when {
         probe.isPlayer -> "候选播放器"
         probe.isDetail -> "候选详情"
         settingsActive -> "候选设置"
+        libraryActive -> "候选片库"
         browseActive -> "候选浏览"
         else -> root
     }
@@ -187,6 +191,9 @@ internal fun CinemaNavHost(
         if (home != null) {
             composable("候选首页") { com.ichichuang.cinema.feature.home.visual.TvHomeScreen(home, onExit) }
             composable("候选设置") { com.ichichuang.cinema.feature.home.visual.CandidateSettingsScreen(home, onExit) }
+            if (home.library != null) composable("候选片库") {
+                com.ichichuang.cinema.feature.library.TvLibraryScreen(home.library, onExit)
+            }
         }
         composable("候选浏览") { com.ichichuang.cinema.feature.browse.BrowseProbeScreen(probe, onExit) }
         composable("候选详情") { com.ichichuang.cinema.feature.browse.BrowseProbeDetail(probe, onExit) }

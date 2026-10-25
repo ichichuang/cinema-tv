@@ -77,6 +77,7 @@ internal fun TvStatusMessage(
     actionLabel: String? = null,
     actionIcon: ImageVector? = null,
     actionTag: String? = null,
+    actionEnabled: Boolean = true,
     focusRequester: FocusRequester? = null,
     onPlaced: (() -> Unit)? = null,
     onFocusChanged: ((Boolean) -> Unit)? = null,
@@ -88,7 +89,7 @@ internal fun TvStatusMessage(
         Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f, fill = false).testTag(tag))
         if (actionLabel != null && onAction != null) {
-            TvPrimaryButton(actionLabel, actionIcon, tag = actionTag ?: actionLabel, enabled = true,
+            TvPrimaryButton(actionLabel, actionIcon, tag = actionTag ?: actionLabel, enabled = actionEnabled,
                 focusRequester = focusRequester, onPlaced = onPlaced, onFocusChanged = onFocusChanged, onClick = onAction)
         }
     }

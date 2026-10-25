@@ -47,6 +47,8 @@ internal fun TvPosterTile(
     progressFraction: Float? = null,
     landscape: Boolean = true,
     wide: Boolean = false,
+    /** R14 片库网格：瓦片填满网格列宽并按画幅定高；默认关闭保持 R13 行式固定尺寸。 */
+    fillWidth: Boolean = false,
     focusable: Boolean = true,
     focusRequester: FocusRequester? = null,
     onPlaced: (() -> Unit)? = null,
@@ -60,6 +62,10 @@ internal fun TvPosterTile(
     // wide（首行）用 16:9 紧凑尺寸，保证 1280x720 逻辑宽度下动作按钮不被裁切（L01/L03）。
     if (landscape) { tileWidth = if (wide) 232.dp else 208.dp; tileHeight = if (wide) 130.dp else 117.dp }
     else { tileWidth = 120.dp; tileHeight = 180.dp }
+    val imageModifier = if (fillWidth) Modifier.fillMaxWidth()
+        .aspectRatio(if (landscape) 16f / 9f else 2f / 3f)
+    else Modifier.width(tileWidth).height(tileHeight)
+    val textWidthModifier = if (fillWidth) Modifier.fillMaxWidth() else Modifier.width(tileWidth)
     Column(modifier = modifier
         .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
         .let { if (focusable) it.tvFocus(cornerRadius = 12.dp) else it }
@@ -76,7 +82,7 @@ internal fun TvPosterTile(
         .then(if (focusable) Modifier.focusable() else Modifier)
         .onGloballyPositioned { onPlaced?.invoke() }
         .testTag(tag)) {
-        Box(Modifier.width(tileWidth).height(tileHeight).clip(shape).background(PanelHi), contentAlignment = Alignment.Center) {
+        Box(imageModifier.clip(shape).background(PanelHi), contentAlignment = Alignment.Center) {
             // 占位在图下层：成功装载覆盖占位，失败或无图时保留占位与真实标题。
             androidx.compose.material3.Icon(com.ichichuang.cinema.core.design.TvOriginalIcons.Details,
                 contentDescription = null, tint = TextSub.copy(alpha = 0.6f), modifier = Modifier.size(26.dp))
@@ -94,10 +100,10 @@ internal fun TvPosterTile(
         Spacer(Modifier.height(6.dp))
         Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium,
             maxLines = if (landscape) 1 else 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            modifier = Modifier.width(tileWidth))
+            modifier = textWidthModifier)
         if (secondaryText != null) Text(secondaryText, color = TextSub, style = MaterialTheme.typography.bodySmall,
-            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.width(tileWidth))
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = textWidthModifier)
         if (progressText != null) Text(progressText, color = TextSub, style = MaterialTheme.typography.bodySmall,
-            maxLines = 1, modifier = Modifier.width(tileWidth))
+            maxLines = 1, modifier = textWidthModifier)
     }
 }

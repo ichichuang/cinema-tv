@@ -53,8 +53,8 @@ internal object VisualHomeTestHooks {
     var beforeLoad: CompletableDeferred<Unit>? = null
 }
 
-/** 首页 / 浏览 / 设置 三个候选根画面；详情与播放器始终是浏览运行时的子层。 */
-internal enum class HomeRootScreen { HOME, BROWSE, SETTINGS }
+/** 首页 / 片库 / 浏览 / 设置 候选根画面；详情与播放器始终是浏览运行时的子层。 */
+internal enum class HomeRootScreen { HOME, LIBRARY, BROWSE, SETTINGS }
 
 /** 首页只写自身上下文键；浏览活动指针（active-navigation）仍由浏览运行时独占。 */
 internal class HomeSnapshotStore(private val database: CinemaDatabase, private val contextKey: String) : BrowseNavigationStore {
@@ -82,6 +82,8 @@ internal class VisualHomeRuntime(
     database: CinemaDatabase,
     val scope: CoroutineScope,
     private val fixture: BrowseProbeFixture,
+    /** R14 原生片库切片；null（探针未开）时“片库”仍走 R13 浏览占位路径，行为逐字不变。 */
+    val library: com.ichichuang.cinema.feature.library.LibraryRuntime? = null,
 ) {
     companion object {
         const val CONTINUE_ROW = "继续观看"
@@ -135,14 +137,22 @@ internal class VisualHomeRuntime(
 
     init {
         browse.onPersonalChanged = { recompute() }
-        // 子层（详情/播放器）关闭时，若仍处首页根画面，重新落焦到进入子层前的位置。
+        // 子层（详情/播放器）关闭时，若仍处首页/片库根画面，重新落焦到进入子层前的位置。
         scope.launch {
+            var wasChild = false
             snapshotFlow { browse.isDetail || browse.isPlayer }.collect { child ->
-                if (!child && childReturnPending) {
-                    childReturnPending = false
-                    if (screen == HomeRootScreen.HOME && !stopped)
-                        controlTarget = lastHomeFocus ?: "nav:${NAV_ITEMS.first()}"
+                if (wasChild && !child) {
+                    when {
+                        // 片库入口直接经浏览子层返回：不依赖首页的 childReturnPending 记账。
+                        screen == HomeRootScreen.LIBRARY -> library?.childReturned()
+                        childReturnPending -> {
+                            childReturnPending = false
+                            if (screen == HomeRootScreen.HOME && !stopped)
+                                controlTarget = lastHomeFocus ?: "nav:${NAV_ITEMS.first()}"
+                        }
+                    }
                 }
+                wasChild = child
             }
         }
     }
@@ -271,7 +281,9 @@ internal class VisualHomeRuntime(
     fun openTopDestination(label: String) {
         when (label) {
             "设置" -> { screen = HomeRootScreen.SETTINGS; controlTarget = SETTINGS_ITEMS.first() }
-            "片库" -> { screen = HomeRootScreen.BROWSE; browse.switch(BrowseTopLevel.LIBRARY) }
+            // R14：片库探针开启时进入原生片库切片；未开启保持 R13 浏览占位路径。
+            "片库" -> if (library != null) { screen = HomeRootScreen.LIBRARY; library.childReturned() }
+            else { screen = HomeRootScreen.BROWSE; browse.switch(BrowseTopLevel.LIBRARY) }
             "我的收藏" -> { screen = HomeRootScreen.BROWSE; browse.switch(BrowseTopLevel.FAVORITES) }
             "最近观看" -> { screen = HomeRootScreen.BROWSE; browse.switch(BrowseTopLevel.HISTORY) }
         }
@@ -303,6 +315,9 @@ internal class VisualHomeRuntime(
     }
 
     fun returnToHome() { screen = HomeRootScreen.HOME; if (controlTarget == null) controlTarget = focusedControl ?: "nav:首页" }
+
+    /** 片库根画面返回：回到首页并把落焦意图交回“片库”导航条目。 */
+    fun returnFromLibrary() { screen = HomeRootScreen.HOME; controlTarget = "nav:片库" }
 
     fun delivered(outcome: RestoreOutcome): String? = when (outcome) {
         is RestoreOutcome.ReadyToFocus -> outcome.workId.value
@@ -349,12 +364,21 @@ internal class VisualHomeRuntime(
         if (code !in setOf(KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP,
                 KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BACK)) return false
         VisualHomeTestHooks.traceFocus("按键 code=$code action=${event.action} screen=$screen")
-        // 让位给浏览的按键，其 UP 也必须让位：否则浏览的确认/返回去重集会永久卡死。
+        // UP 必须成对清理本类 held 集，即使画面在 DOWN→UP 之间切到了片库；
+        // 片库根的 UP 同步转发，片库自身的 held 集同样成对清理（防“隔次吞确认键”）。
         if (event.action == KeyEvent.ACTION_UP) {
+            held.remove(code)
+            if (screen == HomeRootScreen.LIBRARY && library != null && !browse.isDetail && !browse.isPlayer)
+                library.key(event) { returnFromLibrary() }
             if (deferredKeys.remove(code)) return false
-            held.remove(code); return true
+            return true
         }
         if (event.action != KeyEvent.ACTION_DOWN) return true
+        // R14 片库根画面：DOWN/重复按键交片库运行时自管（其内部自持去重与面板捕获）。
+        if (screen == HomeRootScreen.LIBRARY && library != null && !browse.isDetail && !browse.isPlayer) {
+            val consumed = library.key(event) { returnFromLibrary() }
+            if (consumed) return true
+        }
         // 详情／播放器是浏览运行时的子层：全部按键让位，首页不得在子层上抢返回或移动焦点。
         if (browse.isDetail || browse.isPlayer) { deferredKeys.add(code); return false }
         // 浏览根：方向/确认键交给浏览；弹层打开时返回也交给浏览先关弹层。
