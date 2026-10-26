@@ -67,7 +67,22 @@ internal class PersonalLibraryRuntime(
     private val catalog = object : PlaybackProbeCatalog {
         override val probeMedia: List<ProbeMedia> = readPrivateMedia()
     }
-    val player = ExoPlayer.Builder(context).build()
+    // 解码器选择（Media3 官方机制）：优先久经考验的软件 OMX 解码器（低端电视/
+    // 模拟器上 c2 输出面偶发代际竞态），失败再回退到备选实现。仍是这一个播放器。
+    val codecSelector = androidx.media3.exoplayer.mediacodec.MediaCodecSelector { mimeType, secure, tunneling ->
+        androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT
+            .getDecoderInfos(mimeType, secure, tunneling)
+            .sortedByDescending { it.name.startsWith("OMX.google") }
+    }
+    val player = ExoPlayer.Builder(context)
+        .setRenderersFactory(androidx.media3.exoplayer.DefaultRenderersFactory(context)
+            .setMediaCodecSelector(codecSelector)
+            .setEnableDecoderFallback(true))
+        // 常率流（无索引的 ADTS/MP3）不启用常率 seek 推断：时长未知且不可拖动，
+        // 与真实直播一致 —— 播放器必须如实呈现，而不是伪造 seek 图。
+        .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(context,
+            androidx.media3.extractor.DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(false)))
+        .build()
     private fun createProbe() = RoomPlaybackProbe(context, scope, player, sharedDatabase = database, confirmedPlayback = repository::confirmPlayback) { result ->
         if (result != CommitResult.Committed) message = "播放记录尚未保存，请重试；原记录保持"
         trace()
@@ -258,6 +273,31 @@ internal class PersonalLibraryRuntime(
         catch (_: IllegalArgumentException) { message = "所选剧集或版本与已存进度不一致，原记录保持"; false }
         catch (_: Exception) { message = "播放资料读取失败，请重试；原记录保持"; false }
     }
+    /** R16 播放器控制切片：供选择器读取的证据条目（单一目录权威，只读）。 */
+    fun playerChoices(workId: String): List<ProbeMedia> = catalog.probeMedia.filter { it.target.workId.value == workId }
+
+    /**
+     * R16 播放器内换集/换线：完全走既有身份管线（probe.select 先落旧检查点屏障，
+     * 再按精确 (作品,剧集,版本) 回查续播，绝不跨版本携带进度）；保持原播放意图。
+     */
+    suspend fun selectFromPlayer(workId: String, episodeId: String, variantId: String): Boolean {
+        val media = catalog.probeMedia.singleOrNull {
+            it.target.workId.value == workId &&
+                it.target.episodeId?.value == episodeId && it.target.variantId?.value == variantId
+        } ?: run { message = "所选线路或剧集不可用，未切换"; return false }
+        if (remember(media.target.workId.value) != CommitResult.Committed) { message = "作品资料未保存，请重试"; return false }
+        return try {
+            val keepPlaying = player.playWhenReady
+            val selected = probe.select(catalog, media.detail, media.lineIndex, media.episodeIndex, autoPlay = keepPlaying)
+                ?: return false
+            selectedMedia = selected; requestedResumePosition = player.currentPosition
+            if (!keepPlaying) player.pause()
+            message = "已切换"; trace(); true
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: IllegalArgumentException) { message = "所选剧集或版本与已存进度不一致，原记录保持"; false }
+        catch (_: Exception) { message = "切换未完成，原记录保持"; false }
+    }
+
     fun togglePlaying() { if (player.isPlaying) player.pause() else player.play(); trace() }
     suspend fun retry() { probe.retry() }
     fun pause() { player.pause(); scope.launch { probe.boundary(); trace() } }

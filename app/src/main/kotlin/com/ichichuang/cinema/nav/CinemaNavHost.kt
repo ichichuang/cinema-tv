@@ -157,6 +157,7 @@ internal fun CinemaNavHost(
     onExit: () -> Unit,
     home: com.ichichuang.cinema.feature.home.visual.VisualHomeRuntime? = null,
     detail: com.ichichuang.cinema.feature.detail.WorkDetailRuntime? = null,
+    playerControls: com.ichichuang.cinema.feature.player.PlayerControlsRuntime? = null,
 ) {
     check(com.ichichuang.cinema.BuildConfig.BROWSE_RESTORE_PROBE)
     val nav = rememberNavController()
@@ -202,6 +203,10 @@ internal fun CinemaNavHost(
             if (detail != null) com.ichichuang.cinema.feature.detail.TvWorkDetailScreen(detail, onExit)
             else com.ichichuang.cinema.feature.browse.BrowseProbeDetail(probe, onExit)
         }
-        composable("候选播放器") { com.ichichuang.cinema.feature.personal.PersonalLibraryPlayer(probe, onExit) }
+        composable("候选播放器") {
+            // R16 播放器控制切片仅在全部探针配对就位时替换播放器层渲染；否则维持 R12 简易播放器。
+            if (playerControls != null) com.ichichuang.cinema.feature.player.TvPlayerControlsScreen(playerControls, onExit)
+            else com.ichichuang.cinema.feature.personal.PersonalLibraryPlayer(probe, onExit)
+        }
     }
 }

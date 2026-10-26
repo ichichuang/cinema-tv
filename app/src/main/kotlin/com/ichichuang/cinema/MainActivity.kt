@@ -44,6 +44,8 @@ class MainActivity : ComponentActivity(), KoinComponent {
         private set
     internal var detailProbe by mutableStateOf<com.ichichuang.cinema.feature.detail.WorkDetailRuntime?>(null)
         private set
+    internal var playerControlsProbe by mutableStateOf<com.ichichuang.cinema.feature.player.PlayerControlsRuntime?>(null)
+        private set
     private var probeError by mutableStateOf<String?>(null)
 
     override fun onPause() {
@@ -70,8 +72,9 @@ class MainActivity : ComponentActivity(), KoinComponent {
             val ordinaryCallback = requireNotNull(window.callback)
             window.callback = object : android.view.Window.Callback by ordinaryCallback {
                 override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
-                    // 详情是浏览运行时的最上层子画面：先由 R15 详情运行时处理；
-                    // 首页是候选根画面：再由首页处理；浏览/子层按键最后交浏览运行时。
+                    // 播放器是浏览运行时的最上层子画面：先由 R16 播放器控制运行时处理；
+                    // 详情次之；首页是候选根画面：再由首页处理；浏览/子层按键最后交浏览运行时。
+                    if (playerControlsProbe?.key(event) { finish() } == true) return true
                     if (detailProbe?.key(event) { finish() } == true) return true
                     if (homeProbe?.key(event) { finish() } == true) return true
                     if (browseProbe?.key(event) { homeProbe?.returnToHome() ?: finish() } == true) return true
@@ -90,6 +93,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
                         if (BuildConfig.HOME_VISUAL_PROBE) com.ichichuang.cinema.feature.home.visual.VisualHomeAuthorization.requireOwned(this@MainActivity)
                         if (BuildConfig.LIBRARY_FILTER_PROBE) com.ichichuang.cinema.feature.library.LibraryAuthorization.requireOwned(this@MainActivity)
                         if (BuildConfig.DETAIL_PROBE) com.ichichuang.cinema.feature.detail.WorkDetailAuthorization.requireOwned(this@MainActivity)
+                        if (BuildConfig.PLAYER_CONTROLS_PROBE) com.ichichuang.cinema.feature.player.PlayerControlsAuthorization.requireOwned(this@MainActivity)
                         DebugBrowseProbeGate.withOwnedProfile(this@MainActivity) { database ->
                             coroutineScope {
                                 val fixture = withContext(Dispatchers.IO) { BrowseProbeFixture(this@MainActivity) }
@@ -104,6 +108,11 @@ class MainActivity : ComponentActivity(), KoinComponent {
                                 val detail = if (BuildConfig.DETAIL_PROBE && BuildConfig.LIBRARY_FILTER_PROBE &&
                                     BuildConfig.HOME_VISUAL_PROBE && BuildConfig.PERSONAL_LIBRARY_PROBE)
                                     com.ichichuang.cinema.feature.detail.WorkDetailRuntime(this@MainActivity, runtime, this, fixture) else null
+                                // R16 播放器控制切片：链在全部既有探针授权之上（含详情探针），不新增激活入口；
+                                // 复用既有唯一播放器/检查点权威（PersonalLibraryRuntime），不建第二个播放器。
+                                val playerControls = if (BuildConfig.PLAYER_CONTROLS_PROBE && BuildConfig.DETAIL_PROBE &&
+                                    BuildConfig.LIBRARY_FILTER_PROBE && BuildConfig.HOME_VISUAL_PROBE && BuildConfig.PERSONAL_LIBRARY_PROBE)
+                                    com.ichichuang.cinema.feature.player.PlayerControlsRuntime(this@MainActivity, runtime, this, fixture) else null
                                 // 个人记录变化既通知首页重投影，也让 R15 详情按钮/徽标反映已提交状态。
                                 if (detail != null) {
                                     val priorChanged = runtime.onPersonalChanged
@@ -113,15 +122,18 @@ class MainActivity : ComponentActivity(), KoinComponent {
                                 homeProbe = home
                                 libraryProbe = library
                                 detailProbe = detail
+                                playerControlsProbe = playerControls
                                 browseProbe = runtime
                                 try {
                                     runtime.start()
                                     library?.start()
                                     home?.start()
+                                    playerControls?.start()
                                     awaitCancellation()
                                 }
                                 finally {
                                     withContext(NonCancellable) {
+                                        playerControls?.close()
                                         home?.shutdown()
                                         library?.shutdown()
                                         runtime.shutdown()
@@ -130,7 +142,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
                             }
                         }
                     } catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { homeProbe = null; libraryProbe = null; detailProbe = null; browseProbe = null; probeError = "无法进入浏览测试，请检查独立测试授权与本地资料" }
+                    catch (_: Exception) { homeProbe = null; libraryProbe = null; detailProbe = null; playerControlsProbe = null; browseProbe = null; probeError = "无法进入浏览测试，请检查独立测试授权与本地资料" }
                     finally {
                         com.ichichuang.cinema.feature.detail.WorkDetailTestHooks.activeLeases.decrementAndGet()
                         com.ichichuang.cinema.feature.library.LibraryTestHooks.activeLeases.decrementAndGet()
@@ -142,7 +154,8 @@ class MainActivity : ComponentActivity(), KoinComponent {
             setContent {
                 CinemaTheme {
                     val runtime = browseProbe
-                    if (runtime != null) CinemaNavHost(runtime, onExit = { finish() }, home = homeProbe, detail = detailProbe)
+                    if (runtime != null) CinemaNavHost(runtime, onExit = { finish() }, home = homeProbe, detail = detailProbe,
+                        playerControls = playerControlsProbe)
                     else Text(probeError ?: "正在核验独立浏览测试环境", modifier = androidx.compose.ui.Modifier.then(
                         if (probeError != null) androidx.compose.ui.Modifier.testTag("浏览测试不可用") else androidx.compose.ui.Modifier))
                 }

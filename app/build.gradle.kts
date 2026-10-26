@@ -113,6 +113,24 @@ if (detailProbe) {
     }
 }
 
+// The R16 player-controls slice chains on every earlier probe authority; no new credential path.
+val playerControlsProbe = providers.gradleProperty("cinema.playerControlsProbe")
+    .map { it.toBooleanStrict() }.getOrElse(false)
+if (playerControlsProbe) {
+    val pair = setOf(":app:assembleDebug", ":app:assembleDebugAndroidTest")
+    if (gradle.startParameter.taskNames.toSet() != pair || !detailProbe || !libraryFilterProbe ||
+        !homeVisualProbe || !personalLibraryProbe || !browseRestoreProbe || !playbackRoomProbe || !storageTestArm64) {
+        throw GradleException("播放器控制探针仅允许完整 Debug / DebugAndroidTest 配对及既有详情、片库、首页、个人记录、浏览、播放、ARM64 测试授权；禁止安装、Release、bundle、发布或签名。")
+    }
+    gradle.taskGraph.whenReady {
+        if (allTasks.any { it.name.contains("release", ignoreCase = true) ||
+                it.name.startsWith("publish", ignoreCase = true) || it.name.startsWith("install", ignoreCase = true) ||
+                it.name == "bundleDebug" }) {
+            throw GradleException("播放器控制探针任务图禁止安装、Release、bundle、发布或生产签名任务。")
+        }
+    }
+}
+
 // This opt-in only assembles a disposable instrumentation APK pair; it never installs.
 if (storageTestArm64) {
     val allowedTasks = setOf(":app:assembleDebug", ":app:assembleDebugAndroidTest")
@@ -166,6 +184,7 @@ android {
         buildConfigField("boolean", "HOME_VISUAL_PROBE", "false")
         buildConfigField("boolean", "LIBRARY_FILTER_PROBE", "false")
         buildConfigField("boolean", "DETAIL_PROBE", "false")
+        buildConfigField("boolean", "PLAYER_CONTROLS_PROBE", "false")
     }
 
     signingConfigs {
@@ -193,6 +212,7 @@ android {
             buildConfigField("boolean", "HOME_VISUAL_PROBE", homeVisualProbe.toString())
             buildConfigField("boolean", "LIBRARY_FILTER_PROBE", libraryFilterProbe.toString())
             buildConfigField("boolean", "DETAIL_PROBE", detailProbe.toString())
+            buildConfigField("boolean", "PLAYER_CONTROLS_PROBE", playerControlsProbe.toString())
             ndk { abiFilters += if (storageTestArm64) "arm64-v8a" else "armeabi-v7a" }
             // Contributor builds cannot replace the installed production application.
             applicationIdSuffix = ".debug"
