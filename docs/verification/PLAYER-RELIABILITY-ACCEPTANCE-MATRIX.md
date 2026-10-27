@@ -11,6 +11,9 @@
 > - R14 的 5 个 assumption skip 保持 `SKIP`，永不升级为 PASS。
 >
 > 证据码：`JVM` / `BUILD` / `SEC` / `STATIC` / `NATIVE`（本轮不可用）/ `REPORT`。
+>
+> 证据位置：命令与真实输出见 `docs/verification/2026-10-27-round-17-player-reliability.md` §三（RED→GREEN）、§五（命令输出）；
+> 原始日志在被 `.gitignore` 忽略的 `.local/evidence/round-17/`（不入 Git）。
 
 ## G — 基线、边界与不变量（6）
 
@@ -20,7 +23,7 @@
 | G02 | 未改构建配置/依赖版本 | `git diff --stat 6cd8bae..HEAD` 不含 `*.gradle.kts`、`gradle/`、`gradle.properties`、`gradlew*` | PASS (STATIC) |
 | G03 | Room schema v1–v6 相对起点无变化 | `git diff 6cd8bae -- app/schemas` 输出为空 | PASS (STATIC) |
 | G04 | 包名/版本/minSdk/targetSdk/ABI 未变，Release 未签名 | `aapt2 dump badging` × 2；`apksigner verify` → `DOES NOT VERIFY` | PASS (BUILD) |
-| G05 | 单一 ExoPlayer / 单一 checkpoint 协调者 / Room 唯一写入方未被破坏 | 《R17 ST3 有序化报告》§三 + 本轮 diff 审阅（未新增第二个写入者/计时器） | PASS (STATIC) |
+| G05 | 单一 ExoPlayer / 单一 checkpoint 协调者 / Room 唯一写入方未被破坏 | 《R17 ST3 有序化报告》§三 + 本轮 diff 审阅（未新增第二个写入者/计时器）；依据是人工阅读 diff（静态），无可重跑脚本 | PASS (STATIC) |
 | G06 | 普通 Debug/Release 不启用新界面（探针默认 OFF） | 既有 `*OffNativeTest` 仅编译；普通 Debug APK 构建通过 | UNVERIFIED（native 需设备） |
 
 ## K — 物理按键周期（9）
@@ -88,7 +91,7 @@
 | R04 | 普通 Debug APK 构建通过 | `:app:assembleDebug` | PASS (BUILD) |
 | R05 | androidTest 源码编译通过 | `:app:assembleDebugAndroidTest`、`:app:compileDebugAndroidTestKotlin --rerun` | PASS (BUILD)，运行 UNVERIFIED |
 | R06 | 未签名 Release 构建通过 | `:app:assembleRelease` | PASS (BUILD) |
-| R07 | Debug/Release Lint 无错误、无本轮新增代码类问题 | `:app:lintDebug :app:lintRelease` + XML 逐条定位 | PASS (BUILD) |
+| R07 | Debug/Release Lint 无错误、无本轮新增代码类问题 | `:app:lintDebug :app:lintRelease` + XML 逐条定位（联网 23 条 / 离线 18 条，差额为版本检查类，0 Error） | PASS (BUILD) |
 | R08 | 八探针守护构建（严格任务对 + 八个 `-Pcinema.*=true`）通过 | `74 actionable tasks: 74 executed` / `BUILD SUCCESSFUL` | PASS (BUILD) |
 | R09 | 原生测试清单（类/方法/新增/重名）可复核 | 枚举脚本 + `git show 6cd8bae` 对比 | PASS (STATIC) |
 | R10 | 独立评审 | 编排方另行安排 | 待编排方独立评审 |
@@ -97,7 +100,8 @@
 
 - 本矩阵共 46 行：`PASS` 29、`UNVERIFIED` 12、`NOT RUN` 4、`待编排方独立评审` 1、`FAIL` 0、
   `SKIP`（R14 历史 assumption，另计 5，不计入 PASS）。
-- 需要模拟器的行：K09、F06、S03、S04、S07、S08、E01–E04、V01、G06 → 全部不是 PASS。
+- 需要模拟器的行：K09、F06、S04、S07、E01–E04、V01、G06 → 全部不是 PASS。
+- S03、S08：无 JVM 测试，未覆盖（只有源码），状态 UNVERIFIED，不是 PASS。
 - R14 的 5 个 assumption skip 保持 SKIP，未计入 PASS。
 
 > 边界：本矩阵只覆盖播放器可靠性切片（且仍处于私有 Debug 授权链之后）。它不关闭 T10/T11/M04、

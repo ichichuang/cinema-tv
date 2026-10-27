@@ -37,7 +37,7 @@ R17 的原提交 `46e40ab` 只存在于原作者本地，远端开发分支仍�
 | 17 | `9536ceccef4c3386bff7323f5576e815effee019` | R17-ST3.3：U05 主线程 build；P07 去掉 sleep |
 | 18 | `48ac4a39792cd83beb61b9b9cff282d5a8bac845` | docs：ST3b 文档与最终代码对齐 |
 
-本轮 ST4 的文档提交见 §十一。
+本轮 ST4 的文档提交见 §十一：ST4 主提交 `709587d252bf0e71e23badcffab6da0ad4146b1f`、ST4 更正 `213024f25214f064d7299dfd73bd8469f5d93a35`，按独立复核清单所做的文档修正提交见 `git log` 末尾（提交无法写入自身 SHA）。
 
 ## 二、四类风险的处置（代码级）
 
@@ -98,7 +98,7 @@ R17 的原提交 `46e40ab` 只存在于原作者本地，远端开发分支仍�
 - 新增：`PlayerControlsUnknownDurationNativeTest.loopback_live_stream_reports_unknown_duration_and_no_seek`、
   `TvPlayerControlsScreenshotTest.video_render_stages_distinct_from_overlay`、
   `PlayerControlsEpisodesNativeTest.disabled_line_and_unplayable_episode_never_receive_actionable_focus`。
-- 播放器控制子家族：**53 个方法 / 9 个类**（详表见 R17.1 报告 §五）。历史「49/50」不采用。
+- 播放器控制子家族：**53 个方法 / 9 个类**（详表见 R17.1 报告 §五）；起点 `6cd8bae` 同口径为 50 个方法 / 8 个类（独立复核枚举）。历史「49/49」不采用。
 - 同类内重名 0；跨类同名 1（`user_input_cancels_late_focus_restore`，两个不同类各自执行）。
 
 全部 400 个方法**只有编译证据，没有运行结果**：box 无模拟器，UNVERIFIED。
@@ -113,21 +113,22 @@ R17 的原提交 `46e40ab` 只存在于原作者本地，远端开发分支仍�
 | --- | --- |
 | `python3 -m unittest discover -s scripts/tests` | `Ran 62 tests in 7.947s` / `OK` |
 | `python3 scripts/check_repository_security.py` | `Checked 460 tracked files; 0 policy violations`（staged 状态下运行） |
-| `:app:assembleDebug`（普通，`--rerun-tasks` 后重跑） | `BUILD SUCCESSFUL`；`app-debug.apk` 20 955 289 B，`sha256 bba0d1e5f32cd9629f1492fc7b2c774910726cc2c4a892e2a1d44d7d1bd8d581` |
+| `:app:assembleDebug`（普通，`--rerun-tasks` 后重跑） | `BUILD SUCCESSFUL`；执行方那一次构建的指纹：`app-debug.apk` 20 955 289 B，`sha256 bba0d1e5f32cd9629f1492fc7b2c774910726cc2c4a892e2a1d44d7d1bd8d581`（独立复核方在 box 上对同一提交构建得到 20 731 187 B、`sha256 c016194b33bb77589371f39dfe8bc8a74c06111d6e78e4173ae1742a0b010832`，两者不同，构建不可复现，该指纹仅代表那一次构建） |
 | `:app:testDebugUnitTest --rerun` | `BUILD SUCCESSFUL in 31s`；XML 聚合 `files=50 tests=506 failures=0 errors=0 skipped=0` |
 | `:app:assembleDebugAndroidTest` + `:app:compileDebugAndroidTestKotlin --rerun` | `BUILD SUCCESSFUL`（后者 1 个任务真实执行）；产物 `app-debug-androidTest.apk` |
-| `:app:assembleRelease` | `BUILD SUCCESSFUL in 59s`；`app-release-unsigned.apk` 14 956 049 B，`sha256 54737078aa9af9ee1cd11d438c6242b91c3323405c3768223e0b25b817d9cfbc` |
+| `:app:assembleRelease` | `BUILD SUCCESSFUL in 59s`；执行方那一次构建的指纹：`app-release-unsigned.apk` 14 956 049 B，`sha256 54737078aa9af9ee1cd11d438c6242b91c3323405c3768223e0b25b817d9cfbc`（独立复核方构建大小相同、`sha256 82a5bcde3c4aa8c54ea9a7d7f59445abc69eb9aee148391d50fe35c9f062c454`，SHA 不同，构建不可复现，该指纹仅代表那一次构建；包名/版本/ABI/未签名复核一致） |
 | `apksigner verify`（Release） | `DOES NOT VERIFY` / `ERROR: Missing META-INF/MANIFEST.MF` → 未签名 |
-| `:app:lintDebug :app:lintRelease` | `BUILD SUCCESSFUL in 3m 36s`；XML：debug 23 条（22 Warning + 1 Hint）、release 同样 23 条，**0 Error**，两套 ID 集合相同 |
+| `:app:lintDebug :app:lintRelease` | `BUILD SUCCESSFUL in 3m 36s`；XML：debug 23 条（22 Warning + 1 Hint）、release 同样 23 条，**0 Error**，两套 ID 集合相同。注：23 条是联网时版本检查参与的结果；独立复核方离线（`--offline`）重跑为各 18 条（17 Warning + 1 Hint，0 Error），多出的 5 条均为版本检查类（`AndroidGradlePluginVersion` 1、`GradleDependency` 1、`NewerVersionAvailable` 3，位于 `gradle-wrapper.properties` / `build.gradle.kts`），代码类问题两者一致 |
 | 八探针守护构建（严格任务对 + 8 个 `-Pcinema.*=true` + `--rerun-tasks`） | `BUILD SUCCESSFUL in 2m 2s`，`74 actionable tasks: 74 executed`（含 `kspDebugKotlin`、`compileDebugKotlin`、`assembleDebug`、`assembleDebugAndroidTest`） |
 | `aapt2 dump badging`（Release） | `com.ichichuang.cinema`、`0.9.8`、`versionCode 18`、minSdk 24、targetSdk 28、`native-code: armeabi-v7a` |
 | `git diff 6cd8bae -- app/schemas` | 空 |
 
 八探针构建的产物：`app-debug.apk` 20 733 111 B（`sha256 97b0a74867ec2a1eacff6124162b2cb49637089c74be38db96b987c45cf5334a`）、
 `app-debug-androidTest.apk` 2 003 878 B（`sha256 9270c5e7e88e5029a32d636f69b7f37b9238c31b0ee0ea50de0950a59930c40c`）。
-该构建覆盖了先前的普通 Debug APK，普通包的指纹以表中记录为准。
+这两个 SHA-256 已由独立复核方在 box 上用同一命令（`--rerun-tasks`）重建，逐字节一致。
+该构建覆盖了先前的普通 Debug APK；普通 Debug 与 Release 的指纹不可复现，见上表注。
 
-**Lint 与 R16 的对比**：23 条问题全部落在本轮未改动的文件（`SettingsScreen`、`PlayerViewModel`、
+**Lint 与 R16 的对比**：23 条（离线 18 条）问题全部落在本轮未改动的文件（`SettingsScreen`、`PlayerViewModel`、
 `gradle-wrapper.properties`、`app/build.gradle.kts`、图标资源等），**没有任何一条来自 R17 改动的文件**，
 因此「无新增代码类问题」。
 
@@ -137,9 +138,10 @@ R17 的原提交 `46e40ab` 只存在于原作者本地，远端开发分支仍�
   - U05 `loopback_live_stream_reports_unknown_duration_and_no_seek`；
   - P07 `PlayerControlsProcessReplayTest` 两阶段；
   - 720p `video_render_stages_distinct_from_overlay`；
-  - 原生长 OK / 长 Back、`disabled_line_and_unplayable_episode_never_receive_actionable_focus`、
+  - 原生长 OK（`PlayerControlsKeyNativeTest.long_ok_does_not_fire_short_first`）、`disabled_line_and_unplayable_episode_never_receive_actionable_focus`、
     E05/E06 `holdSwitch` 屏障路径、各 `*OffNativeTest`；
   - R12 浏览回归（含 R17.1 修正的 `old_pending_layout_cannot_focus_after_new_query_is_installed`）。
+  - 说明：长 Back 只有 JVM 测试（`RemoteKeyCycleTest`，见矩阵 K07），androidTest 中**没有**原生长 Back 测试方法。
 - **BLOCKED**：无新增 BLOCKED 项。U05 与 P07 的状态从历史的「BLOCKED」改为
   **「代码已写、已编译、未运行（UNVERIFIED）」**——不是 PASS，也不再是「无代码」。
 - **assumption skip**：R14 的 5 个 assumption skip 保持 skip，本轮未重跑，不计入 PASS。
@@ -169,11 +171,26 @@ R17 的原提交 `46e40ab` 只存在于原作者本地，远端开发分支仍�
 - 720p 像素阈值（红通道 > 18、亮度 > 90）依赖合成视频 fixture 的实际帧内容，需首次在设备上校准。
 - P07 的稳定窗口、`/proc/$pid` 语义均需设备确认。
 
+### 7.2a 引用：ST3b 文档的已知限制（UNVERIFIED，全部条目）
+
+以下逐条引自 `docs/verification/2026-10-27-round-17-st3b-native-tests.md` §七，本轮均未在设备上验证：
+
+1. U05/P07/720p 全部仅编译、未运行；`duration==C.TIME_UNSET`、`videoSize`、`videoFrameRendered` 像素判据、进程 PID 语义需真机/模拟器验证。
+2. U05 的中文「时长未知」文案与真实 `seekTo` 零调用不在测试覆盖内，未验证。
+3. 720p 像素判据（红通道 > 18、亮度 > 90）依赖合成 fixture 帧内容，需在设备上首次运行时校准；纯音频时视频帧区是否严格为黑需实测。
+4. U05 的 ExoPlayer `build()` 在 `runOnMainSync` 内执行：若在主线程抛异常，可能表现为 instrumentation 进程崩溃，而非单条测试干净失败。
+5. P07 稳定窗口：若最后一次提交晚于某个已满 2,500 ms 的稳定窗口到达仍可能漏掉；末尾 `assertTrue(committed >= 13_000)` 与收敛条件基本重复。
+6. P07 `untilProcessGone` 依赖 `/proc/$pid` 对测试进程可见且 PID 未被复用。
+7. U05 `@After` 中服务端线程 `join(2000)` 超时只放弃等待，不使测试失败。
+8. 注释语言混用：ST3.3 新增注释为英文，部分既有注释仍为中文。
+
+ST3 有序化文档（`docs/verification/2026-10-27-round-17-st3-ordered-selection.md` §八）的限制已汇总于 §7.1 与 §7.2。
+
 ### 7.3 环境
 
 - box 无 Android 模拟器/真机 → 所有仪器化验证不可用。
-- 沙箱对 `utimens` 与部分构建输出有拦截：`assembleRelease` 在带 `--offline` 时因 lint 依赖未缓存失败，
-  去掉 `--offline` 后成功；`--rerun-tasks` + 构建缓存写盘失败时改用 `--no-build-cache`。
+- 沙箱对 `utimens` 与部分构建输出有拦截。`assembleRelease` 带 `--offline` 时曾失败，原因是当时 lint 工具
+  （`androidLintTool` 配置）缓存未就绪；去掉 `--offline` 后成功。缓存就绪后，独立复核方带 `--offline` 也成功；`--rerun-tasks` + 构建缓存写盘失败时改用 `--no-build-cache`。
 
 ## 八、独立评审
 
@@ -190,7 +207,7 @@ R17 的原提交 `46e40ab` 只存在于原作者本地，远端开发分支仍�
 
 ## 十、改动文件总表（`git diff --stat 6cd8bae..HEAD`）
 
-生产代码 6 个：
+生产代码 7 个（与 `git diff --name-only 6cd8bae..HEAD -- app/src/main` 一致）：
 
 ```
 feature/player/RemoteKeyCycle.kt
@@ -223,4 +240,4 @@ androidTest/.../TvPlayerControlsScreenshotTest.kt
 
 ## 十一、本轮 commit
 
-staged 安全检查通过后提交一次（仅文档），SHA 见 `git log`。
+staged 安全检查通过后本地提交（仅文档）。ST4 主提交 `709587d252bf0e71e23badcffab6da0ad4146b1f`、ST4 更正 `213024f25214f064d7299dfd73bd8469f5d93a35`，按独立复核清单所做的文档修正提交见 `git log` 末尾（提交无法写入自身 SHA）。

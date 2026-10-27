@@ -15,10 +15,10 @@ Round 01–14 已留存，当前完成限定的 Round 15 原生作品详情（�
 - 真实执行：JVM `tests=506 failures=0 errors=0 skipped=0`（50 个 XML）；Python `Ran 62 tests OK`；
   普通 Debug / 未签名 Release / androidTest / 双 Lint / 八探针守护构建（74 任务全部执行）均 `BUILD SUCCESSFUL`；
   安全检查 0 违规；`git diff 6cd8bae -- app/schemas` 为空。
-- 未验证：box 无模拟器，全部 400 个 androidTest 方法（含 U05、P07、720p、长 Back、语义树焦点、R12 浏览）
+- 未验证：box 无模拟器，全部 400 个 androidTest 方法（含 U05、P07、720p、原生长 OK、语义树焦点、R12 浏览；长 Back 只有 JVM 测试）
   仅编译，标 UNVERIFIED；R14 的 5 个 assumption skip 保持 skip。
 - 剩余限制：有序切换仍只做一次入队前检查、`pause()`/`capture()` 在检查之前、探针重建后代次归零、
-  `reproject()` 在 try 之外、无超时保护；`SwitchSelectionTest` 对生产实现无区分力。
+  `reproject()` 在 try 之外、拒绝时 `onStale` 不在探针内调用、队列卡死会让后续切换排队且无超时保护；`SwitchSelectionTest` 对生产实现无区分力。
 - 详细证据：[R17 计划](../../superpowers/plans/2026-10-27-round-17-player-reliability.md)、
   [R17 报告](../../verification/2026-10-27-round-17-player-reliability.md)、
   [R17 矩阵](../../verification/PLAYER-RELIABILITY-ACCEPTANCE-MATRIX.md)、

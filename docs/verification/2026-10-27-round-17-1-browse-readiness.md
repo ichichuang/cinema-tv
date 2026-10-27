@@ -87,10 +87,11 @@ private fun awaitBrowseProbe() = until {
 | `TvPlayerControlsScreenshotTest` | `video_render_stages_distinct_from_overlay` | 720p 视频渲染 |
 | `PlayerControlsEpisodesNativeTest` | `disabled_line_and_unplayable_episode_never_receive_actionable_focus` | 选择器焦点（原生侧） |
 
-**播放器控制子家族**（`PlayerControls*` 9 个类 + `TvPlayerControlsScreenshotTest`）：
+**播放器控制子家族**（8 个 `PlayerControls*` 测试类 + `TvPlayerControlsScreenshotTest`，共 9 类）：
 `Episodes 8 + Key 9 + Lifecycle 7 + Off 1 + ProcessReplay 2 + Seek 8 + Ui 9 + UnknownDuration 1 + Screenshot 8`
-= **53 个方法 / 9 个类**。这与历史记录里的「49/49」或「50」都不同——旧数字对应的源码版本不可得，
-本轮**不采用**，一律以本表为准。
+= **53 个方法 / 9 个类**（独立复核方枚举一致）。独立复核方用同一口径（`git show 6cd8bae:<文件>` 逐文件抽取 `@Test`）
+对起点复核：`6cd8bae` 的播放器控制子家族为 **50 个方法 / 8 个类**（无 `PlayerControlsUnknownDurationNativeTest`）。
+历史记录里的「49/49」对应的源码版本无法确认，本轮不采用；本轮相对起点净增 3 个方法，以本表为准。
 
 **重名检查**：
 
@@ -109,7 +110,7 @@ private fun awaitBrowseProbe() = until {
 | `python3 scripts/check_repository_security.py` | `Checked 460 tracked files; 0 policy violations`（staged 状态下运行） |
 | `:app:testDebugUnitTest --rerun` | `BUILD SUCCESSFUL`；XML 聚合 `files=50 tests=506 failures=0 errors=0 skipped=0` |
 | `:app:assembleDebugAndroidTest` | `BUILD SUCCESSFUL`（57 个任务，全部 up-to-date；另有 `:app:compileDebugAndroidTestKotlin --rerun` → `BUILD SUCCESSFUL`，1 个任务真实执行） |
-| `:app:assembleDebug` | `BUILD SUCCESSFUL`；`app-debug.apk` 20 955 289 字节 |
+| `:app:assembleDebug` | `BUILD SUCCESSFUL`；执行方那一次构建 `app-debug.apk` 20 955 289 字节（独立复核方 box 构建为 20 731 187 字节，构建不可复现，该大小仅代表那一次构建） |
 | `aapt2 dump badging app-debug.apk` | `com.ichichuang.cinema.debug`、`0.9.8-debug`、`versionCode 18`、minSdk 24、targetSdk 28、`native-code: armeabi-v7a` |
 | `git diff 6cd8bae -- app/schemas` | 输出为空（v1–v6 未变） |
 
@@ -137,6 +138,7 @@ R17 原提交 `46e40ab` 及其「44 PASS / 1 FAIL / 1 BLOCKED」「P07 PID 4341 
 
 ## 九、commit
 
-本轮在 `main` 上做一次本地提交（见 `git log`），内容为本报告、R17.1 计划与矩阵、R17 的计划/矩阵/报告，
-以及在 `docs/superpowers/progress/2026-10-23-tv-rebuild.md` 追加的 R17/R17.1 条目
-（`README.md` 没有轮次进度段落，未改动）；不 `git add -A`，不 push。
+本轮在 `main` 上共三次本地提交：ST4 主提交 `709587d252bf0e71e23badcffab6da0ad4146b1f`（内容为本报告、R17.1 计划与矩阵、R17 的计划/矩阵/报告，
+以及在 `docs/superpowers/progress/2026-10-23-tv-rebuild.md` 追加的 R17/R17.1 条目；`README.md` 没有轮次进度段落，未改动）、ST4 更正 `213024f25214f064d7299dfd73bd8469f5d93a35`
+（本节交付范围描述），以及按独立复核清单所做的文档修正提交（见 `git log` 末尾，提交无法写入自身 SHA）。
+不 `git add -A`，不 push。

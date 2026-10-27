@@ -9,6 +9,9 @@
 >
 > 证据码：`JVM` 宿主单测，`BUILD` 真实 Gradle 输出，`STATIC` 源码/清单枚举，`SEC` 安全检查，
 > `NATIVE` 真实仪器化（本轮**不可用**），`REPORT` 可审计记录。
+>
+> 证据位置：命令输出见 `docs/verification/2026-10-27-round-17-1-browse-readiness.md` §五、§六；
+> 原始日志与枚举脚本在被 `.gitignore` 忽略的 `.local/`（不入 Git）。
 
 ## B — R12 浏览初始化竞态（7）
 
@@ -28,7 +31,7 @@
 | --- | --- | --- | --- | --- |
 | I01 | `app/src/androidTest` 下 `@Test` 方法总数与类数可枚举且与源码一致 | 枚举脚本 `.local/tools/native_inventory_final.py`（`STATIC`） | PASS | 400 个方法 / 48 个含测试的类 |
 | I02 | 相对 `6cd8bae` 的净增方法数明确 | `git show` 两版本枚举比对 | PASS | 397 → 400，净增 3，无删除 |
-| I03 | 新增方法可点名（长 Back、反转换集顺序、720p 帧等） | 见 I02 结果表 | PASS | 3 个新增：U05、720p、停用线路/不可播剧集焦点 |
+| I03 | 新增原生方法可点名 | 见 I02 结果表 | PASS (STATIC) | 3 个新增：U05 `loopback_live_stream_reports_unknown_duration_and_no_seek`、720p `video_render_stages_distinct_from_overlay`、`disabled_line_and_unplayable_episode_never_receive_actionable_focus`（停用线路/不可播剧集焦点）。本轮未新增原生长 Back 方法与「反转换集顺序」原生方法（长 Back 只有 JVM 测试；反转顺序见 R17 矩阵 S05，NOT RUN） |
 | I04 | 同一类内无重名 `@Test` 方法（不会重复执行） | 枚举脚本 `DUP_IN_CLASS` 为空 | PASS | — |
 | I05 | 跨类同名方法已识别并说明 | `user_input_cancels_late_focus_restore` 同时存在于 `WorkDetailNavigationNativeTest` 与 `BrowseNavigationNativeTest` | PASS | 不同类、各自独立执行，不为重复计数 |
 | I06 | 播放器控制子家族的最终方法数（不沿用 49/50 旧说法） | `PlayerControls*` + `TvPlayerControlsScreenshotTest` 逐类统计 | PASS | 53 个方法 / 9 个类（本节统计口径见报告 §四） |
@@ -45,16 +48,16 @@
 | R06 | Room schema v1–v6 相对 `6cd8bae` 无变化 | `git diff 6cd8bae -- app/schemas` 为空 | PASS (STATIC) | 无新增 migration |
 | R07 | 未改构建配置与依赖 | `git diff --stat 6cd8bae..HEAD` 不含 `*.gradle.kts`/`gradle/`/`gradle.properties` | PASS (STATIC) | — |
 | R08 | R14 的 5 个 assumption skip 仍为 skip，不冒充 PASS | R14 矩阵/报告既有记录 | SKIP | 历史记录，本轮未重跑 |
-| R09 | 交付为本地提交、工作区干净、未 push | `git status --short` 为空；`git log origin/main..HEAD`（无远端即不可比） | PASS (STATIC) | 见报告 §交付 |
+| R09 | 交付为本地提交、工作区干净、未 push | `git status --short` 为空；`git ls-remote origin refs/heads/main` 仍为 `6cd8bae`，`git log origin/main..HEAD` 可比较，本地 `main` 领先 | PASS (STATIC) | origin 存在可比较；未 push |
 
 ## 计数
 
 | 结果 | 数量 |
 | --- | --- |
-| PASS | 见报告 §六实测统计（本文件所有 PASS 均来自本轮真实命令或静态枚举） |
+| PASS | 19（B03–B07 5 条、I01–I06 6 条、R01–R07 与 R09 8 条；均来自本轮真实命令或静态枚举） |
 | FAIL | 0 |
 | UNVERIFIED（已编译，未运行） | B01、B02（2 条；整体设备侧能力见 R17 报告 §七） |
-| SKIP（历史 assumption） | 5（R14 遗留，不计入本轮矩阵行） |
+| SKIP（历史 assumption） | 1 行（R08，汇总 R14 遗留的 5 个 assumption skip，不计入 PASS） |
 | BLOCKED | 0 |
 
 > 说明：本矩阵刻意不把任何「需要模拟器」的声明写成 PASS。B01/B02 的代码修改是确定的，
