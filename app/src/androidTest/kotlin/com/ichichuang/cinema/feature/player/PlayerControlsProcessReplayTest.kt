@@ -109,20 +109,27 @@ class PlayerControlsProcessReplayTest {
             personal { store = RoomPlaybackProgressStore(it.database) }
             val snap = store!!.loadResume(PlayerControlsNativeFixture.w[0])
             snap != null && snap.positionMs >= 13_000 } }
-        // 暂停边界提交是异步的：用可观察条件等它收敛（连续两次采样位置相等，即不再推进），
-        // 而非固定 sleep。取到的 committed 是暂停后的最后提交值。
+        // The pause-boundary commit is asynchronous, so wait for it to settle with a bounded
+        // observable condition instead of a fixed sleep. The condition is at least as strong as the
+        // former 2_500 ms wait: the committed position must hold unchanged across a wall-clock
+        // window of at least 2_500 ms (any change resets the window start) and must be >= 13_000.
+        // Timeout fails the test through until() itself (AssertionError + diagnostics, never swallowed).
         var previous = -1L
-        var converged = false
-        val convEnd = android.os.SystemClock.uptimeMillis() + 10_000
-        while (android.os.SystemClock.uptimeMillis() < convEnd && !converged) {
+        var stableSince = 0L
+        val stableWindowMs = 2_500L
+        until(20_000) {
             var resume: com.ichichuang.cinema.domain.model.userdata.PlaybackSnapshot? = null
-            personal { resume = runBlocking { RoomPlaybackProgressStore(it.database).loadResume(PlayerControlsNativeFixture.w[0]) } }
+            personal { resume = runBlocking {
+                RoomPlaybackProgressStore(it.database).loadResume(PlayerControlsNativeFixture.w[0]) } }
             val pos = resume?.positionMs ?: 0L
-            if (pos >= 13_000 && previous == pos) { committed = pos; converged = true }
-            previous = pos
-            if (!converged) Thread.sleep(100)
+            val now = android.os.SystemClock.uptimeMillis()
+            if (pos != previous) { previous = pos; stableSince = now }
+            val settled = pos >= 13_000 && now - stableSince >= stableWindowMs
+            if (settled) committed = pos
+            settled
         }
-        assertTrue("暂停提交必须收敛（最后提交位置稳定）", converged)
+        // until() above already enforced convergence; this keeps the settled value's lower bound explicit.
+        assertTrue("暂停提交必须收敛（最后提交位置稳定）", committed >= 13_000)
         // 记录阶段 A PID 与已提交身份，供宿主比对（唯一文件名，不覆盖旧日志）。
         recordFile().writeText(JSONObject()
             .put("pid", appPid)

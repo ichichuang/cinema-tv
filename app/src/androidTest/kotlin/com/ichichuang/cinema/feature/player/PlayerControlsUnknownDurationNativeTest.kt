@@ -37,12 +37,15 @@ import java.util.concurrent.atomic.AtomicReference
  *   - 可用命令里不含绝对 seek（[Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM]）；
  *   - 控制器对未知时长的如实投影：时间轴禁用、无法建立预览、OK 不产生 seek 命令。
  *
- * 线程边界（关键）：Media3 [ExoPlayer] 的创建、`setMediaItem/prepare/release` 以及读取
- * `playbackState/playerError/duration/isCommandAvailable` 全部必须在应用主线程进行，否则
- * Media3 会抛 `IllegalStateException("Player is accessed on the wrong thread")`。本测试用
- * `InstrumentationRegistry.getInstrumentation().runOnMainSync { ... }` 在主线程执行，读取值
- * 经 AtomicReference/AtomicInteger/AtomicLong 带出；有界等待 READY 超时必须在主线程再次
- * 取样当前 state/playerError 并失败，绝不“没抛异常”当证据。
+ * Threading (critical): Media3 [ExoPlayer] creation, `setMediaItem/prepare/release`, and reads of
+ * `playbackState/playerError/duration/isCommandAvailable` must all happen on the application main
+ * thread, otherwise Media3 throws `IllegalStateException("Player is accessed on the wrong thread")`.
+ * This test therefore wraps `ExoPlayer.Builder(...).build()` (including the construction call
+ * itself, not only the later accessors) and every subsequent access in
+ * `InstrumentationRegistry.getInstrumentation().runOnMainSync { ... }`; the built player and the
+ * sampled values are handed back through AtomicReference/AtomicInteger/AtomicLong. A READY timeout
+ * must re-sample the current state/playerError on the main thread and fail; never treat "no
+ * exception was thrown" as evidence.
  *
  * 架构边界（如实披露）：生产播放管线经 `ProbeMediaFile.requirePrivate` 只接受私有目录
  * 内的 `file://` 媒体，loopback `http://` URL 无法通过该门禁，因此本测试**直接构造**
@@ -143,12 +146,18 @@ class PlayerControlsUnknownDurationNativeTest {
     }
 
     @Test fun loopback_live_stream_reports_unknown_duration_and_no_seek() {
-        // 直接构造指向回环流、关闭常率 seek 推断的 ExoPlayer（与生产 DefaultExtractorsFactory 一致）。
-        // 创建与后续 setMediaItem/prepare/release 都必须在主线程，否则 Media3 抛 wrong-thread。
-        val p = ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(context,
-                DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(false)))
-            .build()
+        // Build an ExoPlayer against the loopback stream with constant-bit-rate seek inference off
+        // (matching the production DefaultExtractorsFactory).
+        // The build() call runs inside runOnMainSync too, so construction and every later access
+        // share one thread (the main thread); that is simpler here than wiring an explicit main Looper.
+        val built = AtomicReference<ExoPlayer?>(null)
+        instrumentation.runOnMainSync {
+            built.set(ExoPlayer.Builder(context)
+                .setMediaSourceFactory(DefaultMediaSourceFactory(context,
+                    DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(false)))
+                .build())
+        }
+        val p = requireNotNull(built.get()) { "ExoPlayer build did not produce a player" }
         player = p
         instrumentation.runOnMainSync {
             p.setMediaItem(MediaItem.fromUri(url()))
