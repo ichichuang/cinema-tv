@@ -69,6 +69,10 @@ internal class RoomPlaybackProbe(
     private var pauseId: String? = null
     private var pauseRevision = 0L
     private var handoffCatalog: HandoffPlaybackProbeCatalog? = null
+    // R17 goal A: the single-authority generation token for in-player switch ordering. A
+    // superseded selection is rejected inside select()'s serialized queue, before any player
+    // or Room mutation.
+    private val selectionGeneration = SelectionGeneration()
     private val listener = object : Player.Listener {
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
             if (!playWhenReady && (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST ||
@@ -125,6 +129,12 @@ internal class RoomPlaybackProbe(
     suspend fun loadResume(workId: com.ichichuang.cinema.domain.model.catalog.WorkId): PlaybackSnapshot? =
         queue.await { authorized { store.loadResume(workId) } }
 
+    /** Reserve the next selection generation on the caller thread (before any suspension). */
+    fun reserveSelection(): Long = selectionGeneration.reserve()
+
+    /** True while [generation] is still the newest reserved selection. */
+    fun isSelectionStale(generation: Long): Boolean = !selectionGeneration.isLatest(generation)
+
     suspend fun start(catalog: PlaybackProbeCatalog, detail: MovieDetail): ProbeMedia? {
         verifyHandoffCatalog(catalog)
         val candidates = catalog.probeMedia.filter { it.detail == detail }
@@ -136,7 +146,8 @@ internal class RoomPlaybackProbe(
     }
 
     suspend fun select(catalog: PlaybackProbeCatalog, detail: MovieDetail, line: Int, episode: Int,
-        autoPlay: Boolean, resume: PlaybackSnapshot? = null, startAtBeginning: Boolean = false): ProbeMedia? {
+        autoPlay: Boolean, resume: PlaybackSnapshot? = null, startAtBeginning: Boolean = false,
+        generation: Long? = null): ProbeMedia? {
         require(!startAtBeginning || resume == null) { "从头播放不能同时映射旧版本位置" }
         val media = ProbeIdentity.resolve(catalog, detail, line, episode)
             ?: throw IllegalArgumentException("测试剧集身份缺失、重复或列表已变化")
@@ -146,6 +157,11 @@ internal class RoomPlaybackProbe(
         val requestedPauseRevision = pauseRevision
         if (handoff == null) player.pause()
         return queue.await {
+            // R17 goal A: reject a superseded selection BEFORE any player or Room mutation.
+            // This is the authoritative stale check: it runs inside the serialized queue, so an
+            // older selection that is still in flight cannot rebind the Media3 session or write
+            // a stale checkpoint after a newer selection has been reserved.
+            if (generation != null && isSelectionStale(generation)) return@await null
             verifyHandoffCatalog(catalog)
             if (handoff != null) player.pause()
             val saved = bridge.accept(previous)

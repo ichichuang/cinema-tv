@@ -88,7 +88,6 @@ internal class PlayerControlsRuntime(
     var uiPreview by mutableStateOf<Long?>(null); private set
     private var layerAnnounced = false
     private var lastInputAtMs = 0L
-    private val switchCoordinator = OrderedSwitchCoordinator(scope)
     private var listener: Player.Listener? = null
     private var ticker: Job? = null
 
@@ -336,21 +335,28 @@ internal class PlayerControlsRuntime(
     /** 播放器内换集/换线：既有身份管线 + 换前检查点屏障；迟到结果按代次拒绝（E05/E06）。 */
     private fun selectTarget(episodeId: String?, variantId: String?) {
         if (episodeId == null || variantId == null) { hint("所选线路或剧集不可用，未切换"); return }
-        // R17 goal A: the ordered, single-authority switch boundary (OrderedSwitchCoordinator)
-        // reserves a generation and runs the mutation inside the gate — serializing switches
-        // behind one Mutex and rejecting a superseded selection before it can touch the player.
-        val generation = switchCoordinator.select(
-            hold = PlayerControlsTestHooks.holdSwitch,
-            onStale = { staleGen -> PlayerControlsTestHooks.traceCommand("stale-drop:$staleGen") },
-            onTimeout = { hint("切换超时，原记录保持") },
-        ) { _, staleGuard ->
-            val workId = currentWorkId() ?: return@select
-            val selected = personal.selectFromPlayer(workId, episodeId, variantId, staleGuard = staleGuard)
-            if (!selected) hint(personal.message.ifBlank { "所选线路或剧集不可用，未切换" })
-            else hint("已切换")
+        val workId = currentWorkId() ?: run { hint("所选线路或剧集不可用，未切换"); return }
+        // R17 goal A: reserve the selection generation synchronously on the caller thread, so a
+        // newer selection always carries a higher generation than an older one still in flight.
+        // The switch runs through PersonalLibraryRuntime.selectFromPlayer, whose authoritative
+        // stale check is inside RoomPlaybackProbe.select's serialized queue (before any player
+        // or Room mutation).
+        val generation = personal.reserveSelection()
+        PlayerControlsTestHooks.traceCommand("select:$variantId/$episodeId@$generation")
+        scope.launch {
+            try {
+                // Test-only hold (E05/E06): stall the selection right before its blocking
+                // Room-bound switch so a newer selection can reserve a higher generation first.
+                PlayerControlsTestHooks.holdSwitch?.await()
+                val selected = personal.selectFromPlayer(workId, episodeId, variantId, generation)
+                if (!selected) {
+                    if (personal.isSelectionStale(generation)) PlayerControlsTestHooks.traceCommand("stale-drop:$generation")
+                    hint(personal.message.ifBlank { "所选线路或剧集不可用，未切换" })
+                } else hint("已切换")
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { hint("切换未完成，原记录保持") }
             reproject()
         }
-        PlayerControlsTestHooks.traceCommand("select:$variantId/$episodeId@$generation")
     }
 
     // ── 投影（唯一事实来源：真实 Player + 证据档案 + 控制器瞬态） ──

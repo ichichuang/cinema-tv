@@ -88,6 +88,8 @@ internal class PersonalLibraryRuntime(
         trace()
     }
     private var probe = createProbe()
+    // R17 goal A: the pure switch orchestration used by selectFromPlayer; directly JVM-testable.
+    private val switchSelection = SwitchSelection()
     var selectedMedia by mutableStateOf<ProbeMedia?>(null); private set
     var playerPlaying by mutableStateOf(false); private set
     var playerPosition by mutableLongStateOf(0L); private set
@@ -276,38 +278,46 @@ internal class PersonalLibraryRuntime(
     /** R16 播放器控制切片：供选择器读取的证据条目（单一目录权威，只读）。 */
     fun playerChoices(workId: String): List<ProbeMedia> = catalog.probeMedia.filter { it.target.workId.value == workId }
 
+    /** R17 goal A: reserve the next switch generation on the caller thread (before suspension). */
+    fun reserveSelection(): Long = probe.reserveSelection()
+
+    /** R17 goal A: true while [generation] has been superseded by a newer reserved selection. */
+    fun isSelectionStale(generation: Long): Boolean = probe.isSelectionStale(generation)
+
     /**
      * R16 播放器内换集/换线：完全走既有身份管线（probe.select 先落旧检查点屏障，
      * 再按精确 (作品,剧集,版本) 回查续播，绝不跨版本携带进度）；保持原播放意图。
      *
-     * R17 goal A: an optional [staleGuard] re-checks the caller's selection generation at
-     * two cancellation points (before the blocking Room-bound [probe.select], and again
-     * after it resolves but before the player identity is adopted). A superseded selection
-     * returns false BEFORE mutating the player or its state. The guard is a pure predicate,
-     * not a second state authority, and CancellationException is always propagated.
+     * R17 goal A: [generation] is the token reserved by the caller on its own thread before
+     * this call. The stale check is authoritative inside `probe.select`'s serialized queue,
+     * before any player or Room mutation; the pure [SwitchSelection] orchestration adds a
+     * pre-select fast-path and refuses to adopt a superseded result. CancellationException is
+     * always propagated; a generic failure surfaces the visible "切换未完成" hint.
      */
     suspend fun selectFromPlayer(
         workId: String,
         episodeId: String,
         variantId: String,
-        staleGuard: (suspend () -> Boolean)? = null,
+        generation: Long,
     ): Boolean {
         val media = catalog.probeMedia.singleOrNull {
             it.target.workId.value == workId &&
                 it.target.episodeId?.value == episodeId && it.target.variantId?.value == variantId
         } ?: run { message = "所选线路或剧集不可用，未切换"; return false }
-        if (remember(media.target.workId.value) != CommitResult.Committed) { message = "作品资料未保存，请重试"; return false }
         return try {
-            if (staleGuard?.invoke() == true) { message = "选择已过期，未切换"; return false }
+            if (remember(media.target.workId.value) != CommitResult.Committed) { message = "作品资料未保存，请重试"; return false }
             val keepPlaying = player.playWhenReady
-            val selected = probe.select(catalog, media.detail, media.lineIndex, media.episodeIndex, autoPlay = keepPlaying)
-                ?: return false
-            // Re-check after the (cancellable) Room-bound select: a newer selection must not
-            // have its identity overwritten by an older one that just resolved.
-            if (staleGuard?.invoke() == true) { message = "选择已过期，未切换"; return false }
-            selectedMedia = selected; requestedResumePosition = player.currentPosition
-            if (!keepPlaying) player.pause()
-            message = "已切换"; trace(); true
+            val adopted = switchSelection.perform(
+                isStale = { probe.isSelectionStale(generation) },
+                select = { probe.select(catalog, media.detail, media.lineIndex, media.episodeIndex, autoPlay = keepPlaying, generation = generation) },
+                adopt = { selected ->
+                    selectedMedia = selected
+                    requestedResumePosition = player.currentPosition
+                    if (!keepPlaying) player.pause()
+                },
+                onStale = { message = "选择已过期，未切换" },
+            )
+            if (adopted) { message = "已切换"; trace(); true } else false
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: IllegalArgumentException) { message = "所选剧集或版本与已存进度不一致，原记录保持"; false }
         catch (_: Exception) { message = "切换未完成，原记录保持"; false }
