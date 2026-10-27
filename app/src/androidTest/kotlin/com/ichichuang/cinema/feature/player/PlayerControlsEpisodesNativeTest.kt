@@ -14,7 +14,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -237,47 +236,31 @@ class PlayerControlsEpisodesNativeTest {
             snapshotFor(PlayerControlsNativeFixture.EPISODE_A1, PlayerControlsNativeFixture.VARIANT_A)?.positionMs)
     }
 
-    // R17 目标 B：停用/不可播放项不获得可操作默认焦点（真实语义树 + D-pad）
-    // 说明：本测试仅要求编译通过（UNVERIFIED）；box 无模拟器，不在真机/模拟器运行。
+    // R17 goal B: disabled/unplayable items never receive actionable default focus (real semantics tree + D-pad)
+    // NOTE: this test only needs to compile (UNVERIFIED); box has no emulator, so it is never run here.
     @Test fun disabled_line_and_unplayable_episode_never_receive_actionable_focus() {
         enter()
         PlayerControlsTestHooks.suppressIdleHide = true
         openPicker("线路单", "线路")
-        // 当前线路 variant-a 可用，默认焦点应落在它而非任何停用项。
+        // The current line variant-a is available; default focus must land on it, never on a disabled item.
         until { var focus: String? = null; player { focus = it.controller.pickerFocusedId }
             focus == "picker:${PlayerControlsNativeFixture.VARIANT_A}" }
-        // 语义树中：停用线路如实标注 Disabled 且绝非聚焦节点。
+        // In the semantics tree, disabled lines are honestly marked Disabled and are never the focused node.
         val disabledNodes = semantics().filter { it.tag in setOf("picker:round15-variant-c", "picker:round15-variant-d") }
         assertTrue(disabledNodes.isNotEmpty())
         assertTrue(disabledNodes.none { it.focused })
         assertTrue(disabledNodes.all { it.description.contains("Disabled") })
-        // D-pad 向下：只在可用项（a → b）间移动，绝不落到停用项。
+        // D-pad DOWN moves only among available items (a -> b), never onto a disabled item.
         key(KeyEvent.KEYCODE_DPAD_DOWN)
         until { var focus: String? = null; player { focus = it.controller.pickerFocusedId }
             focus == "picker:${PlayerControlsNativeFixture.VARIANT_B}" }
         player { assertEquals("picker:${PlayerControlsNativeFixture.VARIANT_B}", it.controller.pickerFocusedId) }
         key(KeyEvent.KEYCODE_BACK)
         until { var picker: Any? = null; player { picker = it.controller.picker }; picker == null }
-        // 全部线路不可用（w4：只剩停用线路）→ 打开选择器后无可操作焦点，Back 仍可关闭。
-        PlayerControlsNativeFixture.backOutOfPlayer(scenario!!, instrumentation, viaOverlay = true)
-        com.ichichuang.cinema.feature.library.LibraryNativeFixture.screenReach(scenario!!, PlayerControlsNativeFixture.w[4].value)
-        key(KeyEvent.KEYCODE_DPAD_CENTER)
-        until { semantics().any { it.tag == "候选详情" } }
-        until { semantics().any { it.focused } }
-        key(KeyEvent.KEYCODE_DPAD_CENTER)
-        until { var isPlayer = false; scenario!!.onActivity { isPlayer = requireNotNull(it.browseProbe).isPlayer }; isPlayer }
-        until(20_000) { var settled = false; scenario!!.onActivity {
-            val runtime = it.playerControlsProbe
-            settled = runtime == null || runtime.display?.status?.statusText == "已暂停" }; settled }
-        key(KeyEvent.KEYCODE_DPAD_RIGHT); key(KeyEvent.KEYCODE_DPAD_DOWN); key(KeyEvent.KEYCODE_DPAD_RIGHT)
-        until { var focus: String? = null; player { focus = it.controller.focusedControlId }; focus == "线路" }
-        key(KeyEvent.KEYCODE_DPAD_CENTER)
-        until { var picker: Any? = null; player { picker = it.controller.picker }; picker != null }
-        player {
-            assertNull("全部线路不可用：不得获得可操作焦点", it.controller.pickerFocusedId)
-            assertEquals(PlayerPickerKind.LINES, it.controller.picker)
-        }
-        key(KeyEvent.KEYCODE_BACK)
-        until { var picker: Any? = null; player { picker = it.controller.picker }; picker == null }
+        // "All lines unavailable" is NOT exercised natively here: the fixture has no work whose only
+        // route is DISABLED that can still enter the player layer (a DISABLED route yields primaryActionEnabled=false,
+        // so OK on the detail screen cannot enter the player). This branch is covered at the JVM level by
+        // PlayerControlsControllerTest.all_lines_unavailable_leave_no_actionable_focus, and is left UNVERIFIED
+        // at the native layer.
     }
 }
