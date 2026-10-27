@@ -219,42 +219,72 @@ class TvPlayerControlsScreenshotTest {
     // 用真实视频 fixture（w5 合成 MP4，含真实视频帧）在 1280×720 下分区段采样，
     // 不能把可见的播放器控制叠层当作视频渲染证据：只有视频帧区的非纯黑像素才算真实渲染。
     // box 无模拟器 → 仅编译（UNVERIFIED）；矩阵状态如实标 UNVERIFIED。
+    //
+    // 阶段断言（每条都有区分力，错误行为下会失败）：
+    //   A 解码器/轨道初始化：currentTracks 里存在视频轨道（C.TRACK_TYPE_VIDEO）；
+    //   B surface 附着/解码就绪：videoSize 宽高 > 0（surface 未附着时为 UNKNOWN/0，会被拒绝）；
+    //   C 播放就绪：STATE_READY 且 isPlaying；
+    //   D 真实渲染帧：视频帧区（画面中部，非叠层区）出现非纯黑像素；
+    //   E 仅音频进度（音频-only 对照）：位置前进但 currentTracks 里无视频轨道、videoSize 为 0，
+    //     且视频帧区必须保持无真实视频帧 —— 若仅凭进度/状态就通过，则本阶段失败。
     @Test fun video_render_stages_distinct_from_overlay() {
         shell("wm size 1280x720")
         enter(5) // 真实 MP4 视频（PlayerControlsNativeFixture.EPISODE_H1）
         PlayerControlsTestHooks.suppressIdleHide = true
 
-        // 阶段 1：解码器初始化 / surface 附着 / 播放就绪（尚未播放）——视频帧可能未渲染，但叠层已可见。
+        // 阶段 A：解码器/视频轨道初始化（在播放前，先等媒体装载落定为暂停态）。
         until { var settled = false; player { settled = it.display?.status?.statusText == "已暂停" }; settled }
-        shot("video-stage-paused") // 暂停态：叠层可见，视频帧可能仍黑（swiftshader 冷启）
+        var hasVideoTrack = false
+        var videoSizeW = 0; var videoSizeH = 0
+        player { val p = it.currentPlayer()
+            hasVideoTrack = p.currentTracks.groups.any { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }
+            videoSizeW = p.videoSize.width; videoSizeH = p.videoSize.height }
+        assertTrue("视频媒体必须选定视频轨道（currentTracks 含 video）", hasVideoTrack)
+        // 阶段 B：surface 附着后 videoSize 才非 0；swiftshader 冷启可能晚于轨道选定，故有界等待。
+        until(10_000) { player { val p = it.currentPlayer()
+            videoSizeW = p.videoSize.width; videoSizeH = p.videoSize.height }
+            videoSizeW > 0 && videoSizeH > 0 }
+        assertTrue("视频 surface 必须已附着并解出真实尺寸（$videoSizeW x $videoSizeH）",
+            videoSizeW > 0 && videoSizeH > 0)
+        shot("video-stage-paused")
 
-        // 阶段 2：真实播放 —— 等真实 isPlaying 后采样视频帧区（非叠层区）。
+        // 阶段 C：真实播放就绪（STATE_READY 且 isPlaying）。
         key(KeyEvent.KEYCODE_DPAD_CENTER)
-        until { var playing = false; player { playing = it.display?.facts?.isPlaying == true }; playing }
-        // 解码/渲染管线预热（真实视频面，不是叠层）。
+        until { var ready = false; player { val p = it.currentPlayer()
+            ready = p.playbackState == androidx.media3.common.Player.STATE_READY && p.isPlaying }; ready }
+
+        // 阶段 D：真实渲染帧 —— 视频帧区（画面中部）出现非纯黑像素；有界采样，超时失败。
         val end = android.os.SystemClock.uptimeMillis() + 10_000
         var playingShot = shot("video-stage-playing")
         while (android.os.SystemClock.uptimeMillis() < end && !videoFrameRendered(playingShot)) {
             Thread.sleep(500)
             playingShot = shot("video-stage-playing")
         }
-        // 真实渲染帧证据：视频帧区（画面中部）出现非纯黑像素，与叠层（底部）独立成立。
         assertTrue("720p 合成视频必须渲染出真实帧（非纯黑）", videoFrameRendered(playingShot))
         // 叠层本身可独立可见，但不能作为视频渲染证据：单独断言视频帧区而非叠层区。
         assertTrue("控制叠层独立可见（与视频帧分区判据分离）", overlayRendered(playingShot))
 
-        // 阶段 3：仅音频进度（无视频 surface）不能伪造视频帧 —— 用音频-only 媒体（w0 音频）对照。
+        // 阶段 E：仅音频进度（无视频轨道）不能伪造视频帧 —— 用音频-only 媒体（w0 音频）对照。
         PlayerControlsNativeFixture.backOutOfPlayer(scenario!!, instrumentation, viaOverlay = true)
         PlayerControlsNativeFixture.enterPlayerFromLibrary(scenario!!, instrumentation, 0) // w0：合成音频
         PlayerControlsTestHooks.suppressIdleHide = true
         key(KeyEvent.KEYCODE_DPAD_CENTER)
-        until { var playing = false; player { playing = it.display?.facts?.isPlaying == true }; playing }
-        Thread.sleep(2_500)
-        val audioShot = shot("audio-only-progress")
-        // 音频-only 媒体推进进度但视频帧区不产生真实视频帧；仅用进度/状态证明，不把叠层当视频。
+        until { var playing = false; player { val p = it.currentPlayer()
+            playing = p.playbackState == androidx.media3.common.Player.STATE_READY && p.isPlaying }; playing }
+        // 等进度确实前进（可观察，不堆固定 sleep）。
         var position = -1L
-        player { position = it.display?.positionMs ?: -1L }
-        assertTrue("音频-only 仍推进进度", position > 0L)
-        // 注：音频-only 是否渲染视频帧因设备而异，此处不把“视频帧区黑”作为硬断言（如实披露）。
+        until(10_000) { player { position = it.display?.positionMs ?: -1L }; position > 0L }
+        // 关键：音频-only 媒体没有视频轨道，videoSize 必须为 0（UNKNOWN），否则“仅音频”前提不成立。
+        var audioHasVideoTrack = false
+        var audioVideoW = -1; var audioVideoH = -1
+        player { val p = it.currentPlayer()
+            audioHasVideoTrack = p.currentTracks.groups.any { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }
+            audioVideoW = p.videoSize.width; audioVideoH = p.videoSize.height }
+        assertTrue("音频-only 媒体不得有视频轨道（currentTracks 无 video）", !audioHasVideoTrack)
+        assertTrue("音频-only 媒体 videoSize 必须为 UNKNOWN（实际 $audioVideoW x $audioVideoH）",
+            audioVideoW == 0 && audioVideoH == 0)
+        val audioShot = shot("audio-only-progress")
+        // 视频帧区必须不产生真实视频帧：把“视频帧区非黑”作为失败条件，而不是仅凭进度通过。
+        assertTrue("音频-only 进度不得伪造视频渲染帧", !videoFrameRendered(audioShot))
     }
 }

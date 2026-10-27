@@ -43,17 +43,14 @@ class PlayerControlsProcessReplayTest {
     private fun until(timeout: Long = 12_000, condition: () -> Boolean) = PlayerControlsNativeFixture.until(timeout, condition)
     private fun key(code: Int) = PlayerControlsNativeFixture.key(instrumentation, code)
     private fun player(action: (PlayerControlsRuntime) -> Unit) {
-        // 探针装配有竞态窗口：有界等待运行时就位（阶段 B 冷启后首个采样可能早于装配）
-        val end = android.os.SystemClock.uptimeMillis() + 10_000
-        while (android.os.SystemClock.uptimeMillis() < end) {
-            var runtime: PlayerControlsRuntime? = null
-            scenario!!.onActivity { runtime = it.playerControlsProbe }
-            if (runtime != null) { action(runtime!!); return }
-            Thread.sleep(100)
-        }
+        // 探针装配有竞态窗口（阶段 B 冷启后首个采样可能早于装配）：用可观察的有界就绪条件
+        // 等待运行时非空，超时由 until 统一失败并附诊断；不手写 sleep 堆时间、不裸 requireNotNull。
+        until(10_000) { var ready = false; scenario!!.onActivity { ready = it.playerControlsProbe != null }; ready }
         scenario!!.onActivity { action(requireNotNull(it.playerControlsProbe)) }
     }
     private fun personal(action: (com.ichichuang.cinema.feature.personal.PersonalLibraryRuntime) -> Unit) {
+        // 个人运行时随浏览探针装配：同样用可观察的有界就绪条件，超时失败并附诊断。
+        until(10_000) { var ready = false; scenario!!.onActivity { ready = it.browseProbe?.personal != null }; ready }
         scenario!!.onActivity { action(requireNotNull(it.browseProbe).personal!!) }
     }
 
@@ -117,10 +114,12 @@ class PlayerControlsProcessReplayTest {
         untilProcessGone(File(context.noBackupFilesDir, "round16-process-a.json"))
         scenario = ActivityScenario.launch(MainActivity::class.java)
         PlayerControlsNativeFixture.scenarioRef = scenario
-        // 启动即回放播放层（持久 returnChain PLAYER → 候选播放器）
-        until(20_000) { var isPlayer = false; scenario!!.onActivity { isPlayer = requireNotNull(it.browseProbe).isPlayer }; isPlayer }
+        // 启动即回放播放层（持久 returnChain PLAYER → 候选播放器）。
+        // 探针装配有竞态窗口：就绪条件必须可观察且 null 安全，超时由 until 统一失败并附诊断，
+        // 不在 condition 内 requireNotNull（否则装配前会抛 NPE 而非可诊断超时）。
+        until(20_000) { var isPlayer = false; scenario!!.onActivity { isPlayer = it.browseProbe?.isPlayer == true }; isPlayer }
         until { var ready = false; scenario!!.onActivity {
-            ready = requireNotNull(it.playerControlsProbe).display?.variantId != null }; ready }
+            ready = it.playerControlsProbe?.display?.variantId != null }; ready }
         val record = JSONObject(File(context.noBackupFilesDir, "round16-process-a.json").readText())
         var phaseBAppPid = 0
         player { phaseBAppPid = android.os.Process.myPid() }
