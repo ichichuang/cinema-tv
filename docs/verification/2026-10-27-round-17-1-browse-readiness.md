@@ -137,5 +137,6 @@ R17 原提交 `46e40ab` 及其「44 PASS / 1 FAIL / 1 BLOCKED」「P07 PID 4341 
 
 ## 九、commit
 
-本轮在 `main` 上做一次本地提交（见 `git log`），内容为本报告、R17.1 计划与矩阵，以及 `README`/进度文档的
-R17/R17.1 追加条目；不 `git add -A`，不 push。
+本轮在 `main` 上做一次本地提交（见 `git log`），内容为本报告、R17.1 计划与矩阵、R17 的计划/矩阵/报告，
+以及在 `docs/superpowers/progress/2026-10-23-tv-rebuild.md` 追加的 R17/R17.1 条目
+（`README.md` 没有轮次进度段落，未改动）；不 `git add -A`，不 push。
