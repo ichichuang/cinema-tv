@@ -214,4 +214,47 @@ class TvPlayerControlsScreenshotTest {
         // 原创图标权威唯一：无新增图标资产类（R13 TvOriginalIcons 复用，SEC 层再核）
         shot("player-chinese-copy")
     }
+
+    // ── R17 ST3 goal B — 720p 渲染：区分解码器初始化 / surface 附着 / 播放就绪 / 仅音频 / 真实帧 ──
+    // 用真实视频 fixture（w5 合成 MP4，含真实视频帧）在 1280×720 下分区段采样，
+    // 不能把可见的播放器控制叠层当作视频渲染证据：只有视频帧区的非纯黑像素才算真实渲染。
+    // box 无模拟器 → 仅编译（UNVERIFIED）；矩阵状态如实标 UNVERIFIED。
+    @Test fun video_render_stages_distinct_from_overlay() {
+        shell("wm size 1280x720")
+        enter(5) // 真实 MP4 视频（PlayerControlsNativeFixture.EPISODE_H1）
+        PlayerControlsTestHooks.suppressIdleHide = true
+
+        // 阶段 1：解码器初始化 / surface 附着 / 播放就绪（尚未播放）——视频帧可能未渲染，但叠层已可见。
+        until { var settled = false; player { settled = it.display?.status?.statusText == "已暂停" }; settled }
+        shot("video-stage-paused") // 暂停态：叠层可见，视频帧可能仍黑（swiftshader 冷启）
+
+        // 阶段 2：真实播放 —— 等真实 isPlaying 后采样视频帧区（非叠层区）。
+        key(KeyEvent.KEYCODE_DPAD_CENTER)
+        until { var playing = false; player { playing = it.display?.facts?.isPlaying == true }; playing }
+        // 解码/渲染管线预热（真实视频面，不是叠层）。
+        val end = android.os.SystemClock.uptimeMillis() + 10_000
+        var playingShot = shot("video-stage-playing")
+        while (android.os.SystemClock.uptimeMillis() < end && !videoFrameRendered(playingShot)) {
+            Thread.sleep(500)
+            playingShot = shot("video-stage-playing")
+        }
+        // 真实渲染帧证据：视频帧区（画面中部）出现非纯黑像素，与叠层（底部）独立成立。
+        assertTrue("720p 合成视频必须渲染出真实帧（非纯黑）", videoFrameRendered(playingShot))
+        // 叠层本身可独立可见，但不能作为视频渲染证据：单独断言视频帧区而非叠层区。
+        assertTrue("控制叠层独立可见（与视频帧分区判据分离）", overlayRendered(playingShot))
+
+        // 阶段 3：仅音频进度（无视频 surface）不能伪造视频帧 —— 用音频-only 媒体（w0 音频）对照。
+        PlayerControlsNativeFixture.backOutOfPlayer(scenario!!, instrumentation, viaOverlay = true)
+        PlayerControlsNativeFixture.enterPlayerFromLibrary(scenario!!, instrumentation, 0) // w0：合成音频
+        PlayerControlsTestHooks.suppressIdleHide = true
+        key(KeyEvent.KEYCODE_DPAD_CENTER)
+        until { var playing = false; player { playing = it.display?.facts?.isPlaying == true }; playing }
+        Thread.sleep(2_500)
+        val audioShot = shot("audio-only-progress")
+        // 音频-only 媒体推进进度但视频帧区不产生真实视频帧；仅用进度/状态证明，不把叠层当视频。
+        var position = -1L
+        player { position = it.display?.positionMs ?: -1L }
+        assertTrue("音频-only 仍推进进度", position > 0L)
+        // 注：音频-only 是否渲染视频帧因设备而异，此处不把“视频帧区黑”作为硬断言（如实披露）。
+    }
 }

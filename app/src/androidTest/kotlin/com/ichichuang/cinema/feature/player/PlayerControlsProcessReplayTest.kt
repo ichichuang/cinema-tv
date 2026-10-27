@@ -57,6 +57,20 @@ class PlayerControlsProcessReplayTest {
         scenario!!.onActivity { action(requireNotNull(it.browseProbe).personal!!) }
     }
 
+    /** Wait until the phase-A process (recorded in the given JSON) is no longer alive on this device. */
+    private fun untilProcessGone(recordFile: File) {
+        val record = JSONObject(recordFile.readText())
+        val previousPid = record.getInt("pid")
+        val end = android.os.SystemClock.uptimeMillis() + 15_000
+        while (android.os.SystemClock.uptimeMillis() < end) {
+            val alive = File("/proc/$previousPid").exists()
+            if (!alive) return
+            Thread.sleep(100)
+        }
+        // Bounded fallback: the recorded PID may be unobservable from the new process; proceed
+        // and let the subsequent observable conditions (isPlayer / display != null) guard readiness.
+    }
+
     // 阶段 A：真实播放提交后由宿主 force-stop（不同 PID 证据见 round16-process-pids.json）
     @Test fun phase_a_commit_player_state_for_process_replay() {
         assertEquals("a", phase)
@@ -97,7 +111,10 @@ class PlayerControlsProcessReplayTest {
     // 阶段 B：force-stop 后的新进程恢复同一最后提交并保持暂停
     @Test fun phase_b_new_process_restores_committed_paused() {
         assertEquals("b", phase)
-        Thread.sleep(2_500) // force-stop 后包/进程状态收敛，避免首启竞态使探针装配失败
+        // R17 ST3 (P07): replace the blanket sleep with an observable readiness condition —
+        // wait until the phase-A process (recorded PID) has fully terminated, so the package
+        // state converges deterministically instead of racing a fixed delay.
+        untilProcessGone(File(context.noBackupFilesDir, "round16-process-a.json"))
         scenario = ActivityScenario.launch(MainActivity::class.java)
         PlayerControlsNativeFixture.scenarioRef = scenario
         // 启动即回放播放层（持久 returnChain PLAYER → 候选播放器）
