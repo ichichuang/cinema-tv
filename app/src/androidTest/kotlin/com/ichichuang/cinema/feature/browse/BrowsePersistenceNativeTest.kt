@@ -58,13 +58,24 @@ class BrowsePersistenceNativeTest {
         val end = android.os.SystemClock.uptimeMillis() + 15_000
         while (!condition()) { if (android.os.SystemClock.uptimeMillis() > end) {
             var detail = ""
-            scenario?.onActivity { detail = "state=${it.browseProbe?.navigation} token=${it.browseProbe?.restoreToken} ${BrowseProbeTestHooks.focusTrace.toList()}" }
+            scenario?.onActivity { detail = "state=${it.browseProbe?.navigation} token=${it.browseProbe?.restoreToken} published=${it.browseProbe != null} ${BrowseProbeTestHooks.focusTrace.toList()}" }
             fail("等待原生持久化状态超时：${focused()} $detail")
         }; Thread.sleep(25) }
     }
     private fun focus(id: String) { until { focused() == listOf(id) } }
     private fun launch(waitFocus: Boolean = true, expected: String = target.value) { scenario = ActivityScenario.launch(MainActivity::class.java); if (waitFocus) focus(expected) }
     private fun runtime(action: (BrowseProbeRuntime) -> Unit) { scenario!!.onActivity { action(requireNotNull(it.browseProbe)) } }
+    /**
+     * R17.1: MainActivity publishes browseProbe from an asynchronous init coroutine, so a test that
+     * launches without waiting for focus must first observe publication instead of dereferencing a
+     * still-null probe inside a polling condition. Bounded by until()'s existing 15s timeout; a failed
+     * init still fails the test because probeError leaves browseProbe null and the timeout reports it.
+     */
+    private fun awaitBrowseProbe() = until {
+        var present = false
+        scenario!!.onActivity { present = it.browseProbe != null }
+        present
+    }
     private fun key(code: Int) {
         instrumentation.sendKeySync(KeyEvent(KeyEvent.ACTION_DOWN, code)); instrumentation.sendKeySync(KeyEvent(KeyEvent.ACTION_UP, code))
         instrumentation.waitForIdleSync()
@@ -366,6 +377,7 @@ class BrowsePersistenceNativeTest {
         runBlocking { DebugBrowseProbeGate.withOwnedProfile(context) { assertEquals(CommitResult.Committed, RoomBrowseStateStore(it).saveActive(RestoreNavigationState(desired))) } }
         val load = CompletableDeferred<Unit>(); BrowseProbeTestHooks.beforeLoad = load
         launch(false)
+        awaitBrowseProbe()
         scenario!!.onActivity { it.window.setLayout(android.view.WindowManager.LayoutParams.MATCH_PARENT, 150) }
         BrowseProbeTestHooks.blockPlacement = true
         runtime { BrowseProbeTestHooks.beforeLoad = null; load.complete(Unit) }
@@ -435,6 +447,7 @@ class BrowsePersistenceNativeTest {
     }
     @Test fun old_pending_layout_cannot_focus_after_new_query_is_installed() {
         BrowseProbeTestHooks.blockPlacement = true; launch(false)
+        awaitBrowseProbe()
         until { var loaded = false; runtime { loaded = it.navigation?.snapshot?.query == fixture.initial.query }; loaded }
         runtime { it.changeQuery() }
         until { var changed = false; runtime { changed = it.navigation?.snapshot?.query == fixture.alternative.query }; changed }
