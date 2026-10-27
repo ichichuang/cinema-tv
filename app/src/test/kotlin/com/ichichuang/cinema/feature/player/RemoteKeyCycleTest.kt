@@ -161,4 +161,91 @@ class RemoteKeyCycleTest {
         assertEquals(emptyList<RemoteKeyActivation>(),
             m.onEvent(RemoteKeyEvent(RemoteKeyEvent.ACTION_MULTIPLE, ok, 0, 0)))
     }
+
+    // ── R17 目标 A：长按在 ticker 心跳之前松开，绝不误发短按 ─────────────
+    // 关键竞态：UP 到达时 elapsed >= threshold，但 checkTimeouts() 从未运行
+    //（longFired 仍为 false）。此时必须补发 LONG_PRESS，绝不能当作短按。
+
+    @Test
+    fun long_release_before_ticker_1ms_above_threshold_emits_long_not_short() {
+        val m = machine()
+        m.onEvent(down(ok, 0))
+        // 401ms 松开：超过 400ms 阈值，但 ticker 从未执行 → longFired 仍为 false
+        assertEquals(listOf(RemoteKeyActivation.LONG_PRESS), m.onEvent(up(ok, 401)))
+    }
+
+    @Test
+    fun long_release_exactly_at_threshold_emits_long_not_short() {
+        val m = machine()
+        m.onEvent(down(ok, 0))
+        assertEquals(listOf(RemoteKeyActivation.LONG_PRESS), m.onEvent(up(ok, 400)))
+    }
+
+    @Test
+    fun release_1ms_below_threshold_still_emits_short() {
+        val m = machine()
+        m.onEvent(down(ok, 0))
+        assertEquals(listOf(RemoteKeyActivation.PRESS), m.onEvent(up(ok, 399)))
+    }
+
+    @Test
+    fun long_back_release_before_ticker_never_emits_short_back() {
+        val m = machine()
+        m.onEvent(down(back, 0))
+        // 长 Back 松开（阈值以上）：补发 LONG_PRESS，绝不误发短 Back。
+        assertEquals(listOf(RemoteKeyActivation.LONG_PRESS), m.onEvent(up(back, 500)))
+    }
+
+    @Test
+    fun long_release_after_ticker_already_fired_is_silent() {
+        val m = machine()
+        m.onEvent(down(ok, 0))
+        assertEquals(listOf(RemoteKeyActivation.LONG_PRESS), m.checkTimeouts(450)) // ticker 已发长按
+        assertEquals(emptyList<RemoteKeyActivation>(), m.onEvent(up(ok, 470)))     // 补发路径不重复
+    }
+
+    @Test
+    fun long_release_before_ticker_then_platform_repeat_does_not_double() {
+        val m = machine()
+        m.onEvent(down(ok, 0))
+        // 平台 repeat 事件先到（repeatCount>0 且阈值已过）：长按在 DOWN 阶段发出
+        assertEquals(listOf(RemoteKeyActivation.LONG_PRESS), m.onEvent(down(ok, 410, repeat = 1)))
+        assertEquals(emptyList<RemoteKeyActivation>(), m.onEvent(up(ok, 450)))     // UP 不再补发/不发短按
+    }
+
+    @Test
+    fun consecutive_long_cycles_each_emit_exactly_one_long_press() {
+        val m = machine()
+        m.onEvent(down(ok, 0))
+        assertEquals(listOf(RemoteKeyActivation.LONG_PRESS), m.onEvent(up(ok, 500)))
+        m.onEvent(down(ok, 600))
+        assertEquals(listOf(RemoteKeyActivation.LONG_PRESS), m.onEvent(up(ok, 1100)))
+        m.onEvent(down(ok, 1200))
+        assertEquals(listOf(RemoteKeyActivation.LONG_PRESS), m.onEvent(up(ok, 1700)))
+    }
+
+    @Test
+    fun lost_up_then_long_release_does_not_ghost_extra_activation() {
+        val m = machine()
+        m.onEvent(down(ok, 0))
+        m.onEvent(down(ok, 300))          // UP 丢失，新物理 DOWN 重开周期（downAtMs 重置为 300）
+        assertEquals(listOf(RemoteKeyActivation.LONG_PRESS), m.onEvent(up(ok, 800))) // 新周期 500ms，恰好一次长按
+        assertEquals(emptyList<RemoteKeyActivation>(), m.onEvent(up(ok, 810)))       // 孤儿 UP 无激活
+    }
+
+    @Test
+    fun long_release_after_revoke_is_ignored() {
+        val m = machine()
+        m.onEvent(down(ok, 0))
+        m.revoke()                          // 窗口失焦：作废周期
+        assertEquals(emptyList<RemoteKeyActivation>(), m.onEvent(up(ok, 500)))
+    }
+
+    @Test
+    fun cancel_mapped_up_never_emits_long_press() {
+        val m = machine()
+        m.onEvent(down(ok, 0))
+        assertEquals(emptyList<RemoteKeyActivation>(), m.onEvent(cancel(ok, 100)))  // ACTION_CANCEL
+        assertEquals(emptyList<RemoteKeyActivation>(), m.onEvent(up(ok, 500)))       // 后续 UP 无激活
+    }
 }

@@ -73,7 +73,15 @@ internal class RemoteKeyCycle(
         val key = heldKey ?: return emptyList()                          // 孤儿 UP：忽略
         if (key != event.keyCode) return emptyList()                     // 他人之 UP：不成对清理
         heldKey = null
-        return if (!longFired && isActivationKey(key)) listOf(RemoteKeyActivation.PRESS) else emptyList()
+        if (!isActivationKey(key)) return emptyList()
+        // R17 目标 A：长按可能在 ticker 心跳之前松开。此时 elapsed 已过阈值但 longFired
+        // 仍为 false，绝不能再当作短按。补发 LONG_PRESS（消费语义与 checkTimeouts 一致：
+        // 长 OK 揭示浮层、长 Back 无动作），并置 longFired 以保持 exactly-once。
+        if (!longFired && event.atMs - downAtMs >= longPressThresholdMs) {
+            longFired = true
+            return listOf(RemoteKeyActivation.LONG_PRESS)
+        }
+        return if (!longFired) listOf(RemoteKeyActivation.PRESS) else emptyList()
     }
 
     private fun onCancel(keyCode: Int) {
