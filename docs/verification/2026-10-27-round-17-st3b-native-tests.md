@@ -5,17 +5,22 @@
 > 上一轮（`d97877a`）的 U05/P07/720p 测试仍存在三类缺陷——线程、HTTP 响应头、恒真断言、日志
 > 唯一文件名——逐条真实修复。**box 无模拟器，所有 androidTest 仅能编译，状态如实标 UNVERIFIED，
 > 不打任何 PASS 勾。**
+>
+> **ST3.3 对齐说明（2026-10-27）**：独立复核发现 `ab36e3f` 版本的本文档与代码不符（U05 的
+> `ExoPlayer.Builder(...).build()` 实际仍在 instrumentation 线程；P07 收敛环含 `Thread.sleep(100)`；
+> §五安全检查「0 violations」不实，本文件自身含一处 personal-path）。代码已在 `9536cec` 修正，
+> 本文档按 `9536cec` 最终代码改写，下文描述均以最终代码为准。
 
 ## 一、本轮修复清单（对照独立复核者事实）
 
 | 文件 | 复核者指出的缺陷 | 本轮处置 |
 |---|---|---|
-| `PlayerControlsUnknownDurationNativeTest.kt`（U05） | ExoPlayer 在 instrumentation 线程（无 Looper）创建/访问，Media3 1.11.1 抛 wrong-thread | ExoPlayer 的创建、`setMediaItem/prepare/release` 与 `playbackState/playerError/duration/isCommandAvailable` 读取全部经 `runOnMainSync { ... }` 在主线程执行，值用 AtomicReference/AtomicInteger/AtomicLong 带出 |
+| `PlayerControlsUnknownDurationNativeTest.kt`（U05） | ExoPlayer 在 instrumentation 线程（无 Looper）创建/访问，Media3 1.11.1 抛 wrong-thread | 最终代码（`9536cec`）：`ExoPlayer.Builder(context)...build()` 在 `instrumentation.runOnMainSync { ... }` 内执行（Builder 取主线程 Looper 为应用线程），之后 `setMediaItem/prepare`、`playbackState/playerError/duration/isCommandAvailable` 读取、`@After` 中 `release` 也全部经 `runOnMainSync` 在主线程执行，值用 AtomicReference/AtomicInteger/AtomicLong 带出；`controller` 为纯逻辑，在测试线程调用。注：`ab36e3f` 时 `build()` 仍在 instrumentation 线程，本文档当时的描述不实，已在 `9536cec` 修正 |
 | 同上 | loopback 响应写了 `Transfer-Encoding: chunked` 但响应体是原始 ADTS 字节，客户端读报 `Bogus chunk size` | 响应头只保留 `HTTP/1.1 200 OK` + `Content-Type: audio/aac` + `Connection: close`，不写 Content-Length、不写 Transfer-Encoding；响应体是仓库已有 `live.aac` fixture 原始字节（复用，不新增媒体） |
 | 同上 | 断言 5–7 传写死常量 `durationMs=null, seekAvailable=false`；`overrideFocus` 后 `assertNull(previewMs)` 恒真 | `controller.install` 的 duration/seek 改用真实播放器值：`p.duration.takeIf { it != C.TIME_UNSET }` 与 `p.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)`（主线程读取）；删除恒真 `assertNull(previewMs)` |
 | `PlayerControlsProcessReplayTest.kt`（P07） | 日志文件名固定 `round16-process-a.json`，未做唯一化 | 每次运行用唯一文件名 `round17-process-<uuid>.json`，经 `noBackupFilesDir/round17-process-current.txt` 指针文件在两进程间传递文件名，不覆盖旧日志 |
 | 同上 | `untilProcessGone` 超时后静默继续 | 超时抛 `AssertionError` 并附 PID 诊断，绝不静默继续 |
-| 同上 | 阶段 A 条件含 `display!!` 与 `Thread.sleep(2_500)` | 去掉 `display!!`（改 null 安全 `it.display?.positionMs ?: 0L`）；`Thread.sleep(2_500)` 换成「连续两次采样位置相等」的有界可观察收敛条件 |
+| 同上 | 阶段 A 条件含 `display!!` 与 `Thread.sleep(2_500)` | 去掉 `display!!`（改 null 安全 `it.display?.positionMs ?: 0L`）；`Thread.sleep(2_500)` 换成有界收敛条件（最终代码见 §三：`until(20_000)` 内要求提交位置 ≥13000 且连续 ≥2,500 ms 不变，无任何 sleep） |
 | 文档 | §二称断言 5–7 驱动真实状态机、称 loopback 能到 READY（原实现有线程+HTTP 缺陷到不了）；安全检查文件数写 453（实为 454）；P07 未提唯一文件名未做 | 逐条改正，见下 |
 
 ## 二、U05 逐条断言与「为何能在错误行为下失败」
@@ -54,11 +59,19 @@
 | 记录文件名固定 `round16-process-a.json` | 每次运行覆盖旧日志，无法区分 | 唯一文件名 `round17-process-<uuid>.json`；阶段 A 写指针文件 `round17-process-current.txt`，阶段 B 读指针取得同一文件名（两进程共享 `noBackupFilesDir`） |
 | `untilProcessGone` 超时后静默继续 | 吞掉进程残留 | 超时抛 `AssertionError` 并附 `PID=… 未退出` 诊断 |
 | 阶段 A `player { position = it.display!!.positionMs }` | 裸 `display!!` 装配前抛 NPE | 改 null 安全 `it.display?.positionMs ?: 0L` |
-| 阶段 A `Thread.sleep(2_500)` | 固定 sleep 堆时间 | 换成「连续两次采样 `loadResume().positionMs` 相等（≥13000）」的有界收敛条件，超时 `assertTrue` 失败 |
+| 阶段 A `Thread.sleep(2_500)` | 固定 sleep 堆时间 | 最终代码（`9536cec`）：在 `until(20_000) { ... }`（fixture 每 25 ms 轮询，超时抛 `AssertionError` 附诊断）内反复读取 `loadResume(w[0]).positionMs`；位置一旦变化即重置稳定窗口起点（`SystemClock.uptimeMillis()`），仅当位置 ≥13000 且已连续 ≥2,500 ms 不变时判定收敛，并把该值记为 `committed`，随后 `assertTrue(committed >= 13_000)`。收敛环内**无 `Thread.sleep`**（`ab36e3f` 版本曾有 `Thread.sleep(100)`，已删除）。该条件比旧版「到 13000 后盲等 2.5 s 再读一次」更严格 |
 
 阶段 A/B 的原有断言（PID 不同、身份一致、恢复到最后已提交位置、保持暂停）**未改动**。
 `untilProcessGone` 用 `/proc/$pid` 存在性做有界轮询（`Thread.sleep(100)` 为轮询间隔，是等待外部
 进程退出的可观察就绪条件，非盲等堆时间）；超时改为失败而非降级。
+
+**最终代码中剩余的 `Thread.sleep`（均为既有代码，`9394937..9536cec` 未新增）**：
+
+| 位置 | 调用 | 用途 |
+|---|---|---|
+| `PlayerControlsProcessReplayTest.kt:85` | `Thread.sleep(100)` | `untilProcessGone` 的 `/proc/$pid` 有界轮询间隔，超时失败 |
+| `PlayerControlsUnknownDurationNativeTest.kt:144` | `Thread.sleep(10)` | loopback 服务端分块写 ADTS 字节的节流（模拟直播流） |
+| `PlayerControlsUnknownDurationNativeTest.kt:181` | `if (!reachedReady) Thread.sleep(50)` | 等待 READY/错误的有界轮询间隔（读取在主线程） |
 
 ## 四、720p 逐条断言与「为何能在错误行为下失败」
 
@@ -78,26 +91,30 @@
 
 ## 五、真实编译证据与验收命令
 
-本轮实际运行结果（`2026-10-27`，沙箱）：
+ST3.3 独立复核在 box 上对 `9536cec` 的临时 worktree 重跑的真实结果（`2026-10-27`，`--offline --max-workers=1`；安全检查为本文档修正后在主仓库重跑）：
 
 | 命令 | 真实结果 |
 |---|---|
-| `:app:compileDebugAndroidTestKotlin` | **BUILD SUCCESSFUL**（本轮改动的 U05/P07 测试代码已编译） |
-| `:app:testDebugUnitTest` | `files=50 tests=506 failures=0 errors=0 skipped=0`（XML 统计，≥506 且 0 失败） |
-| `python3 scripts/check_repository_security.py` | `Checked 454 tracked files; 0 policy violations` |
+| `:app:testDebugUnitTest --rerun` | **BUILD SUCCESSFUL**；XML 统计 `files=50 tests=506 failures=0 errors=0 skipped=0` |
+| `:app:assembleDebugAndroidTest --rerun-tasks` | **BUILD SUCCESSFUL**（57 个任务全部执行，含 `kspDebugKotlin`、`kspDebugAndroidTestKotlin`、`compileDebugAndroidTestKotlin`；产出 `app-debug-androidTest.apk`） |
 | `python3 -m unittest discover -s scripts/tests` | `Ran 62 tests ... OK` |
-| `:app:assembleDebugAndroidTest` | **沙箱 BUILD FAILED**（见 §六，KSP 重跑因 4GB vmem 上限崩溃，与代码无关） |
+| `python3 scripts/check_repository_security.py`（修正前，`9536cec`） | `Checked 454 tracked files; 1 policy violations`（本文件 personal-path，即旧 §六的 JDK 绝对路径） |
+| `python3 scripts/check_repository_security.py`（本文档修正后） | `Checked 454 tracked files; 0 policy violations`（暂存本文档后重跑；脚本只读暂存/已跟踪 blob） |
+
+注：`ab36e3f` 版本本节所写「`0 policy violations`」与「`assembleDebugAndroidTest` 沙箱 BUILD FAILED」
+均为执行者沙箱内的结论；前者不实（当时即有 1 处违规），后者在 box 上不复现。
 
 androidTest 在 box 上**无设备、只能编译**：U05/P07/720p 状态全部 UNVERIFIED。
 
 ## 六、执行环境披露
 
 - box 无 Android 模拟器/真机，所有 androidTest 仅能编译，不能运行。
-- 显式设置 `JAVA_HOME=/home/box/jdk17`、`GRADLE_USER_HOME`、`ANDROID_USER_HOME`；加
+- 使用 JDK 17，显式设置 `JAVA_HOME`、`GRADLE_USER_HOME`、`ANDROID_USER_HOME`；加
   `--no-daemon -Dorg.gradle.workers.max=1 --max-workers=1`，并加
   `-Pksp.incremental=false -Pkotlin.incremental=false` 绕过沙箱对 KSP/Kotlin 增量编译 futimens
   的拦截。
-- **本轮内存约束（如实披露）**：沙箱对进程有硬性 `ulimit -v 4194304`（4GB 虚拟内存，不可调高），
+- （以下为 ST3.2 执行者沙箱的环境，box 复核不受此限制，见 §五。）
+- **ST3.2 执行沙箱内存约束（如实披露）**：沙箱对进程有硬性 `ulimit -v 4194304`（4GB 虚拟内存，不可调高），
   且共享宿主内存已严重超售（`Committed_AS ≈ 25.8GB` vs `CommitLimit ≈ 8GB`，`SwapTotal 0`）。
   默认 G1 GC + 常规堆在 daemon fork 即 OOM（`Native memory allocation (malloc) failed`）；
   改用 `-XX:+UseSerialGC -Xmx512m -Xss384k` 与 `-Dkotlin.compiler.execution.strategy=in-process`
@@ -113,9 +130,21 @@ androidTest 在 box 上**无设备、只能编译**：U05/P07/720p 状态全部 
 3. **720p 像素判据的鲁棒性**：`videoFrameRendered`（红色通道 > 18）与 `overlayRendered`（亮度 > 90）
    阈值依赖合成视频 fixture 的实际帧内容，需在模拟器上首次运行时校准；纯音频时视频帧区是否严格
    为黑也需实测确认。
+4. **U05 主线程 build 的失败形态（UNVERIFIED）**：`build()` 若在 `runOnMainSync` 内抛异常，可能
+   表现为 instrumentation 进程崩溃而非单条测试干净失败。
+5. **P07 稳定窗口的残余风险（UNVERIFIED）**：若最后一次提交晚于某个已满 2,500 ms 的稳定窗口到达，
+   仍可能被漏掉；末尾 `assertTrue(committed >= 13_000)` 与收敛条件基本重复。风险低，未在设备验证。
+6. **P07 `untilProcessGone` 的 PID 语义（UNVERIFIED）**：依赖 `/proc/$pid` 对测试进程可见且 PID
+   未被复用，需在设备上确认。
+7. **U05 `@After` 中服务端线程 `join(2000)` 不做断言**：超时仅放弃等待，不使测试失败。
+8. **注释语言混用**：`9536cec` 新增注释为英文，部分既有注释仍为中文（如「记录阶段 A PID…」）。
 
 ## 八、commit 列表
 
 | SHA | 内容 |
 |---|---|
-| （本轮新增） | R17-ST3.2: 修复 U05 线程/HTTP 头/恒真断言、P07 唯一日志文件名与超时失败、改正文档 |
+| `d97877a` | R17-ST3.1b: U05/P07/720p 原生测试首版（独立复核 FAIL） |
+| `9394937` | R17-ST3.1b 文档收尾 |
+| `ab36e3f` | R17-ST3.2: 修复 U05 HTTP 头/恒真断言、P07 唯一日志文件名与超时失败（独立复核 FAIL：build 仍不在主线程、文档含绝对路径且安全检查结论不实） |
+| `9536cec` | R17-ST3.3: U05 在主线程 build ExoPlayer；P07 提交收敛去掉 sleep、改为有界稳定窗口 |
+| （本提交，见 git log） | R17-ST3.3: align st3b doc with final code（仅文档） |
