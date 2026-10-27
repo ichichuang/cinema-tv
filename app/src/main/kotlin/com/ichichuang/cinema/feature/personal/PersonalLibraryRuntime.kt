@@ -279,17 +279,32 @@ internal class PersonalLibraryRuntime(
     /**
      * R16 播放器内换集/换线：完全走既有身份管线（probe.select 先落旧检查点屏障，
      * 再按精确 (作品,剧集,版本) 回查续播，绝不跨版本携带进度）；保持原播放意图。
+     *
+     * R17 goal A: an optional [staleGuard] re-checks the caller's selection generation at
+     * two cancellation points (before the blocking Room-bound [probe.select], and again
+     * after it resolves but before the player identity is adopted). A superseded selection
+     * returns false BEFORE mutating the player or its state. The guard is a pure predicate,
+     * not a second state authority, and CancellationException is always propagated.
      */
-    suspend fun selectFromPlayer(workId: String, episodeId: String, variantId: String): Boolean {
+    suspend fun selectFromPlayer(
+        workId: String,
+        episodeId: String,
+        variantId: String,
+        staleGuard: (suspend () -> Boolean)? = null,
+    ): Boolean {
         val media = catalog.probeMedia.singleOrNull {
             it.target.workId.value == workId &&
                 it.target.episodeId?.value == episodeId && it.target.variantId?.value == variantId
         } ?: run { message = "所选线路或剧集不可用，未切换"; return false }
         if (remember(media.target.workId.value) != CommitResult.Committed) { message = "作品资料未保存，请重试"; return false }
         return try {
+            if (staleGuard?.invoke() == true) { message = "选择已过期，未切换"; return false }
             val keepPlaying = player.playWhenReady
             val selected = probe.select(catalog, media.detail, media.lineIndex, media.episodeIndex, autoPlay = keepPlaying)
                 ?: return false
+            // Re-check after the (cancellable) Room-bound select: a newer selection must not
+            // have its identity overwritten by an older one that just resolved.
+            if (staleGuard?.invoke() == true) { message = "选择已过期，未切换"; return false }
             selectedMedia = selected; requestedResumePosition = player.currentPosition
             if (!keepPlaying) player.pause()
             message = "已切换"; trace(); true

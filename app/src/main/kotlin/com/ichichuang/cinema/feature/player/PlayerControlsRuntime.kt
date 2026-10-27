@@ -88,7 +88,7 @@ internal class PlayerControlsRuntime(
     var uiPreview by mutableStateOf<Long?>(null); private set
     private var layerAnnounced = false
     private var lastInputAtMs = 0L
-    private val switchGate = OrderedSwitchGate()
+    private val switchCoordinator = OrderedSwitchCoordinator(scope)
     private var listener: Player.Listener? = null
     private var ticker: Job? = null
 
@@ -336,29 +336,21 @@ internal class PlayerControlsRuntime(
     /** 播放器内换集/换线：既有身份管线 + 换前检查点屏障；迟到结果按代次拒绝（E05/E06）。 */
     private fun selectTarget(episodeId: String?, variantId: String?) {
         if (episodeId == null || variantId == null) { hint("所选线路或剧集不可用，未切换"); return }
-        val generation = switchGate.reserve()
-        PlayerControlsTestHooks.traceCommand("select:$variantId/$episodeId@$generation")
-        scope.launch {
-            // R17 goal A: an ordered, single-authority switch boundary. The generation is
-            // re-checked inside the boundary (before any player mutation) so a superseded
-            // selection can never rebind the Media3 session, seek, or restore a stale
-            // play/pause intent after a newer selection has been made.
-            switchGate.run(generation) {
-                try {
-                    PlayerControlsTestHooks.holdSwitch?.await()
-                    // Re-check after the (possibly long) test hold: a newer selection that
-                    // arrived while this one was held is rejected BEFORE touching the player.
-                    if (!switchGate.isLatest(generation)) {
-                        PlayerControlsTestHooks.traceCommand("stale-drop:$generation"); return@run
-                    }
-                    val selected = personal.selectFromPlayer(currentWorkId() ?: return@run, episodeId, variantId)
-                    if (!selected) hint(personal.message.ifBlank { "所选线路或剧集不可用，未切换" })
-                    else hint("已切换")
-                    reproject()
-                } catch (cancelled: CancellationException) { throw cancelled }
-                catch (_: Exception) { hint("切换未完成，原记录保持") }
-            }
+        // R17 goal A: the ordered, single-authority switch boundary (OrderedSwitchCoordinator)
+        // reserves a generation and runs the mutation inside the gate — serializing switches
+        // behind one Mutex and rejecting a superseded selection before it can touch the player.
+        val generation = switchCoordinator.select(
+            hold = PlayerControlsTestHooks.holdSwitch,
+            onStale = { staleGen -> PlayerControlsTestHooks.traceCommand("stale-drop:$staleGen") },
+            onTimeout = { hint("切换超时，原记录保持") },
+        ) { _, staleGuard ->
+            val workId = currentWorkId() ?: return@select
+            val selected = personal.selectFromPlayer(workId, episodeId, variantId, staleGuard = staleGuard)
+            if (!selected) hint(personal.message.ifBlank { "所选线路或剧集不可用，未切换" })
+            else hint("已切换")
+            reproject()
         }
+        PlayerControlsTestHooks.traceCommand("select:$variantId/$episodeId@$generation")
     }
 
     // ── 投影（唯一事实来源：真实 Player + 证据档案 + 控制器瞬态） ──

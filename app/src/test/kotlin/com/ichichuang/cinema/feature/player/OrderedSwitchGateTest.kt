@@ -1,11 +1,7 @@
 package com.ichichuang.cinema.feature.player
 
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
@@ -14,24 +10,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * R17 goal A (JVM): ordered selection boundary. A superseded selection is rejected
- * BEFORE it can mutate the player, even when its async work would complete after a
- * newer selection. This mirrors PlayerControlsRuntime.selectTarget's reserve -> launch
- * -> (test hold) -> re-check -> mutate shape, using a controllable CompletableDeferred
- * to deterministically invert the completion order of two rapid selections.
+ * R17 goal A (JVM, gate layer): the ordered switch boundary primitive. A superseded
+ * generation is rejected BEFORE its action runs; generations are serialized behind a single
+ * Mutex; isLatest is true only for the newest reserved generation. The full runtime
+ * coordination (reserve -> launch -> hold -> staleGuard -> mutate) is covered by
+ * OrderedSwitchCoordinatorTest, which drives the production OrderedSwitchCoordinator.
  */
 class OrderedSwitchGateTest {
-
-    @Test(timeout = 10_000)
-    fun stale_generation_is_rejected_before_action_runs() = runBlocking<Unit> {
-        val gate = OrderedSwitchGate()
-        val g1 = gate.reserve()
-        val g2 = gate.reserve()   // g2 supersedes g1
-        val applied = mutableListOf<Long>()
-        assertFalse("superseded generation must not run its mutation", gate.run(g1) { applied += 1L })
-        assertTrue("latest generation must run", gate.run(g2) { applied += 2L })
-        assertEquals(listOf(2L), applied)
-    }
 
     @Test(timeout = 10_000)
     fun serialized_selections_run_in_order_without_interleaving() = runBlocking<Unit> {
@@ -53,38 +38,22 @@ class OrderedSwitchGateTest {
     }
 
     /**
-     * The core race: an older selection is held (its async work would finish last), while a
-     * newer selection arrives. The older one must be rejected before touching the player;
-     * the newer one is the only mutation and the final applied state.
+     * The gate's own isLatest check is the entry guard: a generation that was superseded
+     * before its run() acquires the lock is rejected (run returns false) without running the
+     * action. This is the gate-level counterpart of OrderedSwitchCoordinatorTest, which drives
+     * the full runtime coordination.
      */
     @Test(timeout = 10_000)
-    fun stale_selection_completing_after_newer_is_rejected_before_mutation() = runBlocking<Unit> {
+    fun superseded_generation_is_rejected_without_running_the_action() = runBlocking<Unit> {
         val gate = OrderedSwitchGate()
-        val applied = mutableListOf<String>()
-        val holdSwitch = CompletableDeferred<Unit>()
-        val owner = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val applied = mutableListOf<Long>()
+        val g1 = gate.reserve()
+        val g2 = gate.reserve()   // g2 supersedes g1 before g1 runs
 
-        // Mirrors PlayerControlsRuntime.selectTarget: reserve -> launch -> hold -> re-check -> mutate.
-        fun selectTarget(target: String) {
-            val generation = gate.reserve()
-            owner.launch {
-                gate.run(generation) {
-                    holdSwitch.await()
-                    if (!gate.isLatest(generation)) return@run   // rejected before mutation
-                    applied += target                            // the player mutation
-                }
-            }
-        }
-
-        selectTarget("older-ep")   // older selection, blocked on the shared hold
-        selectTarget("newer-ep")   // newer selection supersedes it
-
-        // Release the hold: the older selection resumes first (FIFO on the unconfined owner),
-        // sees its generation is stale, and must NOT mutate. The newer selection then runs.
-        holdSwitch.complete(Unit)
-        owner.cancel()
-
-        assertEquals(listOf("newer-ep"), applied)
+        assertFalse("superseded generation must be rejected without running its action",
+            gate.run(g1) { applied += 1L })
+        assertTrue("latest generation must run", gate.run(g2) { applied += 2L })
+        assertEquals(listOf(2L), applied)
     }
 
     @Test(timeout = 10_000)
