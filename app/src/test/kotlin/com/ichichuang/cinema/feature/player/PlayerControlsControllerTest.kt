@@ -268,4 +268,104 @@ class PlayerControlsControllerTest {
         quiet.move(PlayerDirection.RIGHT); quiet.move(PlayerDirection.DOWN); quiet.move(PlayerDirection.RIGHT)
         assertEquals("线路", quiet.focusedControlId)
     }
+
+    // ── R17 目标 B：选择器默认焦点不落在停用/不可播放项 ─────────────
+    // 已选身份（selected）与焦点（focus）分立；停用项仍可见但绝不获得可操作焦点。
+
+    @Test
+    fun default_line_focus_skips_selected_line_turned_unavailable() {
+        val mixed = listOf(
+            PlayerPickerLine("variant-a", "已停用的当前线路", available = false, episodeCount = 2),
+            PlayerPickerLine("variant-b", "可用线路", available = true, episodeCount = 3))
+        val c = controller(routeLines = mixed)  // currentVariantId = "variant-a"（已停用）
+        c.revealByUser()
+        c.focusControl("线路")
+        c.confirm()
+        // 当前线路已停用：默认焦点必须落到第一个可用项，而非停用的 current。
+        assertEquals("picker:variant-b", c.pickerFocusedId)
+    }
+
+    @Test
+    fun default_episode_focus_skips_selected_episode_turned_unplayable() {
+        val mixed = listOf(
+            PlayerPickerEpisode("ep-1", "不可播放的当前集", playable = false),
+            PlayerPickerEpisode("ep-2", "可播放", playable = true))
+        val c = controller(routeEpisodes = mixed)  // currentEpisodeId = "ep-1"（不可播放）
+        c.revealByUser()
+        c.focusControl("选集")
+        c.confirm()
+        assertEquals("picker:ep-2", c.pickerFocusedId)
+    }
+
+    @Test
+    fun all_lines_unavailable_leave_no_actionable_focus() {
+        val allDead = listOf(
+            PlayerPickerLine("variant-a", "停用", available = false, episodeCount = 1),
+            PlayerPickerLine("variant-b", "停用", available = false, episodeCount = 1))
+        val c = controller(routeLines = allDead)
+        c.revealByUser()
+        c.focusControl("线路")
+        c.confirm()
+        // 全部不可用：不得落到任何可确认项；但选择器仍打开，Back 仍可关闭。
+        assertNull(c.pickerFocusedId)
+        assertEquals(PlayerPickerKind.LINES, c.picker)
+        assertEquals(PlayerControlCommand.PickerDismissed, c.back())
+    }
+
+    @Test
+    fun all_episodes_unplayable_leave_no_actionable_focus() {
+        val allDead = listOf(
+            PlayerPickerEpisode("ep-1", "不可播放", playable = false),
+            PlayerPickerEpisode("ep-2", "不可播放", playable = false))
+        val c = controller(routeEpisodes = allDead)
+        c.revealByUser()
+        c.focusControl("选集")
+        c.confirm()
+        assertNull(c.pickerFocusedId)
+        assertEquals(PlayerPickerKind.EPISODES, c.picker)
+        assertEquals(PlayerControlCommand.PickerDismissed, c.back())
+    }
+
+    @Test
+    fun disabled_line_never_becomes_focus_even_on_confirm() {
+        val mixed = listOf(
+            PlayerPickerLine("variant-a", "可用", available = true, episodeCount = 2),
+            PlayerPickerLine("variant-x", "停用", available = false, episodeCount = 1))
+        val c = controller(routeLines = mixed)
+        c.revealByUser()
+        c.focusControl("线路")
+        c.confirm()
+        assertEquals("picker:variant-a", c.pickerFocusedId)
+        // 即使请求聚焦停用项，也保持可用项；确认停用项不得触发选择。
+        assertEquals("picker:variant-a", c.pickerFocused("picker:variant-x"))
+        assertEquals(PlayerControlCommand.None, c.pickerMove(PlayerDirection.DOWN)) // 无可移动（唯一可用项）
+        c.overridePickerFocus("picker:variant-x") // 直接越权也不得落到停用项
+        assertEquals("picker:variant-a", c.pickerFocusedId)
+    }
+
+    @Test
+    fun data_change_disabling_focused_line_repositions_focus_to_available() {
+        val c = controller(routeLines = lines("variant-a", "variant-b"))
+        c.revealByUser()
+        c.focusControl("线路")
+        c.confirm()
+        assertEquals("picker:variant-a", c.pickerFocusedId)
+        // 数据变化：当前聚焦的 variant-a 变为停用。
+        c.install(60_000L, true,
+            listOf(
+                PlayerPickerLine("variant-a", "停用", available = false, episodeCount = 1),
+                PlayerPickerLine("variant-b", "可用", available = true, episodeCount = 2)),
+            episodes("ep-1", "ep-2"), "variant-a", "ep-1", 10_000L)
+        assertEquals("picker:variant-b", c.pickerFocusedId)
+    }
+
+    @Test
+    fun close_picker_then_focus_returns_to_opener_control() {
+        val c = controller()
+        c.revealByUser()
+        c.focusControl("线路")
+        c.confirm()
+        assertEquals(PlayerControlCommand.PickerDismissed, c.back())
+        assertEquals("线路", c.focusedControlId)  // 焦点回到实际调用它的控件
+    }
 }

@@ -236,4 +236,48 @@ class PlayerControlsEpisodesNativeTest {
         assertEquals("已提交续播保持", resumeBefore,
             snapshotFor(PlayerControlsNativeFixture.EPISODE_A1, PlayerControlsNativeFixture.VARIANT_A)?.positionMs)
     }
+
+    // R17 目标 B：停用/不可播放项不获得可操作默认焦点（真实语义树 + D-pad）
+    // 说明：本测试仅要求编译通过（UNVERIFIED）；box 无模拟器，不在真机/模拟器运行。
+    @Test fun disabled_line_and_unplayable_episode_never_receive_actionable_focus() {
+        enter()
+        PlayerControlsTestHooks.suppressIdleHide = true
+        openPicker("线路单", "线路")
+        // 当前线路 variant-a 可用，默认焦点应落在它而非任何停用项。
+        until { var focus: String? = null; player { focus = it.controller.pickerFocusedId }
+            focus == "picker:${PlayerControlsNativeFixture.VARIANT_A}" }
+        // 语义树中：停用线路如实标注 Disabled 且绝非聚焦节点。
+        val disabledNodes = semantics().filter { it.tag in setOf("picker:round15-variant-c", "picker:round15-variant-d") }
+        assertTrue(disabledNodes.isNotEmpty())
+        assertTrue(disabledNodes.none { it.focused })
+        assertTrue(disabledNodes.all { it.description.contains("Disabled") })
+        // D-pad 向下：只在可用项（a → b）间移动，绝不落到停用项。
+        key(KeyEvent.KEYCODE_DPAD_DOWN)
+        until { var focus: String? = null; player { focus = it.controller.pickerFocusedId }
+            focus == "picker:${PlayerControlsNativeFixture.VARIANT_B}" }
+        player { assertEquals("picker:${PlayerControlsNativeFixture.VARIANT_B}", it.controller.pickerFocusedId) }
+        key(KeyEvent.KEYCODE_BACK)
+        until { var picker: Any? = null; player { picker = it.controller.picker }; picker == null }
+        // 全部线路不可用（w4：只剩停用线路）→ 打开选择器后无可操作焦点，Back 仍可关闭。
+        PlayerControlsNativeFixture.backOutOfPlayer(scenario!!, instrumentation, viaOverlay = true)
+        com.ichichuang.cinema.feature.library.LibraryNativeFixture.screenReach(scenario!!, PlayerControlsNativeFixture.w[4].value)
+        key(KeyEvent.KEYCODE_DPAD_CENTER)
+        until { semantics().any { it.tag == "候选详情" } }
+        until { semantics().any { it.focused } }
+        key(KeyEvent.KEYCODE_DPAD_CENTER)
+        until { var isPlayer = false; scenario!!.onActivity { isPlayer = requireNotNull(it.browseProbe).isPlayer }; isPlayer }
+        until(20_000) { var settled = false; scenario!!.onActivity {
+            val runtime = it.playerControlsProbe
+            settled = runtime == null || runtime.display?.status?.statusText == "已暂停" }; settled }
+        key(KeyEvent.KEYCODE_DPAD_RIGHT); key(KeyEvent.KEYCODE_DPAD_DOWN); key(KeyEvent.KEYCODE_DPAD_RIGHT)
+        until { var focus: String? = null; player { focus = it.controller.focusedControlId }; focus == "线路" }
+        key(KeyEvent.KEYCODE_DPAD_CENTER)
+        until { var picker: Any? = null; player { picker = it.controller.picker }; picker != null }
+        player {
+            assertNull("全部线路不可用：不得获得可操作焦点", it.controller.pickerFocusedId)
+            assertEquals(PlayerPickerKind.LINES, it.controller.picker)
+        }
+        key(KeyEvent.KEYCODE_BACK)
+        until { var picker: Any? = null; player { picker = it.controller.picker }; picker == null }
+    }
 }

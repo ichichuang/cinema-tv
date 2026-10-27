@@ -215,11 +215,17 @@ internal class PlayerControlsController {
     private fun defaultPickerFocus(kind: PlayerPickerKind): String? = when (kind) {
         PlayerPickerKind.LINES -> {
             val current = "picker:$currentVariantId"
-            lineKeys().firstOrNull { it == current }
-                ?: lineKeys().firstOrNull { key -> lines.firstOrNull { "picker:${it.variantId}" == key }?.available == true }
+            // R17 目标 B：已选身份（selected）与焦点（focus）分立。当前线路若已停用，
+            // 不再作为默认焦点；焦点只落在仍 available 的线路。全部不可用时返回 null
+            //（选择器仍打开、Back 仍可关闭，且不误确认/跳到无关可播项）。
+            if (pickerItemAvailable(PlayerPickerKind.LINES, currentVariantId)) current
+            else lineKeys().firstOrNull { key -> pickerItemAvailable(PlayerPickerKind.LINES, key.substringAfter("picker:")) }
         }
-        PlayerPickerKind.EPISODES ->
-            episodeKeys().firstOrNull { it == "picker:$currentEpisodeId" } ?: episodeKeys().firstOrNull()
+        PlayerPickerKind.EPISODES -> {
+            val current = "picker:$currentEpisodeId"
+            if (pickerItemAvailable(PlayerPickerKind.EPISODES, currentEpisodeId)) current
+            else episodeKeys().firstOrNull { key -> pickerItemAvailable(PlayerPickerKind.EPISODES, key.substringAfter("picker:")) }
+        }
     }
 
     private fun lineKeys(): List<String> = lines.map { "picker:${it.variantId}" }
@@ -253,10 +259,10 @@ internal class PlayerControlsController {
         return pickerFocusedId
     }
 
-    /** 禁用线路/剧集不可激活（E02）。 */
-    private fun pickerItemAvailable(kind: PlayerPickerKind, id: String): Boolean = when (kind) {
-        PlayerPickerKind.LINES -> lines.firstOrNull { it.variantId == id }?.available == true
-        PlayerPickerKind.EPISODES -> episodeList.firstOrNull { it.episodeId == id }?.playable == true
+    /** 禁用线路/剧集不可激活（E02）。null 身份视为不可用。 */
+    private fun pickerItemAvailable(kind: PlayerPickerKind, id: String?): Boolean = when (kind) {
+        PlayerPickerKind.LINES -> id != null && lines.firstOrNull { it.variantId == id }?.available == true
+        PlayerPickerKind.EPISODES -> id != null && episodeList.firstOrNull { it.episodeId == id }?.playable == true
     }
 
     private fun pickerConfirm(): PlayerControlCommand {
