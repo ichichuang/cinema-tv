@@ -2,6 +2,29 @@
 
 Round 01–14 已留存，当前完成限定的 Round 15 原生作品详情（线路/集数/收藏/续播）切片及执行验证；真实缺陷（缺图占位图标被遮盖、动作行窄屏溢出屏外、org.json "null" 字面量伪装图源、两处 settle 竞态）均以像素证据定位并 RED→GREEN 修复，R14 缺锚焦点断言以真实组件直连断言补齐，进程死亡证据以两阶段宿主编排单独执行。普通生产接入与完整 T02/T03–T11/M04 仍未完成。执行状态以本记录及验证报告为准，最初基线 `7f3e06318ddec8385e7d8be698a922a9cd85c5dd`，隔离分支 `codex/contract-foundation`。
 
+## Round 17 / 17.1 执行记录（播放器可靠性加固与浏览就绪性收口，2026-10-27 追加）
+
+> 本条为追加记录，不改动下方历史轮次内容。起点 `6cd8bae64f24ed6ede85c125c4644a8810fef7e1`（R16）。
+> R17 原提交 `46e40ab` 不可得，本轮在 `main` 上重做；原「44 PASS / 1 FAIL / 1 BLOCKED」只作历史记录保留。
+
+- 范围：长按 OK/Back 在 ticker 心跳前松开误发短按、选择器默认焦点落到停用线路/不可播剧集、过期异步
+  换集/换线路重新绑定 Media3、U05/P07/720p 证据代码化，以及 R12 浏览测试初始化竞态。
+- 代码级处置：`RemoteKeyCycle.onUp()` 补发 LONG_PRESS 并保持 exactly-once；`defaultPickerFocus()` 只落可用项、
+  全不可用返回 null；新增 `SelectionGeneration` + `SwitchSelection`，并在 `RoomPlaybackProbe.select` 的串行队列
+  内、任何播放器/Room 变更之前做权威过期检查；`BrowsePersistenceNativeTest` 增加有界 `awaitBrowseProbe()`。
+- 真实执行：JVM `tests=506 failures=0 errors=0 skipped=0`（50 个 XML）；Python `Ran 62 tests OK`；
+  普通 Debug / 未签名 Release / androidTest / 双 Lint / 八探针守护构建（74 任务全部执行）均 `BUILD SUCCESSFUL`；
+  安全检查 0 违规；`git diff 6cd8bae -- app/schemas` 为空。
+- 未验证：box 无模拟器，全部 400 个 androidTest 方法（含 U05、P07、720p、长 Back、语义树焦点、R12 浏览）
+  仅编译，标 UNVERIFIED；R14 的 5 个 assumption skip 保持 skip。
+- 剩余限制：有序切换仍只做一次入队前检查、`pause()`/`capture()` 在检查之前、探针重建后代次归零、
+  `reproject()` 在 try 之外、无超时保护；`SwitchSelectionTest` 对生产实现无区分力。
+- 详细证据：[R17 计划](../../superpowers/plans/2026-10-27-round-17-player-reliability.md)、
+  [R17 报告](../../verification/2026-10-27-round-17-player-reliability.md)、
+  [R17 矩阵](../../verification/PLAYER-RELIABILITY-ACCEPTANCE-MATRIX.md)、
+  [R17.1 报告](../../verification/2026-10-27-round-17-1-browse-readiness.md)。
+  独立评审待编排方安排，本轮不称已通过。
+
 ## Round 15 执行记录（原生作品详情切片）
 
 - 在七级授权链（既有六探针 + 新增 `cinema.detailProbe`）的隔离原生路径内交付
