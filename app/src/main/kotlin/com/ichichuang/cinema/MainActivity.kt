@@ -154,8 +154,12 @@ class MainActivity : ComponentActivity(), KoinComponent {
             setContent {
                 CinemaTheme {
                     val runtime = browseProbe
-                    if (runtime != null) CinemaNavHost(runtime, onExit = { finish() }, home = homeProbe, detail = detailProbe,
-                        playerControls = playerControlsProbe)
+                    if (runtime != null) com.ichichuang.cinema.core.design.ProvideReducedMotion(
+                        reduced = homeProbe?.reduceMotion == true,
+                    ) {
+                        CinemaNavHost(runtime, onExit = { finish() }, home = homeProbe, detail = detailProbe,
+                            playerControls = playerControlsProbe)
+                    }
                     else Text(probeError ?: "正在核验独立浏览测试环境", modifier = androidx.compose.ui.Modifier.then(
                         if (probeError != null) androidx.compose.ui.Modifier.testTag("浏览测试不可用") else androidx.compose.ui.Modifier))
                 }

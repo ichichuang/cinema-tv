@@ -406,11 +406,17 @@ stagger 的口径（避免"总时长"被两种理解混用）：
 ## 10. 已知缺口（后续子任务）
 
 1. `TypeScale` 已建立但**未接入** `CinemaTheme`：ST1 要求视觉不变，字号切换会改变所有界面的排版，因此留给 ST2/ST4 一次性接线。
-2. `LocalReducedMotion` 尚未在应用根部 provide（需要在设置页读用户开关 + 读系统缩放后 provide），属于 ST2。
-3. `rememberMotionEnter/Exit`、`staggerDelayMs()` 已就绪但还没有调用方，ST2/ST3 的转场与列表入场使用。
+2. ~~`LocalReducedMotion` 尚未在应用根部 provide~~ —— **已由 ST2 关闭**：私有探针新 UI 根部（`MainActivity` 探针 `setContent`）用 `ProvideReducedMotion` 提供 `shouldReduceMotion(用户 reduceMotion, 系统 ANIMATOR_DURATION_SCALE)`，随 DataStore 即时更新。
+3. ~~`rememberMotionEnter/Exit`、`staggerDelayMs()` 已就绪但还没有调用方~~ —— **已由 ST2 关闭**：候选设置页的页面入场（`rememberMotionEnter`）、来源状态切换（`AnimatedContent` + `rememberMotionEnter/Exit`）、逐项列表入场（`staggerDelayMs`）均真实调用。
 4. 白名单 3 处：旧 UI 待 R21 接入时一并处理，不是删除；届时把 `LEGACY_SCREENS` 置空、白名单清空即可，
    测试不会因为白名单为空而失败（`test_every_whitelist_entry_exists` 遍历现有条目，
    `test_empty_whitelist_does_not_break_the_scan` 专门守住空集路径）。
+
+## 10.1 ST2 接线记录
+
+- 新增 `core/design/ReduceMotionController.kt`：把「用户设置 + 系统缩放」合并成 `reduced` Flow，纯函数可 JVM 测试。
+- `VisualHomeRuntime`：暴露 `reduceMotionSetting`（DataStore 直读，驱动开关文案）与 `reduceMotion`（合并后的有效值，驱动根部 `LocalReducedMotion`）；`toggleReduceMotion()` 写回 DataStore。
+- 新增候选设置切片投影（`SettingsProjection`，位于 home 视觉子包）：设置切片四态（加载/空/错误/内容）与来源行的纯投影，JVM 可测。
 
 ## 11. ST1.1 复核修正记录
 

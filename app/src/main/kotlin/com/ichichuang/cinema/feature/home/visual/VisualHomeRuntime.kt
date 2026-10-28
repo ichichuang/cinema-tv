@@ -14,7 +14,10 @@ import com.ichichuang.cinema.data.local.entity.BrowseSnapshotEntity
 import com.ichichuang.cinema.data.local.codec.StorageReadException
 import com.ichichuang.cinema.data.local.codec.StorageReadFailure
 import com.ichichuang.cinema.data.userdata.storageCommit
+import com.ichichuang.cinema.core.design.ReduceMotionController
+import com.ichichuang.cinema.core.design.SystemAnimatorScaleSource
 import com.ichichuang.cinema.core.navigation.BrowseTopLevel
+import com.ichichuang.cinema.data.settings.CinemaSettings
 import com.ichichuang.cinema.domain.model.catalog.CatalogQuery
 import com.ichichuang.cinema.domain.model.catalog.CatalogResult
 import com.ichichuang.cinema.domain.model.catalog.QueryCoverage
@@ -94,7 +97,7 @@ internal class VisualHomeRuntime(
         const val GOTO_SETTINGS = "前往设置"
         const val RETRY = "重试"
         val NAV_ITEMS = listOf("首页", "片库", "我的收藏", "最近观看", "设置")
-        val SETTINGS_ITEMS = listOf("大字模式", "筛选栏", "列数", "刷新目录", "重载首页")
+        val SETTINGS_ITEMS = listOf("大字模式", "筛选栏", "列数", "减弱动效", "刷新目录", "重载首页")
         fun cardKey(row: String, workId: String) = "$row/$workId"
     }
 
@@ -110,6 +113,26 @@ internal class VisualHomeRuntime(
     var screen by mutableStateOf(HomeRootScreen.HOME); private set
     var largeText by mutableStateOf(false); private set
     var status by mutableStateOf("正在读取首页数据"); private set
+
+    /**
+     * The user's stored "减弱动效" preference, read live from DataStore.
+     * Drives the settings switch label; do not read this for animation decisions.
+     */
+    var reduceMotionSetting by mutableStateOf(false); private set
+
+    /**
+     * The effective reduced-motion signal: [reduceMotionSetting] OR the platform
+     * animator scale being 0. Provided at the probe root as [LocalReducedMotion]
+     * so every component in the new UI changes mode in the same frame.
+     */
+    var reduceMotion by mutableStateOf(false); private set
+
+    private val settings = CinemaSettings(context)
+    private val reduceMotionController =
+        ReduceMotionController(SystemAnimatorScaleSource(context.contentResolver), settings.reduceMotion)
+
+    /** Number of enabled sources, read live from DataStore; 0 = unconfigured. */
+    var activeSourceCount by mutableStateOf(0); private set
     var lastCommit by mutableStateOf<CommitResult?>(null); private set
     var navigation by mutableStateOf<RestoreNavigationState?>(null); private set
     private var checkpointToken: CheckpointToken? = null
@@ -137,6 +160,11 @@ internal class VisualHomeRuntime(
 
     init {
         browse.onPersonalChanged = { recompute() }
+        // Reduced-motion: mirror the stored preference and the merged effective signal.
+        scope.launch { settings.reduceMotion.collect { reduceMotionSetting = it } }
+        scope.launch { reduceMotionController.reduced.collect { reduceMotion = it } }
+        // Source count for the settings slice, live from DataStore.
+        scope.launch { settings.activeUrls.collect { activeSourceCount = it.size } }
         // 子层（详情/播放器）关闭时，若仍处首页/片库根画面，重新落焦到进入子层前的位置。
         scope.launch {
             var wasChild = false
@@ -242,6 +270,15 @@ internal class VisualHomeRuntime(
         HomeContentStatus.READY -> if (display.totalKnown != null) "当前查询已完整核对，共 ${display.totalKnown} 部" else "当前查询已完整核对"
     }
 
+    /** Settings slice projection, driven by the same observable read facts as the home screen. */
+    fun settingsDisplay(): SettingsDisplayState = SettingsProjection.project(
+        loading = display.contentStatus == HomeContentStatus.LOADING,
+        loadFailed = display.contentStatus == HomeContentStatus.FAILED,
+        activeCount = activeSourceCount,
+        readStatus = display.contentStatus,
+        failedSourceCount = display.failedSourceCount,
+    )
+
     private fun stateNow(): RestoreNavigationState? = navigation?.let { state ->
         val focused = userTarget ?: focusedControl
         state.copy(snapshot = state.snapshot.copy(
@@ -298,11 +335,18 @@ internal class VisualHomeRuntime(
 
     fun toggleLargeText() { largeText = !largeText }
 
+    /** Toggle the stored "减弱动效" preference; the merged signal follows the DataStore flow. */
+    fun toggleReduceMotion() {
+        val next = !reduceMotionSetting
+        scope.launch { runCatching { settings.setReduceMotion(next) } }
+    }
+
     fun activateSettingsItem(label: String) {
         when (label) {
             "大字模式" -> toggleLargeText()
             "筛选栏" -> browse.setFilterBarVisible(!browse.filterVisible)
             "列数" -> browse.changeColumns()
+            "减弱动效" -> toggleReduceMotion()
             "刷新目录" -> browse.refresh()
             "重载首页" -> retry()
         }
@@ -311,6 +355,7 @@ internal class VisualHomeRuntime(
     fun settingsItemText(label: String): String = when (label) {
         "大字模式" -> if (largeText) "大字模式：开" else "大字模式：关"
         "筛选栏" -> if (browse.filterVisible) "筛选栏：显示" else "筛选栏：隐藏"
+        "减弱动效" -> if (reduceMotionSetting) "减弱动效：开" else "减弱动效：关"
         else -> label
     }
 
