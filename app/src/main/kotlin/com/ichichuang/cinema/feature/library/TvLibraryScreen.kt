@@ -16,9 +16,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
-import androidx.compose.ui.unit.dp
 import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.Panel
+import com.ichichuang.cinema.core.design.Spacing
+import com.ichichuang.cinema.core.design.TileSize
 import com.ichichuang.cinema.core.design.TvOriginalIcons
 import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.ui.TvLoadingTile
@@ -127,9 +128,9 @@ internal fun TvLibraryScreen(runtime: LibraryRuntime, onExit: () -> Unit) {
     Column(Modifier.fillMaxSize()
         .background(Brush.verticalGradient(listOf(Panel.copy(alpha = 0.4f), Ink)))
         .semantics { testTagsAsResourceId = true }.testTag("候选片库")
-        .padding(start = 32.dp, top = 20.dp, end = 32.dp, bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        .padding(start = Spacing.xxl, top = Spacing.n20, end = Spacing.xxl, bottom = Spacing.n20),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.lg)) {
             Text("片库", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
             TvPrimaryButton(label = LibraryRuntime.FILTER_ENTRY, icon = TvOriginalIcons.Filter,
                 tag = LibraryRuntime.FILTER_ENTRY,
@@ -149,8 +150,8 @@ internal fun TvLibraryScreen(runtime: LibraryRuntime, onExit: () -> Unit) {
         // FlowRow 换行保证所有条件片始终合成且可见（长标签不把后面的片挤出屏幕）。
         if (display.filterSummary.isNotEmpty()) {
             @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.n10),
+                verticalArrangement = Arrangement.spacedBy(Spacing.n6)) {
                 display.filterSummary.forEach { chip ->
                     key(chip.key) {
                         TvFilterChip(
@@ -197,7 +198,7 @@ internal fun TvLibraryScreen(runtime: LibraryRuntime, onExit: () -> Unit) {
             LazyVerticalGrid(GridCells.Fixed(columns), Modifier.weight(1f).testTag("作品列表")
                 .onSizeChanged { if (runtime.layoutToken == pass) runtime.viewportChanged(it.width, it.height) }
                 .onGloballyPositioned { runtime.placed(columns) }, state = grid,
-                horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 items(items, key = { it.workId }) { card ->
                     val cardRequester = remember(card.workId) { requesters.getOrPut(card.workId) { FocusRequester() } }
                     DisposableEffect(card.workId, pass) { onDispose { ready.remove(card.workId) } }
@@ -223,8 +224,8 @@ internal fun TvLibraryScreen(runtime: LibraryRuntime, onExit: () -> Unit) {
             }
         }
         if (display.status == LibraryContentStatus.LOADING && items.isEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                repeat(5) { TvLoadingTile(width = 208.dp, height = 117.dp) }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.n14)) {
+                repeat(5) { TvLoadingTile(width = TileSize.landscapeWidth, height = TileSize.landscapeHeight) }
             }
         }
         if (display.status == LibraryContentStatus.COMPLETE_EMPTY) {

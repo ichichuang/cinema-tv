@@ -9,9 +9,14 @@ one place.
 A line may be exempted with a trailing ``// token-ok: <reason>`` comment. The
 exemption only applies to the line that carries it, and a reason is required.
 
-Legacy screens of the pre-R18 UI are listed in ``LEGACY_WHITELIST``. They keep
-their measured absolute values until the old UI is deleted (R21); re-tokenising
-them now would be thrown away. No new UI may land in those files.
+The check is a line regex, not a Kotlin parser: a literal quoted inside a comment
+or a string is reported too, because it is a call site waiting to be copied. A
+genuine false positive takes an explicit ``token-ok``.
+
+Only the pre-R18 old UI is listed in ``LEGACY_WHITELIST``. It keeps its measured
+absolute values until the old UI is deleted (R21); re-tokenising it now would be
+thrown away. The list is closed: new UI -- including the private probe screens --
+must be tokenised, never whitelisted.
 """
 from __future__ import annotations
 
@@ -36,14 +41,8 @@ HAIRLINE_DP = frozenset({"0", "1"})
 FEATURE_ROOT = "app/src/main/kotlin/com/ichichuang/cinema/feature/"
 
 LEGACY_SCREENS = (
-    "detail/TvWorkDetailScreen.kt",
-    "settings/SettingsScreen.kt",
-    "library/TvLibraryScreen.kt",
-    "library/TvLibraryFilterPanel.kt",
-    "player/TvPlayerControlsScreen.kt",
-    "browse/BrowseProbeScreen.kt",
-    "personal/PersonalLibraryScreen.kt",
     "home/HomeScreen.kt",
+    "settings/SettingsScreen.kt",
 )
 
 LEGACY_WHITELIST = frozenset(FEATURE_ROOT + screen for screen in LEGACY_SCREENS)
@@ -52,11 +51,15 @@ EXEMPTION = re.compile(r"//\s*token-ok:\s*\S")
 
 RULES = (
     ("color-literal", re.compile(r"Color\(0x")),
-    ("animation-spec", re.compile(r"\b(?:tween|spring)\(")),
+    # `tween<Float>(`) / `spring<Float>(`) is the spelling inference picks most of
+    # the time, so the type-argument form must be matched as well as the bare call.
+    ("animation-spec", re.compile(r"\b(?:tween|spring)\s*(?:<[^(]*>)?\s*\(")),
     ("keyframe-spec", re.compile(r"\bkeyframes\b")),
     ("duration-literal", re.compile(r"durationMillis\s*=\s*\d")),
-    ("dp-literal", re.compile(r"(?<![\w.])(\d+)\.dp\b")),
-    ("sp-literal", re.compile(r"(?<![\w.])(\d+)\.sp\b")),
+    # Fractional values count: `1.5.dp` is a rhythm decision, and it is not a
+    # hairline even though it starts with `1`.
+    ("dp-literal", re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\.dp\b")),
+    ("sp-literal", re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\.sp\b")),
 )
 
 

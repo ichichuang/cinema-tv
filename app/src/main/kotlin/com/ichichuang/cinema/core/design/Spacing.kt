@@ -25,7 +25,9 @@ object Spacing {
     val n18 = 18.dp
     val n20 = 20.dp
     val n24 = 24.dp
+    val n28 = 28.dp
     val n32 = 32.dp
+    val n36 = 36.dp
     val n48 = 48.dp
 
     // ── Semantic aliases (4dp base) ─────────────────────────────

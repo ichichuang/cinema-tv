@@ -18,6 +18,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
+import com.ichichuang.cinema.core.design.Sizes
+import com.ichichuang.cinema.core.design.Spacing
 import com.ichichuang.cinema.core.navigation.*
 import com.ichichuang.cinema.domain.model.catalog.WorkId
 
@@ -109,14 +111,14 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
     }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
         .semantics { testTagsAsResourceId = true }.testTag("候选浏览")) {
-        Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxSize().padding(Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                 runtime.toolbarControls().forEach { label ->
                     val requester = remember(label) { controls.getOrPut(label) { FocusRequester() } }
                     var focus by remember(label) { mutableStateOf(false) }
                     Text(label, color = if (focus) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.background(if (focus) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
-                            .padding(12.dp, 8.dp).testTag(label).focusRequester(requester)
+                            .padding(Spacing.md, Spacing.sm).testTag(label).focusRequester(requester)
                             .focusProperties { canFocus = !runtime.modal && !runtime.isDetail }
                             .onFocusChanged { focus = it.isFocused; if (it.isFocused) runtime.controlFocused(label) }
                             .semantics { selected = runtime.top.route == when (label) { "片库" -> "library"; "收藏" -> "favorites"; "历史" -> "history"; "继续观看" -> "continue"; else -> "" } }
@@ -138,14 +140,14 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
             }
             key(pass, BrowseProbeTestHooks.blockPlacement) {
                 LazyVerticalGrid(GridCells.Fixed(columns), Modifier.weight(1f).testTag("作品列表").onSizeChanged { if (runtime.layoutToken == pass) runtime.viewportChanged(it.width, it.height) }.onGloballyPositioned { runtime.placed(columns) }, state = grid,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     items(items, key = { it.id.value }) { work ->
                         val requester = remember(work.id) { requesters.getOrPut(work.id) { FocusRequester() } }
                         var focus by remember { mutableStateOf(false) }
                         DisposableEffect(work.id, pass) { onDispose { ready.remove(work.id) } }
-                        Column(Modifier.height(112.dp).fillMaxWidth()
+                        Column(Modifier.height(Sizes.cardRowHeight).fillMaxWidth()
                             .background(if (focus) MaterialTheme.colorScheme.primary.copy(alpha = .22f) else MaterialTheme.colorScheme.surface)
-                            .border(if (focus) 3.dp else 1.dp, if (focus) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
+                            .border(if (focus) Sizes.focusBorder else 1.dp, if (focus) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
                             .testTag(work.id.value).focusRequester(requester)
                             .focusProperties { canFocus = !runtime.modal && !runtime.isDetail && !BrowseProbeTestHooks.disableWorkFocus }
                             .onFocusChanged { focus = it.isFocused; if (it.isFocused) runtime.focused(work.id) }
@@ -156,7 +158,7 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
                                 ready.add(work.id)
                                 if (runtime.userTarget == work.id && runtime.inputEpoch == epoch) requester.requestFocus()
                                 requestRestore()
-                            }.padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                            }.padding(Spacing.md), verticalArrangement = Arrangement.SpaceBetween) {
                             Text(work.title, color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
                             Text(runtime.personal?.let { owner -> (when (runtime.top) {
                                     BrowseTopLevel.FAVORITES -> owner.favorites
@@ -176,11 +178,11 @@ internal fun BrowseProbeScreen(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
             val close = remember { FocusRequester() }
             var placed by remember { mutableStateOf(false) }
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .72f)), contentAlignment = Alignment.Center) {
-                Column(Modifier.width(340.dp).background(MaterialTheme.colorScheme.surface).padding(24.dp)) {
+                Column(Modifier.width(Sizes.dialogNarrowWidth).background(MaterialTheme.colorScheme.surface).padding(Spacing.xl)) {
                     Text("筛选条件", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge)
                     Text("保留当前精确查询；按确认或返回关闭", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("关闭", color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 20.dp).testTag("关闭筛选").focusRequester(close).focusable()
+                        modifier = Modifier.padding(top = Spacing.n20).testTag("关闭筛选").focusRequester(close).focusable()
                             .onGloballyPositioned { if (!placed) { placed = true; close.requestFocus() } })
                 }
             }
@@ -195,12 +197,12 @@ internal fun BrowseProbeDetail(runtime: BrowseProbeRuntime, onExit: () -> Unit) 
     val windowFocused = LocalWindowInfo.current.isWindowFocused && runtime.foreground && !BrowseProbeTestHooks.holdWindowReady
     var placed by remember { mutableStateOf(false) }
     LaunchedEffect(placed, windowFocused) { if (placed && windowFocused) requester.requestFocus() }
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(36.dp)
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(Spacing.n36)
         .testTag("候选详情")) {
         Text(runtime.items.firstOrNull { it.id == runtime.navigation?.snapshot?.focusedWorkId }?.title ?: "作品资料",
             style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
         Text("按返回回到原浏览位置", color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 24.dp).testTag("详情返回").focusRequester(requester).focusable()
+            modifier = Modifier.padding(top = Spacing.xl).testTag("详情返回").focusRequester(requester).focusable()
                 .onGloballyPositioned { placed = true })
     }
 }

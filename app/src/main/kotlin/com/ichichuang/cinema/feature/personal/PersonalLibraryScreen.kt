@@ -17,7 +17,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
-import androidx.compose.ui.unit.dp
+import com.ichichuang.cinema.core.design.Spacing
 import com.ichichuang.cinema.feature.browse.BrowseProbeRuntime
 
 @Composable
@@ -41,7 +41,7 @@ private fun PersonalAction(runtime: BrowseProbeRuntime, label: String, text: Str
     }
     Text(text, color = if (focused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.fillMaxWidth().bringIntoViewRequester(visibility).background(if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 14.dp, vertical = 8.dp).testTag(label).focusRequester(requester)
+            .padding(horizontal = Spacing.n14, vertical = Spacing.sm).testTag(label).focusRequester(requester)
             .onFocusChanged { focused = it.isFocused }
             .semantics { role = Role.Button; if (owner.actionBusy) disabled(); onClick { runtime.activateDetail(label, onExit); true } }
             .focusable().onGloballyPositioned { placed = true; measuredSize = it.size })
@@ -51,8 +51,8 @@ private fun PersonalAction(runtime: BrowseProbeRuntime, label: String, text: Str
 internal fun PersonalLibraryDetail(runtime: BrowseProbeRuntime, onExit: () -> Unit) {
     val owner = requireNotNull(runtime.personal)
     val id = runtime.selected ?: runtime.navigation?.snapshot?.focusedWorkId
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(28.dp)
-        .testTag("候选详情"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(Spacing.n28)
+        .testTag("候选详情"), verticalArrangement = Arrangement.spacedBy(Spacing.n6)) {
         Text(id?.let { owner.card(it.value)?.title ?: runtime.items.firstOrNull { work -> work.id == it }?.title } ?: "本地作品记录",
             style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
         Text(id?.let { owner.availability(it.value) } ?: "作品资料尚未核实", color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -72,8 +72,8 @@ internal fun PersonalLibraryDetail(runtime: BrowseProbeRuntime, onExit: () -> Un
 @Composable
 internal fun PersonalLibraryPlayer(runtime: BrowseProbeRuntime, onExit: () -> Unit) {
     val owner = requireNotNull(runtime.personal)
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(32.dp)
-        .testTag("候选播放器"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(Spacing.xxl)
+        .testTag("候选播放器"), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         Text(owner.selectedMedia?.detail?.movie?.title ?: "本地合成媒体", style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface)
         Text("${owner.selectedMedia?.target?.episodeId?.value} · ${owner.selectedMedia?.target?.variantId?.value} · ${owner.playerPosition / 1000} 秒",

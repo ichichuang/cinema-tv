@@ -38,10 +38,13 @@ import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Panel
 import com.ichichuang.cinema.core.design.PanelHi
+import com.ichichuang.cinema.core.design.Radii
+import com.ichichuang.cinema.core.design.Scrim
+import com.ichichuang.cinema.core.design.Sizes
+import com.ichichuang.cinema.core.design.Spacing
 import com.ichichuang.cinema.core.design.Scrim
 import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.design.TvOriginalIcons
@@ -110,7 +113,7 @@ internal fun TvWorkDetailScreen(runtime: WorkDetailRuntime, onExit: () -> Unit) 
                 if (status.isNotBlank())
                     Text(status, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("详情操作状态"))
                 // 窄面板/大字号下动作行换行（与线路 chips 同语言），保证每个操作真实可见而非被推出屏外。
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.testTag("详情动作")) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.n14), modifier = Modifier.testTag("详情动作")) {
                     DetailAction(runtime, "播放操作", display.primaryActionText, TvOriginalIcons.Play,
                         display.primaryActionEnabled && !locked, ::requester, placed)
                     DetailAction(runtime, "选择线路", "选择线路", TvOriginalIcons.Filter, !locked, ::requester, placed)
@@ -122,7 +125,7 @@ internal fun TvWorkDetailScreen(runtime: WorkDetailRuntime, onExit: () -> Unit) 
                     Text(display.primaryActionExplanation, color = TextSub, modifier = Modifier.testTag("播放说明"))
                 if (display.routes.isNotEmpty()) {
                     Text("播放线路", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.testTag("线路列表")) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.n10), modifier = Modifier.testTag("线路列表")) {
                         display.routes.forEach { route ->
                             RouteChip(route, route.routeId == display.selectedRouteId, locked, ::requester, placed, runtime)
                         }
@@ -130,7 +133,7 @@ internal fun TvWorkDetailScreen(runtime: WorkDetailRuntime, onExit: () -> Unit) 
                 }
                 if (display.episodes.isNotEmpty()) {
                     Text("剧集", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Column(Modifier.testTag("集数列表"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(Modifier.testTag("集数列表"), verticalArrangement = Arrangement.spacedBy(Spacing.n6)) {
                         display.episodes.forEach { episode ->
                             EpisodeRow(episode, episode.episodeId == display.selectedEpisodeId, locked, ::requester, placed, runtime)
                         }
@@ -160,22 +163,22 @@ private fun RouteChip(route: DetailRouteUi, selected: Boolean, locked: Boolean,
     requester: (String) -> FocusRequester, placed: MutableMap<String, Boolean>, runtime: WorkDetailRuntime) {
     val key = "线路:${route.routeId}"
     var focused by remember(key) { mutableStateOf(false) }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.n6),
         modifier = Modifier
             .focusRequester(requester(key))
-            .tvFocus(cornerRadius = 999.dp)
+            .tvFocus(cornerRadius = Radii.full)
             .onFocusChanged { focused = it.isFocused; if (it.isFocused && !locked) runtime.focusArrived(key) }
-            .background(if (selected) PanelHi else Panel, RoundedCornerShape(999.dp))
+            .background(if (selected) PanelHi else Panel, RoundedCornerShape(Radii.full))
             .semantics {
                 role = Role.Button
                 if (!route.available || locked) disabled()
                 onClick(label = route.label) { if (!locked) { runtime.activate(key); true } else false }
             }
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = Spacing.lg, vertical = Spacing.sm)
             .testTag(key)
             .onGloballyPositioned { placed[key] = true }
             .then(if (locked) Modifier else Modifier.focusable())) {
-        if (selected) Box(Modifier.size(8.dp).background(Gold, RoundedCornerShape(4.dp)))
+        if (selected) Box(Modifier.size(Sizes.dot).background(Gold, RoundedCornerShape(Radii.xxs)))
         Text(route.label, color = MaterialTheme.colorScheme.onSurface)
         Text(route.stateText, color = TextSub, style = MaterialTheme.typography.labelSmall)
         route.episodeCountText?.let { Text(it, color = TextSub, style = MaterialTheme.typography.labelSmall) }
@@ -189,20 +192,20 @@ private fun EpisodeRow(episode: DetailEpisodeUi, selected: Boolean, locked: Bool
     var focused by remember(key) { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth()
         .focusRequester(requester(key))
-        .tvFocus(cornerRadius = 6.dp)
+        .tvFocus(cornerRadius = Radii.xs)
         .onFocusChanged { focused = it.isFocused; if (it.isFocused && !locked) runtime.focusArrived(key) }
-        .background(if (selected) PanelHi else Panel, RoundedCornerShape(6.dp))
+        .background(if (selected) PanelHi else Panel, RoundedCornerShape(Radii.xs))
         .semantics {
             role = Role.Button
             if (!episode.playable || locked) disabled()
             onClick(label = episode.label) { if (!locked) { runtime.activate(key); true } else false }
         }
-        .padding(horizontal = 14.dp, vertical = 8.dp)
+        .padding(horizontal = Spacing.n14, vertical = Spacing.sm)
         .testTag(key)
         .onGloballyPositioned { placed[key] = true }
         .then(if (locked) Modifier else Modifier.focusable()),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (selected) Box(Modifier.size(8.dp).background(Gold, RoundedCornerShape(4.dp)))
+        horizontalArrangement = Arrangement.spacedBy(Spacing.n10)) {
+        if (selected) Box(Modifier.size(Sizes.dot).background(Gold, RoundedCornerShape(Radii.xxs)))
         Text(episode.label, color = MaterialTheme.colorScheme.onSurface)
         episode.orderText?.let { Text(it, color = TextSub) }
         episode.resumeText?.let { Text(it, color = Gold) }
@@ -226,22 +229,22 @@ private fun DetailSheet(
     Box(Modifier.fillMaxSize().background(Scrim(0.6f)).testTag(if (kind == DetailSheetKind.LINES) "线路单" else "集数单")) {
         Column(Modifier.align(Alignment.Center).width(m.dp(640f))
             .background(PanelHi, RoundedCornerShape(m.dp(10f))).padding(m.dp(24f)),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             Text(if (kind == DetailSheetKind.LINES) "选择线路" else "选择集数",
                 style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
             items.forEach { (key, texts) ->
                 var focused by remember(key) { mutableStateOf(false) }
                 Row(Modifier.fillMaxWidth()
                     .focusRequester(requester(key))
-                    .tvFocus(cornerRadius = 6.dp)
+                    .tvFocus(cornerRadius = Radii.xs)
                     .onFocusChanged { focused = it.isFocused; if (it.isFocused) runtime.focusArrived(key) }
-                    .background(Panel, RoundedCornerShape(6.dp))
+                    .background(Panel, RoundedCornerShape(Radii.xs))
                     .semantics { role = Role.Button; onClick(label = texts.first()) { runtime.activate(key); true } }
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .padding(horizontal = Spacing.n14, vertical = Spacing.n10)
                     .testTag(key)
                     .onGloballyPositioned { placed[key] = true }
                     .focusable(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     texts.forEach { text -> Text(text, color = if (focused) Gold else MaterialTheme.colorScheme.onSurface) }
                 }
             }

@@ -13,6 +13,9 @@ object Sizes {
     /** Selection indicator: nav underline, playback progress bar (3dp). */
     val indicator = 3.dp
 
+    /** Focus outline weight on a card (3dp; same value as [indicator] on purpose). */
+    val focusBorder = 3.dp
+
     /** Selected dot on a chip (8dp). */
     val dot = 8.dp
 
@@ -21,6 +24,21 @@ object Sizes {
 
     /** Selected-state underline width under a nav label (24dp). */
     val navUnderline = 24.dp
+
+    /** Fixed section-label column of the filter panel (96dp). */
+    val filterSectionLabelWidth = 96.dp
+
+    /**
+     * Indent of the option rows' value line in the filter panel (106dp):
+     * [filterSectionLabelWidth] + the 10dp gap of the row it sits under.
+     */
+    val filterOptionIndent = 106.dp
+
+    /** One-row candidate card in the browse grid (112dp). */
+    val cardRowHeight = 112.dp
+
+    /** Narrow centred modal panel, e.g. the filter sheet (340dp). */
+    val dialogNarrowWidth = 340.dp
 }
 
 /** Pure-stroke icon sizes on the 24dp grid. */

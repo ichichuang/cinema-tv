@@ -3,6 +3,8 @@ package com.ichichuang.cinema.data.settings
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
  * The "减弱动效" flag, stored next to the other settings.
@@ -30,4 +32,20 @@ object ReduceMotionPreference {
     fun write(preferences: MutablePreferences, enabled: Boolean) {
         preferences[key] = enabled
     }
+}
+
+/**
+ * The read/write path of `CinemaSettings.reduceMotion`.
+ *
+ * Split out of the settings class so the default, the mapping and the round trip
+ * are JVM-testable without a `Context`: only the DataStore handle and the legacy
+ * write handoff need Android, and both stay in [CinemaSettings].
+ */
+internal object ReduceMotionSetting {
+    /** Maps the raw preferences flow onto the flag the UI reads. */
+    fun flow(data: Flow<Preferences>): Flow<Boolean> = data.map { ReduceMotionPreference.read(it) }
+
+    /** The write transform applied inside the DataStore edit. */
+    fun write(preferences: MutablePreferences, enabled: Boolean) =
+        ReduceMotionPreference.write(preferences, enabled)
 }

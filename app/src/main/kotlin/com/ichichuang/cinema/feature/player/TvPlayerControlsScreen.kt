@@ -44,14 +44,16 @@ import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import androidx.media3.ui.compose.PlayerSurface
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.Motion
 import com.ichichuang.cinema.core.design.Panel
 import com.ichichuang.cinema.core.design.PanelHi
+import com.ichichuang.cinema.core.design.Radii
 import com.ichichuang.cinema.core.design.Scrim
+import com.ichichuang.cinema.core.design.Sizes
+import com.ichichuang.cinema.core.design.Spacing
 import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.design.TvOriginalIcons
 import com.ichichuang.cinema.core.design.formatTime
@@ -293,20 +295,20 @@ private fun PickerRow(
     var focused by remember(key) { androidx.compose.runtime.mutableStateOf(false) }
     Row(Modifier.fillMaxWidth()
         .focusRequester(requester(key))
-        .tvFocus(cornerRadius = 6.dp)
+        .tvFocus(cornerRadius = Radii.xs)
         .onFocusChanged { focused = it.isFocused; if (it.isFocused) runtime.focusArrived(key) }
-        .background(if (selected && !focused) PanelHi else Panel, RoundedCornerShape(6.dp))
+        .background(if (selected && !focused) PanelHi else Panel, RoundedCornerShape(Radii.xs))
         .semantics {
             role = Role.Button
             if (!available) disabled()
             onClick(label = label) { if (available) { runtime.activatePicker(key); true } else false }
         }
-        .padding(horizontal = 14.dp, vertical = 10.dp)
+        .padding(horizontal = Spacing.n14, vertical = Spacing.n10)
         .testTag(key)
         .onGloballyPositioned { placed[key] = true }
         .then(if (available) Modifier.focusable() else Modifier),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (selected) Box(Modifier.size(8.dp).background(Gold, RoundedCornerShape(4.dp)))
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+        if (selected) Box(Modifier.size(Sizes.dot).background(Gold, RoundedCornerShape(Radii.xxs)))
         Text(label, color = if (focused) Gold else MaterialTheme.colorScheme.onSurface)
         if (note.isNotBlank()) Text(note, color = TextSub, style = MaterialTheme.typography.labelSmall)
     }

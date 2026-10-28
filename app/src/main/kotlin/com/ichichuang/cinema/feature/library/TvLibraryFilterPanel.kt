@@ -25,8 +25,12 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.ichichuang.cinema.core.design.Danger
 import com.ichichuang.cinema.core.design.Gold
 import com.ichichuang.cinema.core.design.Panel
+import com.ichichuang.cinema.core.design.Radii
+import com.ichichuang.cinema.core.design.Sizes
+import com.ichichuang.cinema.core.design.Spacing
 import com.ichichuang.cinema.core.design.TextSub
 import com.ichichuang.cinema.core.focus.tvFocus
 
@@ -49,10 +53,10 @@ internal fun TvFilterChip(
     var focused by remember { mutableStateOf(false) }
     Column(modifier = modifier
         .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-        .tvFocus(cornerRadius = 8.dp)
+        .tvFocus(cornerRadius = Radii.sm)
         .onFocusChanged { focused = it.isFocused; onFocusChanged?.invoke(it.isFocused) }
         .background(if (focused) Gold.copy(alpha = 0.14f) else if (selected) Panel.copy(alpha = 0.9f) else Panel,
-            RoundedCornerShape(8.dp))
+            RoundedCornerShape(Radii.sm))
         .semantics {
             role = Role.Checkbox; this.selected = selected
             contentDescription = if (selected) "$label，已选择" else label
@@ -62,8 +66,8 @@ internal fun TvFilterChip(
         .testTag(tag)
         .onGloballyPositioned { onPlaced?.invoke() }) {
         Text(label, color = if (selected || focused) MaterialTheme.colorScheme.onSurface else TextSub,
-            style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
-        Box(Modifier.padding(start = 12.dp).size(width = if (selected) 20.dp else 0.dp, height = 2.dp)
+            style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm))
+        Box(Modifier.padding(start = Spacing.md).size(width = if (selected) Spacing.n20 else 0.dp, height = Spacing.n2)
             .background(if (selected) Gold else Color.Transparent))
     }
 }
@@ -96,9 +100,9 @@ internal fun TvLibraryFilterPanel(runtime: LibraryRuntime) {
     }
 
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.72f)), contentAlignment = Alignment.Center) {
-        Column(Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f).background(Panel, RoundedCornerShape(14.dp))
-            .verticalScroll(rememberScrollState()).padding(28.dp)
-            .testTag("筛选面板"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f).background(Panel, RoundedCornerShape(Radii.xl))
+            .verticalScroll(rememberScrollState()).padding(Spacing.n28)
+            .testTag("筛选面板"), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Text("筛选条件", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             val yearSummary = when (draft.yearMode) {
                 LibraryYearMode.NONE -> "年份：不限"
@@ -109,13 +113,13 @@ internal fun TvLibraryFilterPanel(runtime: LibraryRuntime) {
             Text(yearSummary, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("年份摘要"))
             draft.yearError()?.let { error ->
-                Text(error, color = androidx.compose.ui.graphics.Color(0xFFE57373),
+                Text(error, color = Danger,
                     style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("年份错误"))
             }
             runtime.panelZones().forEachIndexed { sectionIndex, (section, keys) ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.n10)) {
                     Text(section, color = TextSub, style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.width(96.dp))
+                        modifier = Modifier.width(Sizes.filterSectionLabelWidth))
                     keys.forEach { panelKey ->
                         key(panelKey) {
                             TvFilterChip(
@@ -130,12 +134,12 @@ internal fun TvLibraryFilterPanel(runtime: LibraryRuntime) {
                 }
                 // 步进器行附带当前值，帮助不靠记忆操作。
                 if (section == "具体年份") Text("当前 ${draft.exactYear} 年", color = TextSub,
-                    style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 106.dp))
+                    style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = Sizes.filterOptionIndent))
                 if (section == "年代") Text("当前 ${draft.decadeStart}–${draft.decadeStart + 9} 年", color = TextSub,
-                    style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 106.dp))
+                    style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = Sizes.filterOptionIndent))
                 if (section == "起止年份") Text("当前 ${draft.rangeStart}–${draft.rangeEnd} 年", color = TextSub,
-                    style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 106.dp))
-                if (sectionIndex == runtime.panelZones().lastIndex - 1) Spacer(Modifier.height(6.dp))
+                    style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = Sizes.filterOptionIndent))
+                if (sectionIndex == runtime.panelZones().lastIndex - 1) Spacer(Modifier.height(Spacing.n6))
             }
         }
     }

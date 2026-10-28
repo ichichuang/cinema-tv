@@ -7,6 +7,9 @@ import androidx.compose.ui.unit.dp
  * a rounded rect clipped with it always ends in a half-circle end cap.
  */
 object Radii {
+    /** Selected dot / tiny badge (4dp). */
+    val xxs = 4.dp
+
     /** Chip-sized radius (6dp). */
     val xs = 6.dp
 

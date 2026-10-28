@@ -14,6 +14,15 @@ _spec.loader.exec_module(design_tokens)
 
 SOURCE = "app/src/main/kotlin/com/example"
 TOKEN_SOURCE = "app/src/main/kotlin/com/ichichuang/cinema/core/design"
+FEATURE_SOURCE = "app/src/main/kotlin/com/ichichuang/cinema/feature"
+
+# Independent copy of the only files allowed in the whitelist. Deliberately not
+# derived from the script: the guard has to notice when the script grows an entry
+# for a screen that is not pre-R18 old UI. Shrinking the set is fine (R21 empties it).
+PRE_R18_SCREENS = frozenset({
+    f"{FEATURE_SOURCE}/home/HomeScreen.kt",
+    f"{FEATURE_SOURCE}/settings/SettingsScreen.kt",
+})
 
 
 def run_checker(root: pathlib.Path) -> subprocess.CompletedProcess:
@@ -59,11 +68,33 @@ class DesignTokenScriptTests(unittest.TestCase):
                 self.assertEqual(1, result.returncode, spec)
                 self.assertIn(":1:", result.stderr)
 
+    def test_explicit_type_argument_tween_is_rejected(self):
+        # `tween<Float>(` is the spelling Compose actually infers; a rule that only
+        # matches `tween(` misses the majority of call sites.
+        self.write(f"{SOURCE}/Bad.kt", "val fade = tween<Float>(durationMillis = 200)\n")
+        result = run_checker(self.root)
+        self.assertEqual(1, result.returncode)
+        self.assertIn("Bad.kt:1: animation-spec", result.stderr)
+
+    def test_explicit_type_argument_spring_is_rejected(self):
+        self.write(f"{SOURCE}/Bad.kt", "val lift = spring<Float>(stiffness = 400f)\n")
+        result = run_checker(self.root)
+        self.assertEqual(1, result.returncode)
+        self.assertIn("Bad.kt:1: animation-spec", result.stderr)
+
     def test_duration_literal_is_rejected(self):
         self.write(f"{SOURCE}/Bad.kt", "val pause = tween(durationMillis = 300)\n")
         result = run_checker(self.root)
         self.assertEqual(1, result.returncode)
         self.assertIn(":1:", result.stderr)
+
+    def test_duration_literal_is_rejected_without_any_spec_call(self):
+        # Isolates the duration rule: this line carries no tween/spring token, so the
+        # only rule that can reject it is `duration-literal`.
+        self.write(f"{SOURCE}/Bad.kt", "val step = builder(durationMillis = 300)\n")
+        result = run_checker(self.root)
+        self.assertEqual(1, result.returncode)
+        self.assertIn("Bad.kt:1: duration-literal", result.stderr)
 
     def test_dp_and_sp_literals_are_rejected(self):
         self.write(f"{SOURCE}/Bad.kt", "val gap = 12.dp\nval size = 16.sp\n")
@@ -72,8 +103,29 @@ class DesignTokenScriptTests(unittest.TestCase):
         self.assertIn("Bad.kt:1: dp-literal", result.stderr)
         self.assertIn("Bad.kt:2: sp-literal", result.stderr)
 
+    def test_fractional_dp_literal_is_rejected(self):
+        # `1.5.dp` is still a rhythm decision written at the call site, and it is not
+        # a hairline even though it starts with `1`.
+        self.write(f"{SOURCE}/Bad.kt", "val gap = 1.5.dp\n")
+        result = run_checker(self.root)
+        self.assertEqual(1, result.returncode)
+        self.assertIn("Bad.kt:1: dp-literal", result.stderr)
+
+    def test_fractional_sp_literal_is_rejected(self):
+        self.write(f"{SOURCE}/Bad.kt", "val size = 13.5.sp\n")
+        result = run_checker(self.root)
+        self.assertEqual(1, result.returncode)
+        self.assertIn("Bad.kt:1: sp-literal", result.stderr)
+
     def test_hairline_dp_values_are_allowed(self):
         self.write(f"{SOURCE}/Fine.kt", "val a = 0.dp\nval b = 1.dp\n")
+        result = run_checker(self.root)
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_density_scaled_metrics_are_not_dp_literals(self):
+        # `m.dp(24f)` goes through the metrics helper: the value is a design decision
+        # expressed in reference dp, not a literal unit at the call site.
+        self.write(f"{SOURCE}/Fine.kt", "val a = m.dp(24f)\nval b = Spacing.sm\nval c = Radii.md\n")
         result = run_checker(self.root)
         self.assertEqual(0, result.returncode, result.stderr)
 
@@ -102,6 +154,16 @@ class DesignTokenScriptTests(unittest.TestCase):
         self.assertEqual(1, result.returncode, result.stdout)
         self.assertIn("Bad.kt:1: dp-literal", result.stderr)
 
+    def test_rule_matches_inside_comments_and_strings(self):
+        # Documented scope: the script is a line regex, it does not parse Kotlin. A
+        # literal quoted in a comment is still a call site waiting to be copied, so
+        # it is reported; a genuine false positive takes an explicit token-ok.
+        self.write(f"{SOURCE}/Bad.kt", "// remember to replace 24.dp here\nval s = \"tween(200)\"\n")
+        result = run_checker(self.root)
+        self.assertEqual(1, result.returncode)
+        self.assertIn("Bad.kt:1: dp-literal", result.stderr)
+        self.assertIn("Bad.kt:2: animation-spec", result.stderr)
+
     def test_core_design_is_the_token_authority(self):
         self.write(f"{TOKEN_SOURCE}/Tokens.kt", "val gap = 12.dp\nval ink = Color(0xFF0A0A0C)\n")
         result = run_checker(self.root)
@@ -109,22 +171,37 @@ class DesignTokenScriptTests(unittest.TestCase):
         self.assertIn("token-dir=2", result.stdout)
 
     def test_legacy_whitelist_covers_only_listed_files(self):
-        listed = sorted(design_tokens.LEGACY_WHITELIST)[0]
-        self.write(listed, "val gap = 8.dp\n")
+        listed = sorted(design_tokens.LEGACY_WHITELIST)
+        if listed:
+            self.write(listed[0], "val gap = 8.dp\n")
         self.write(f"{SOURCE}/New.kt", "val gap = 8.dp\n")
         result = run_checker(self.root)
         self.assertEqual(1, result.returncode)
         self.assertIn("New.kt:1: dp-literal", result.stderr)
-        self.assertNotIn(listed, result.stderr)
-        self.assertIn("legacy-whitelist=1", result.stdout)
+        self.assertIn(f"legacy-whitelist={1 if listed else 0}", result.stdout)
 
-    def test_every_whitelist_entry_exists_and_is_old_ui(self):
-        self.assertTrue(design_tokens.LEGACY_WHITELIST)
+    def test_every_whitelist_entry_exists(self):
+        # Iterates whatever the whitelist holds: emptying it (R21) must not fail here.
         for relative in sorted(design_tokens.LEGACY_WHITELIST):
             with self.subTest(relative=relative):
                 self.assertTrue((REPO_ROOT / relative).is_file(), f"{relative} does not exist")
-                self.assertIn("/feature/", relative)
-                self.assertNotIn("/core/design/", relative)
+
+    def test_whitelist_holds_only_pre_r18_screens(self):
+        # A probe screen of R12-R16 must never be whitelisted: it is live UI, so its
+        # literals have to be tokens.
+        self.assertLessEqual(set(design_tokens.LEGACY_WHITELIST), set(PRE_R18_SCREENS))
+
+    def test_empty_whitelist_does_not_break_the_scan(self):
+        original = design_tokens.LEGACY_WHITELIST
+        try:
+            design_tokens.LEGACY_WHITELIST = frozenset()
+            report = design_tokens.Report()
+            path = f"{FEATURE_SOURCE}/home/HomeScreen.kt"
+            design_tokens.scan_text(path, "val gap = 8.dp\n", report)
+            self.assertEqual(1, report.violations_count)
+            self.assertEqual(0, report.whitelisted)
+        finally:
+            design_tokens.LEGACY_WHITELIST = original
 
     def test_missing_source_root_is_a_usage_error(self):
         result = run_checker(self.root)
