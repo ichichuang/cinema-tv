@@ -43,7 +43,7 @@ internal fun CandidateSettingsScreen(runtime: VisualHomeRuntime, onExit: () -> U
     // 页面入场必须真实触发：初始 false，进入组合后置 true，让 enter 过渡真正播放
     //（`visible = true` 从一开始就为真，AnimatedVisibility 不会跑入场动画）。
     val enterState = remember { MutableTransitionState(false) }
-    LaunchedEffect(Unit) { enterState.targetState = true }
+    LaunchedEffect(Unit) { if (shouldTriggerEntrance(firstCompositionDone = true)) enterState.targetState = true }
     LaunchedEffect(runtime.controlTarget, windowFocused) {
         if (windowFocused) runtime.controlTarget?.let { requesters[it]?.requestFocus() }
     }

@@ -255,7 +255,7 @@ internal class VisualHomeRuntime(
         loadErrorReason = null
         runCatching { fixture.query(query, BrowseTopLevel.LIBRARY, revision) }.fold({
             catalogWorks = it.first; catalogResult = it.second
-        }, { e -> catalogWorks = emptyList(); catalogResult = null; loadFailed = true; loadErrorReason = e.message ?: "未知原因" })
+        }, { e -> catalogWorks = emptyList(); catalogResult = null; loadFailed = true; loadErrorReason = readFailureReason(e) })
         loadedOnce = true
         layoutToken = token?.let { restore.advanceLayout(it, revision) }
         recompute()
@@ -320,7 +320,9 @@ internal class VisualHomeRuntime(
         val ticket = restore.reserveLoad()
         VisualHomeTestHooks.traceFocus("retry reserveLoad")
         scope.launch {
-            refreshOffline()
+            // 重试必须按 [retrySteps] 的顺序执行：先刷新离线状态（网络恢复时重试才能真正重查），再重载。
+            val steps = retrySteps()
+            if ("refreshOffline" in steps) refreshOffline()
             val saved = runCatching { store.load() }.getOrNull()?.snapshot ?: fixture.initial
             install(saved, restore.completeLoad(ticket, saved))
         }
@@ -353,14 +355,14 @@ internal class VisualHomeRuntime(
     val reduceMotionError: String? get() = reducedMotionHost.writeError
 
     fun activateSettingsItem(label: String) {
-        when (settingsActionFor(label)) {
-            SettingsAction.TOGGLE_LARGE_TEXT -> toggleLargeText()
-            SettingsAction.TOGGLE_FILTER -> browse.setFilterBarVisible(!browse.filterVisible)
-            SettingsAction.CHANGE_COLUMNS -> browse.changeColumns()
-            SettingsAction.TOGGLE_REDUCE_MOTION -> toggleReduceMotion()
-            SettingsAction.REFRESH -> browse.refresh()
-            SettingsAction.RELOAD -> retry()
-            null -> Unit
+        when (settingsEffectFor(label)) {
+            SettingsEffect.TOGGLE_LARGE_TEXT -> toggleLargeText()
+            SettingsEffect.TOGGLE_FILTER -> browse.setFilterBarVisible(!browse.filterVisible)
+            SettingsEffect.CHANGE_COLUMNS -> browse.changeColumns()
+            SettingsEffect.TOGGLE_REDUCE_MOTION -> toggleReduceMotion()
+            SettingsEffect.REFRESH -> browse.refresh()
+            SettingsEffect.RELOAD -> retry()
+            SettingsEffect.NONE -> Unit
         }
     }
 
@@ -469,11 +471,12 @@ internal class VisualHomeRuntime(
     }
 
     private fun settingsKey(code: Int) {
-        val items = settingsFocusKeys(settingsDisplay())
+        val display = settingsDisplay()
+        val items = settingsFocusKeys(display)
         if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
             // 激活以可见焦点为准；未落焦时退回待落焦意图。
             val focused = focusedControl?.takeIf { it in items } ?: controlTarget?.takeIf { it in items } ?: items.first()
-            if (focused == SettingsSourceSection.RETRY_KEY) retry() else activateSettingsItem(focused)
+            if (isRetryConfirm(focused, display)) retry() else activateSettingsItem(focused)
             return
         }
         val index = items.indexOf(controlTarget).takeIf { it >= 0 } ?: items.indexOf(focusedControl).coerceAtLeast(0)

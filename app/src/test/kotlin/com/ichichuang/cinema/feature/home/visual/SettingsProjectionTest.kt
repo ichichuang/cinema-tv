@@ -10,16 +10,16 @@ class SettingsProjectionTest {
     private fun source(state: SettingsDisplayState): SettingsSourceState = requireNotNull(state.source)
 
     @Test
-    fun `every settings item resolves to a non-null action`() {
+    fun `every settings item resolves to a non-null effect`() {
         // A mutation that guts any item to a no-op must fail this: the label is the
         // single dispatch key and "减弱动效" in particular must map to the toggle.
-        assertEquals(SettingsAction.TOGGLE_LARGE_TEXT, settingsActionFor("大字模式"))
-        assertEquals(SettingsAction.TOGGLE_FILTER, settingsActionFor("筛选栏"))
-        assertEquals(SettingsAction.CHANGE_COLUMNS, settingsActionFor("列数"))
-        assertEquals(SettingsAction.TOGGLE_REDUCE_MOTION, settingsActionFor("减弱动效"))
-        assertEquals(SettingsAction.REFRESH, settingsActionFor("刷新目录"))
-        assertEquals(SettingsAction.RELOAD, settingsActionFor("重载首页"))
-        assertEquals(null, settingsActionFor("不存在的条目"))
+        assertEquals(SettingsEffect.TOGGLE_LARGE_TEXT, settingsEffectFor("大字模式"))
+        assertEquals(SettingsEffect.TOGGLE_FILTER, settingsEffectFor("筛选栏"))
+        assertEquals(SettingsEffect.CHANGE_COLUMNS, settingsEffectFor("列数"))
+        assertEquals(SettingsEffect.TOGGLE_REDUCE_MOTION, settingsEffectFor("减弱动效"))
+        assertEquals(SettingsEffect.REFRESH, settingsEffectFor("刷新目录"))
+        assertEquals(SettingsEffect.RELOAD, settingsEffectFor("重载首页"))
+        assertEquals(SettingsEffect.NONE, settingsEffectFor("不存在的条目"))
     }
 
     @Test

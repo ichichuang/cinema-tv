@@ -1,44 +1,5 @@
 package com.ichichuang.cinema.feature.home.visual
 
-import com.ichichuang.cinema.domain.model.catalog.SourceId
-
-/**
- * The action a settings item resolves to. Kept as an enum + pure mapping so the
- * "减弱动效" item is proven to dispatch [TOGGLE_REDUCE_MOTION] by a JVM test,
- * instead of relying on an inline `when` branch that a reviewer could silently
- * gut to a no-op.
- */
-internal enum class SettingsAction {
-    TOGGLE_LARGE_TEXT,
-    TOGGLE_FILTER,
-    CHANGE_COLUMNS,
-    TOGGLE_REDUCE_MOTION,
-    REFRESH,
-    RELOAD,
-}
-
-/** Maps a settings item label to its action; `null` for labels that do nothing. */
-internal fun settingsActionFor(label: String): SettingsAction? = when (label) {
-    "大字模式" -> SettingsAction.TOGGLE_LARGE_TEXT
-    "筛选栏" -> SettingsAction.TOGGLE_FILTER
-    "列数" -> SettingsAction.CHANGE_COLUMNS
-    "减弱动效" -> SettingsAction.TOGGLE_REDUCE_MOTION
-    "刷新目录" -> SettingsAction.REFRESH
-    "重载首页" -> SettingsAction.RELOAD
-    else -> null
-}
-
-/**
- * The configured-source count shown on the settings slice.
- *
- * The probe path must state only what it can verify, and it must use the *same*
- * fact the home screen uses for "configured". Both read [enabledSourceIds] from
- * the fixture query — never the production DataStore — so the settings slice can
- * neither contradict the home screen ("home has content, settings says
- * unconfigured") nor invent a count the home screen cannot back up.
- */
-internal fun configuredSourceCount(enabledSourceIds: Set<SourceId>): Int = enabledSourceIds.size
-
 /**
  * The focusable keys of the settings screen, in D-pad order.
  *
