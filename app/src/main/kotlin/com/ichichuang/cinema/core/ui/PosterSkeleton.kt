@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.ichichuang.cinema.core.design.LocalReducedMotion
 import com.ichichuang.cinema.core.design.Motion
 import com.ichichuang.cinema.core.design.Panel
 import com.ichichuang.cinema.core.design.rememberTvMetrics
@@ -20,7 +21,6 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 
 /**
  * 海报骨架：加载数据时用"微光占位"，绝不是白屏或转圈。
@@ -30,15 +30,17 @@ import androidx.compose.animation.core.tween
 fun PosterSkeleton() {
     val m = rememberTvMetrics()
     val transition = rememberInfiniteTransition(label = "skeleton")
-    val alpha by transition.animateFloat(
+    val animated by transition.animateFloat(
         initialValue = 0.35f,
         targetValue = 0.72f,
         animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = Motion.EaseInOut),
+            animation = Motion.pulse(),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "skeletonAlpha",
     )
+    // Reduced motion: hold a steady dim tone instead of pulsing.
+    val alpha = if (LocalReducedMotion.current) 0.5f else animated
     val shape = RoundedCornerShape(m.dp(14f))
     Column {
         Box(

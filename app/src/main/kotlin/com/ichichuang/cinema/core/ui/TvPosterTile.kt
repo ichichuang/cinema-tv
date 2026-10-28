@@ -20,11 +20,15 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.ichichuang.cinema.core.design.Gold
+import com.ichichuang.cinema.core.design.IconSize
 import com.ichichuang.cinema.core.design.PanelHi
+import com.ichichuang.cinema.core.design.Radii
+import com.ichichuang.cinema.core.design.Sizes
+import com.ichichuang.cinema.core.design.Spacing
 import com.ichichuang.cinema.core.design.TextSub
+import com.ichichuang.cinema.core.design.TileSize
 import com.ichichuang.cinema.core.focus.tvFocus
 import com.ichichuang.cinema.feature.home.visual.HomeImageShape
 
@@ -55,20 +59,25 @@ internal fun TvPosterTile(
     onFocusChanged: ((Boolean) -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(Radii.md)
     var focused by remember { mutableStateOf(false) }
     val tileWidth: Dp
     val tileHeight: Dp
     // wide（首行）用 16:9 紧凑尺寸，保证 1280x720 逻辑宽度下动作按钮不被裁切（L01/L03）。
-    if (landscape) { tileWidth = if (wide) 232.dp else 208.dp; tileHeight = if (wide) 130.dp else 117.dp }
-    else { tileWidth = 120.dp; tileHeight = 180.dp }
+    if (landscape) {
+        tileWidth = if (wide) TileSize.wideWidth else TileSize.landscapeWidth
+        tileHeight = if (wide) TileSize.wideHeight else TileSize.landscapeHeight
+    } else {
+        tileWidth = TileSize.portraitWidth
+        tileHeight = TileSize.portraitHeight
+    }
     val imageModifier = if (fillWidth) Modifier.fillMaxWidth()
         .aspectRatio(if (landscape) 16f / 9f else 2f / 3f)
     else Modifier.width(tileWidth).height(tileHeight)
     val textWidthModifier = if (fillWidth) Modifier.fillMaxWidth() else Modifier.width(tileWidth)
     Column(modifier = modifier
         .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-        .let { if (focusable) it.tvFocus(cornerRadius = 12.dp) else it }
+        .let { if (focusable) it.tvFocus(cornerRadius = Radii.lg) else it }
         .onFocusChanged { focused = it.isFocused; onFocusChanged?.invoke(it.isFocused) }
         .semantics {
             contentDescription = buildString {
@@ -85,7 +94,7 @@ internal fun TvPosterTile(
         Box(imageModifier.clip(shape).background(PanelHi), contentAlignment = Alignment.Center) {
             // 占位在图下层：成功装载覆盖占位，失败或无图时保留占位与真实标题。
             androidx.compose.material3.Icon(com.ichichuang.cinema.core.design.TvOriginalIcons.Details,
-                contentDescription = null, tint = TextSub.copy(alpha = 0.6f), modifier = Modifier.size(26.dp))
+                contentDescription = null, tint = TextSub.copy(alpha = 0.6f), modifier = Modifier.size(IconSize.placeholder))
             if (artworkUri != null) {
                 val fit = imageShape == HomeImageShape.PORTRAIT || imageShape == HomeImageShape.UNKNOWN
                 AsyncImage(model = artworkUri, contentDescription = null,
@@ -94,10 +103,10 @@ internal fun TvPosterTile(
             }
             if (progressFraction != null && progressText != null && progressFraction > 0f) {
                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(progressFraction.coerceIn(0f, 1f))
-                    .height(3.dp).background(Gold))
+                    .height(Sizes.indicator).background(Gold))
             }
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(Spacing.n6))
         Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium,
             maxLines = if (landscape) 1 else 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             modifier = textWidthModifier)

@@ -21,9 +21,10 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.dp
 import com.ichichuang.cinema.core.design.Ink
 import com.ichichuang.cinema.core.design.Panel
+import com.ichichuang.cinema.core.design.Spacing
+import com.ichichuang.cinema.core.design.TileSize
 import com.ichichuang.cinema.core.design.TvOriginalIcons
 import com.ichichuang.cinema.core.ui.TvLoadingTile
 import com.ichichuang.cinema.core.ui.TvNavTile
@@ -112,7 +113,8 @@ internal fun TvHomeScreen(runtime: VisualHomeRuntime, onExit: () -> Unit) {
     MaterialTheme(typography = typography) {
         Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Panel.copy(alpha = 0.4f), Ink)))
             .semantics { testTagsAsResourceId = true }.testTag("候选首页")) {
-            Row(Modifier.padding(start = 32.dp, top = 20.dp, end = 32.dp), horizontalArrangement = Arrangement.spacedBy(20.dp),
+            Row(Modifier.padding(start = Spacing.xxl, top = Spacing.n20, end = Spacing.xxl),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.n20),
                 verticalAlignment = Alignment.CenterVertically) {
                 VisualHomeRuntime.NAV_ITEMS.forEachIndexed { index, label ->
                     key("nav$index") {
@@ -157,19 +159,19 @@ internal fun TvHomeScreen(runtime: VisualHomeRuntime, onExit: () -> Unit) {
                     HomeContentStatus.FAILED -> { { runtime.retry() } }
                     else -> null
                 },
-                modifier = Modifier.padding(start = 32.dp, top = 10.dp))
+                modifier = Modifier.padding(start = Spacing.xxl, top = Spacing.n10))
 
-            LazyColumn(Modifier.weight(1f).padding(start = 32.dp, top = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            LazyColumn(Modifier.weight(1f).padding(start = Spacing.xxl, top = Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.n18)) {
                 if (hero != null) {
                     item(key = "hero") {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.n20), verticalAlignment = Alignment.CenterVertically) {
                             TvPosterTile(title = hero.title, artworkUri = hero.artworkUri, imageShape = hero.imageShape,
                                 tag = "hero/${hero.workId}", secondaryText = hero.secondaryText,
                                 progressText = hero.progressText, wide = true, landscape = true,
                                 focusable = false,
                                 progressFraction = hero.progressFraction())
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.n10)) {
                                 Text("继续观看", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                                 Text(hero.title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -196,9 +198,9 @@ internal fun TvHomeScreen(runtime: VisualHomeRuntime, onExit: () -> Unit) {
                             val index = cards.indexOfFirst { VisualHomeRuntime.cardKey(row, it.workId) == runtime.userTarget }
                             if (index >= 0) listState.animateScrollToItem(index)
                         }
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                             Text(row, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            LazyRow(state = listState, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            LazyRow(state = listState, horizontalArrangement = Arrangement.spacedBy(Spacing.n14)) {
                                 items(cards, key = { it.workId }) { card ->
                                     val key = VisualHomeRuntime.cardKey(row, card.workId)
                                     TvPosterTile(title = card.title, artworkUri = card.artworkUri, imageShape = card.imageShape,
@@ -215,8 +217,10 @@ internal fun TvHomeScreen(runtime: VisualHomeRuntime, onExit: () -> Unit) {
                 }
                 if (display.contentStatus == HomeContentStatus.LOADING && display.catalogCards.isEmpty() && display.continueCards.isEmpty()) {
                     item(key = "loading") {
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            repeat(4) { TvLoadingTile(width = 208.dp, height = 117.dp) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.n14)) {
+                            repeat(4) {
+                                TvLoadingTile(width = TileSize.landscapeWidth, height = TileSize.landscapeHeight)
+                            }
                         }
                     }
                 }

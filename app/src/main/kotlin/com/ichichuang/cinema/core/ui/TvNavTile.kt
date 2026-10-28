@@ -22,6 +22,10 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.ichichuang.cinema.core.design.Gold
+import com.ichichuang.cinema.core.design.IconSize
+import com.ichichuang.cinema.core.design.Radii
+import com.ichichuang.cinema.core.design.Sizes
+import com.ichichuang.cinema.core.design.Spacing
 import com.ichichuang.cinema.core.focus.tvFocus
 
 /**
@@ -45,21 +49,21 @@ internal fun TvNavTile(
     var focused by remember { mutableStateOf(false) }
     Column(modifier = modifier
         .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-        .tvFocus(cornerRadius = 10.dp)
+        .tvFocus(cornerRadius = Radii.md)
         .onFocusChanged { focused = it.isFocused; onFocusChanged?.invoke(it.isFocused) }
         .semantics { role = Role.Tab; this.selected = selected; onClick(label = label) { onClick(); true } }
         .focusable()
         .testTag(tag)
         .onGloballyPositioned { onPlaced?.invoke() }) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
             androidx.compose.material3.Icon(icon, contentDescription = null,
                 tint = if (selected || focused) Gold else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp))
+                modifier = Modifier.size(IconSize.nav))
             Text(label, color = if (selected || focused) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelLarge)
         }
         // 选中态下划线独立绘制，不与焦点描边合并为同一种视觉。
-        Box(Modifier.padding(top = 4.dp).size(width = if (selected) 24.dp else 0.dp, height = 3.dp)
+        Box(Modifier.padding(top = Spacing.xs).size(width = if (selected) Sizes.navUnderline else 0.dp, height = Sizes.indicator)
             .background(if (selected) Gold else Color.Transparent))
     }
 }

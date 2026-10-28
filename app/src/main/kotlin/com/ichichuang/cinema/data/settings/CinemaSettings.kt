@@ -3,6 +3,7 @@ package com.ichichuang.cinema.data.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -100,6 +101,16 @@ class CinemaSettings(private val context: Context) {
     /** 推荐源清单的原始 JSON 缓存（没拉过就是 null） */
     val catalogJson: Flow<String?> = context.dataStore.data.map {
         it[keyCatalog]?.takeIf { raw -> raw.isNotBlank() }
+    }
+
+    /**
+     * 减弱动效（用户设置）。系统动效缩放为 0 时同样生效，合并逻辑在
+     * core/design 的 shouldReduceMotion 里，这里只负责存与读。
+     */
+    val reduceMotion: Flow<Boolean> = context.dataStore.data.map { ReduceMotionPreference.read(it) }
+
+    suspend fun setReduceMotion(enabled: Boolean) {
+        context.dataStore.editLegacy(context) { prefs -> ReduceMotionPreference.write(prefs, enabled) }
     }
 
     /** 更新清单地址；没填过就用默认值（不是空 —— 缺省也要能检查更新） */

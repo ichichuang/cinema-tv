@@ -20,8 +20,11 @@ import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import com.ichichuang.cinema.core.design.Gold
+import com.ichichuang.cinema.core.design.IconSize
+import com.ichichuang.cinema.core.design.Radii
+import com.ichichuang.cinema.core.design.Sizes
+import com.ichichuang.cinema.core.design.Spacing
 import com.ichichuang.cinema.core.focus.tvFocus
 
 /**
@@ -41,24 +44,24 @@ internal fun TvPrimaryButton(
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         modifier = modifier
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            .tvFocus(cornerRadius = 999.dp)
+            .tvFocus(cornerRadius = Radii.full)
             .onFocusChanged { focused = it.isFocused; onFocusChanged?.invoke(it.isFocused) }
             .background(if (focused) Gold.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface,
-                RoundedCornerShape(999.dp))
+                RoundedCornerShape(Radii.full))
             .semantics {
                 role = Role.Button
                 if (!enabled) disabled()
                 onClick(label = label) { if (enabled) { onClick(); true } else false }
             }
-            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .padding(horizontal = Spacing.n20, vertical = Spacing.n10)
             .testTag(tag)
             .onGloballyPositioned { onPlaced?.invoke() }
             .then(if (enabled) Modifier.focusable() else Modifier)) {
         if (icon != null) androidx.compose.material3.Icon(icon, contentDescription = null,
-            tint = if (focused) Gold else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(18.dp))
+            tint = if (focused) Gold else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(IconSize.inline))
         Text(label, color = if (!enabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.labelLarge)
     }
@@ -83,9 +86,9 @@ internal fun TvStatusMessage(
     onFocusChanged: ((Boolean) -> Unit)? = null,
     onAction: (() -> Unit)? = null,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = modifier) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.md), modifier = modifier) {
         if (icon != null) androidx.compose.material3.Icon(icon, contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(IconSize.inline))
         Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f, fill = false).testTag(tag))
         if (actionLabel != null && onAction != null) {
@@ -99,7 +102,7 @@ internal fun TvStatusMessage(
 @Composable
 internal fun TvLoadingTile(modifier: Modifier = Modifier, width: androidx.compose.ui.unit.Dp, height: androidx.compose.ui.unit.Dp) {
     Box(modifier.width(width).height(height)
-        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(10.dp).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(5.dp)))
+        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f), RoundedCornerShape(Radii.md)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(Sizes.dotLarge).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(Radii.full)))
     }
 }

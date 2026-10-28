@@ -13,8 +13,8 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
-import androidx.compose.ui.unit.dp
 import com.ichichuang.cinema.core.design.Ink
+import com.ichichuang.cinema.core.design.Spacing
 import com.ichichuang.cinema.core.design.TvOriginalIcons
 import com.ichichuang.cinema.core.ui.TvPrimaryButton
 import com.ichichuang.cinema.core.ui.TvStatusMessage
@@ -35,8 +35,8 @@ internal fun CandidateSettingsScreen(runtime: VisualHomeRuntime, onExit: () -> U
     MaterialTheme {
         Column(Modifier.fillMaxSize().background(Ink).verticalScroll(rememberScrollState())
             .semantics { testTagsAsResourceId = true }.testTag("候选设置")
-            .padding(start = 48.dp, top = 32.dp, end = 48.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            .padding(start = Spacing.page, top = Spacing.xxl, end = Spacing.page, bottom = Spacing.xxl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.n14)) {
             Text("设置", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
             VisualHomeRuntime.SETTINGS_ITEMS.forEach { item ->
                 val requester = remember(item) { requesters.getOrPut(item) { FocusRequester() } }

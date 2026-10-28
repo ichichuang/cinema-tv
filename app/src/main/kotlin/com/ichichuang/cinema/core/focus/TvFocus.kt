@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 import com.ichichuang.cinema.core.design.Gold
+import com.ichichuang.cinema.core.design.Layers
+import com.ichichuang.cinema.core.design.LocalReducedMotion
 import com.ichichuang.cinema.core.design.Motion
 import com.ichichuang.cinema.core.design.rememberTvMetrics
 
@@ -68,30 +70,34 @@ fun Modifier.tvFocus(
     onFocusChanged: ((Boolean) -> Unit)? = null,
 ): Modifier {
     val m = rememberTvMetrics()
+    // Reduced motion keeps the ring and the lift order, drops the movement.
+    val reduced = LocalReducedMotion.current
     var focused by remember { mutableStateOf(false) }
     val callback by rememberUpdatedState(onFocusChanged)
 
     val focus by animateFloatAsState(
         targetValue = if (focused) 1f else 0f,
-        animationSpec = Motion.focus(),
+        animationSpec = Motion.focus(reduced),
         label = "tvFocus",
     )
     val press by animateFloatAsState(
         targetValue = if (interactionSource?.collectIsPressedAsState()?.value == true) 1f else 0f,
-        animationSpec = Motion.press(),
+        animationSpec = Motion.press(reduced),
         label = "tvPress",
     )
 
     val borderWidth = m.dp(borderWidthDp)
+    val focusTarget = if (reduced) 1f else scale
+    val pressTarget = Motion.pressScale(reduced)
 
     return this
         .graphicsLayer {
             // 焦点放大 + 按下回缩，叠在同一个图层里（嵌套 graphicsLayer 会互相打架）
-            val s = 1f + (scale - 1f) * focus + (Motion.PRESS_SCALE - 1f) * press
+            val s = 1f + (focusTarget - 1f) * focus + (pressTarget - 1f) * press
             scaleX = s
             scaleY = s
         }
-        .zIndex(if (focused) 1f else 0f)
+        .zIndex(if (focused) Layers.nav else Layers.content)
         .onFocusChanged {
             focused = it.isFocused
             callback?.invoke(it.isFocused)
