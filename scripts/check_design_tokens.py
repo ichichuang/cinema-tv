@@ -14,9 +14,9 @@ or a string is reported too, because it is a call site waiting to be copied. A
 genuine false positive takes an explicit ``token-ok``.
 
 Only the pre-R18 old UI is listed in ``LEGACY_WHITELIST``. It keeps its measured
-absolute values until the old UI is deleted (R21); re-tokenising it now would be
-thrown away. The list is closed: new UI -- including the private probe screens --
-must be tokenised, never whitelisted.
+absolute values for now; the old UI is handled together with the R21 integration
+(not deleted), and the whitelist is simply emptied then. The list is closed: new
+UI -- including the private probe screens -- must be tokenised, never whitelisted.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ TOKEN_DIR = "core/design/"
 # 0.dp / 1.dp are hairlines and layout resets, not rhythm decisions.
 HAIRLINE_DP = frozenset({"0", "1"})
 
-# Old UI screens (pre-R18). Removed together with the old UI in R21.
+# Old UI screens (pre-R18). Handled with the R21 integration (not deleted); emptied then.
 #
 # The entries are relative to the `feature` source root and are joined at import
 # time. Writing them as full paths would put a home-directory-looking segment in

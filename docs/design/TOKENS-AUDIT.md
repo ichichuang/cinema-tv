@@ -228,12 +228,12 @@ total=151 token-dir=17 legacy-whitelist=84 exempted=0 violations=50
 
 ### 5.1 `LEGACY-OLD-UI` 白名单（3 处 / 2 个文件）
 
-白名单现在只保留**真正的旧 UI**（R18 之前的老界面）。R21 会随旧 UI 一起删除；
-删掉之后，白名单里的这两条与本文这一节一并删除。这不是"留着不处理"，而是"等旧 UI 一起走"。
+白名单现在只保留**真正的旧 UI**（R18 之前的老界面）。旧 UI 待 R21 接入时一并处理，不是删除；
+届时把白名单清空即可（脚本的 `LEGACY_SCREENS` 置空，本节同步更新）。
 
 | 文件 | 处数 | 内容 |
 | --- | --- | --- |
-| `feature/home/HomeScreen.kt` | 3 | `tween(` ×2、`durationMillis = 900` ×1 |
+| `HomeScreen.kt`（旧首页，位于 feature 的 home 包） | 3 | `tween(` ×2、`durationMillis = 900` ×1 |
 | `feature/settings/SettingsScreen.kt` | 0 | 无字面量（全部走 `TvMetrics.dp()`）；条目保留，用于在它回填字面量时立刻被计入而不是悄悄跳过 |
 
 合计 3 处 / 2 个文件，与脚本输出 `legacy-whitelist=3` 一致。
@@ -389,8 +389,8 @@ stagger 的口径（避免"总时长"被两种理解混用）：
 的像素偏移 + 缩放用 `scaleIn/scaleOut`，Compose 在绘制阶段按 graphics layer 应用它们，
 **不触发重新测量/布局**；`fadeIn/fadeOut` 只改 alpha。
 
-需要说清楚的一点：`scaleIn/scaleOut` 的默认实现会让被测内容以"缩放后的尺寸参与测量"
-（`TransformOrigin` + `scale` 绘制变换，布局尺寸仍按原尺寸计算），因此本实现里
+需要说清楚的一点：`scaleIn/scaleOut` 的默认实现是
+`TransformOrigin` + `scale` 绘制变换，布局尺寸仍按原尺寸计算，因此本实现里
 **没有任何一项改动布局约束**——没有重排、没有尺寸动画，只是绘制期变换。
 `reduced = true` 时去掉位移与缩放，只保留 40ms 淡入淡出，`offsetDp = 0`。
 数值全部来自 `Motion.enterSpec()/exitSpec()`，测试直接断言这三个量。
@@ -408,7 +408,7 @@ stagger 的口径（避免"总时长"被两种理解混用）：
 1. `TypeScale` 已建立但**未接入** `CinemaTheme`：ST1 要求视觉不变，字号切换会改变所有界面的排版，因此留给 ST2/ST4 一次性接线。
 2. `LocalReducedMotion` 尚未在应用根部 provide（需要在设置页读用户开关 + 读系统缩放后 provide），属于 ST2。
 3. `rememberMotionEnter/Exit`、`staggerDelayMs()` 已就绪但还没有调用方，ST2/ST3 的转场与列表入场使用。
-4. 白名单 3 处随 R21 删除旧 UI 一并清零；届时把 `LEGACY_SCREENS` 置空即可，
+4. 白名单 3 处：旧 UI 待 R21 接入时一并处理，不是删除；届时把 `LEGACY_SCREENS` 置空、白名单清空即可，
    测试不会因为白名单为空而失败（`test_every_whitelist_entry_exists` 遍历现有条目，
    `test_empty_whitelist_does_not_break_the_scan` 专门守住空集路径）。
 

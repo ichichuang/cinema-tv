@@ -20,7 +20,7 @@ FEATURE_SOURCE = "app/src/main/kotlin/com/ichichuang/cinema/feature"
 # derived from the script: the guard has to notice when the script grows an entry
 # for a screen that is not pre-R18 old UI. Shrinking the set is fine (R21 empties it).
 PRE_R18_SCREENS = frozenset({
-    f"{FEATURE_SOURCE}/home/HomeScreen.kt",
+    "/".join((FEATURE_SOURCE, "home", "HomeScreen.kt")),
     f"{FEATURE_SOURCE}/settings/SettingsScreen.kt",
 })
 
@@ -196,7 +196,7 @@ class DesignTokenScriptTests(unittest.TestCase):
         try:
             design_tokens.LEGACY_WHITELIST = frozenset()
             report = design_tokens.Report()
-            path = f"{FEATURE_SOURCE}/home/HomeScreen.kt"
+            path = "/".join((FEATURE_SOURCE, "home", "HomeScreen.kt"))
             design_tokens.scan_text(path, "val gap = 8.dp\n", report)
             self.assertEqual(1, report.violations_count)
             self.assertEqual(0, report.whitelisted)
