@@ -1,4 +1,4 @@
-# cinema-tv 原创图标母版（第一组，共 10 枚）
+# cinema-tv 原创图标母版（第一组，共 12 枚）
 
 本目录是电视界面第一批原创图标的**可编辑矢量母版**，与
 `app/src/main/kotlin/com/ichichuang/cinema/core/design/TvOriginalIcons.kt`
@@ -28,6 +28,8 @@
 | `tv-filter.svg` | filter | 筛选 | 漏斗三段折线，出口略窄于入口 |
 | `tv-back.svg` | back | 返回 | 单折线粗箭头（`>` 形），无尾线 |
 | `tv-retry.svg` | retry | 重试 | 近整圈弧线+开口箭头，缺口留在右上 |
+| `tv-text.svg` | text | 大字模式 | 大写 A 轮廓加横梁，表达“放大文字” |
+| `tv-columns.svg` | columns | 列数 | 2×2 网格（外框+中心十字），表达“每行列数” |
 
 ## 原生映射
 

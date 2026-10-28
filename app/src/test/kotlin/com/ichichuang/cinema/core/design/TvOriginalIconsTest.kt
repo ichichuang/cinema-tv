@@ -16,22 +16,24 @@ class TvOriginalIconsTest {
         "home" to TvIconPaths.HOME, "library" to TvIconPaths.LIBRARY, "favorite" to TvIconPaths.FAVORITE,
         "history" to TvIconPaths.HISTORY, "settings" to TvIconPaths.SETTINGS, "play" to TvIconPaths.PLAY,
         "details" to TvIconPaths.DETAILS, "filter" to TvIconPaths.FILTER, "back" to TvIconPaths.BACK,
-        "retry" to TvIconPaths.RETRY)
+        "retry" to TvIconPaths.RETRY, "text" to TvIconPaths.TEXT, "columns" to TvIconPaths.COLUMNS)
 
     private fun repoRoot(): File = generateSequence(File(System.getProperty("user.dir"))) { it.parentFile }
         .firstOrNull { File(it, "design/icons/tv-home.svg").isFile }
         ?: error("找不到 design/icons 母版目录（user.dir=${System.getProperty("user.dir")}）")
 
-    @Test fun ten_concepts_have_editable_svg_masters_matching_native_paths() {
+    @Test fun twelve_concepts_have_editable_svg_masters_matching_native_paths() {
         val root = File(repoRoot(), "design/icons")
         val files = root.listFiles { f -> f.extension == "svg" }.orEmpty().map { it.name }.sorted()
-        assertEquals(listOf("tv-back.svg", "tv-details.svg", "tv-favorite.svg", "tv-filter.svg", "tv-history.svg",
-            "tv-home.svg", "tv-library.svg", "tv-play.svg", "tv-retry.svg", "tv-settings.svg"), files)
+        assertEquals(listOf("tv-back.svg", "tv-columns.svg", "tv-details.svg", "tv-favorite.svg", "tv-filter.svg",
+            "tv-history.svg", "tv-home.svg", "tv-library.svg", "tv-play.svg", "tv-retry.svg", "tv-settings.svg",
+            "tv-text.svg"), files)
         val names = mapOf("home" to "tv-home", "library" to "tv-library", "favorite" to "tv-favorite",
             "history" to "tv-history", "settings" to "tv-settings", "play" to "tv-play",
-            "details" to "tv-details", "filter" to "tv-filter", "back" to "tv-back", "retry" to "tv-retry")
+            "details" to "tv-details", "filter" to "tv-filter", "back" to "tv-back", "retry" to "tv-retry",
+            "text" to "tv-text", "columns" to "tv-columns")
         concepts.forEach { (concept, pathData) ->
-            val svg = File(root, "${names[concept]}.svg").readText()
+            val svg = File(root, "${names.getValue(concept)}.svg").readText()
             assertTrue("$concept 母版缺少项目绘制声明", svg.contains("cinema-tv 原创图标母版"))
             assertTrue("$concept 视图框不是 24 单位网格", svg.contains("""viewBox="0 0 24 24""""))
             assertEquals("$concept 母版路径数据与 TvIconPaths 不一致", pathData, Regex("""\s*d="([^"]+)"""").find(svg)!!.groupValues[1])
@@ -57,7 +59,8 @@ class TvOriginalIconsTest {
             "favorite" to TvOriginalIcons.Favorite, "history" to TvOriginalIcons.History,
             "settings" to TvOriginalIcons.Settings, "play" to TvOriginalIcons.Play,
             "details" to TvOriginalIcons.Details, "filter" to TvOriginalIcons.Filter,
-            "back" to TvOriginalIcons.Back, "retry" to TvOriginalIcons.Retry)
+            "back" to TvOriginalIcons.Back, "retry" to TvOriginalIcons.Retry,
+            "text" to TvOriginalIcons.Text, "columns" to TvOriginalIcons.Columns)
         val parser = androidx.compose.ui.graphics.vector.PathParser()
         vectors.forEach { (concept, vector) ->
             assertEquals("$concept 视口宽不是 24", 24f, vector.viewportWidth)
@@ -66,14 +69,14 @@ class TvOriginalIconsTest {
             assertTrue("$concept 路径数据解析后无节点", nodes.isNotEmpty())
             assertTrue("$concept 必须以移动指令开始", nodes.first() is androidx.compose.ui.graphics.vector.PathNode.MoveTo)
         }
-        assertEquals("十个概念必须是十个不同矢量实例", 10, vectors.values.toSet().size)
+        assertEquals("十二个概念必须是十二个不同矢量实例", 12, vectors.values.toSet().size)
     }
 
     @Test fun concept_to_chinese_accessibility_label_is_single_authority() {
         val labels = TvOriginalIcons.accessibilityLabels
-        assertEquals(setOf("home", "library", "favorite", "history", "settings", "play", "details", "filter", "back", "retry"), labels.keys)
-        assertEquals(listOf("首页", "片库", "我的收藏", "最近观看", "设置", "播放", "查看详情", "筛选", "返回", "重试"),
-            listOf("home", "library", "favorite", "history", "settings", "play", "details", "filter", "back", "retry").map { labels[it] })
+        assertEquals(setOf("home", "library", "favorite", "history", "settings", "play", "details", "filter", "back", "retry", "text", "columns"), labels.keys)
+        assertEquals(listOf("首页", "片库", "我的收藏", "最近观看", "设置", "播放", "查看详情", "筛选", "返回", "重试", "大字模式", "列数"),
+            listOf("home", "library", "favorite", "history", "settings", "play", "details", "filter", "back", "retry", "text", "columns").map { labels[it] })
         labels.values.forEach { label -> assertTrue("标签必须是非空中文：$label", label.isNotBlank() && !label.matches(Regex("[A-Za-z]+"))) }
     }
 }

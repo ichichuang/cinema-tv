@@ -29,6 +29,8 @@ internal object TvIconPaths {
     const val FILTER = "M4.5 5.5 H19.5 L14.2 11.8 V18.5 L9.8 16.0 V11.8 Z"
     const val BACK = "M14.6 4.8 L7.4 12.0 L14.6 19.2"
     const val RETRY = "M19.2 12.0 A7.2 7.2 0 1 1 15.9 6.3 M15.9 6.3 L16.4 2.9 M15.9 6.3 L12.6 6.0"
+    const val TEXT = "M5.5 18.0 L12.0 6.0 L18.5 18.0 M8.0 13.0 H16.0"
+    const val COLUMNS = "M4.5 4.5 H19.5 V19.5 H4.5 Z M12.0 4.5 V19.5 M4.5 12.0 H19.5"
 }
 
 /** 原生矢量映射；描边颜色固定中性值，由调用方以 tint 统一着色。 */
@@ -52,10 +54,12 @@ internal object TvOriginalIcons {
     val Filter: ImageVector by lazy { icon("tv-filter", TvIconPaths.FILTER) }
     val Back: ImageVector by lazy { icon("tv-back", TvIconPaths.BACK) }
     val Retry: ImageVector by lazy { icon("tv-retry", TvIconPaths.RETRY) }
+    val Text: ImageVector by lazy { icon("tv-text", TvIconPaths.TEXT) }
+    val Columns: ImageVector by lazy { icon("tv-columns", TvIconPaths.COLUMNS) }
 
     /** 概念 → 中文无障碍名称的唯一映射，导航与按钮共用，避免同义文案漂移。 */
     val accessibilityLabels: Map<String, String> = mapOf(
         "home" to "首页", "library" to "片库", "favorite" to "我的收藏", "history" to "最近观看",
         "settings" to "设置", "play" to "播放", "details" to "查看详情", "filter" to "筛选",
-        "back" to "返回", "retry" to "重试")
+        "back" to "返回", "retry" to "重试", "text" to "大字模式", "columns" to "列数")
 }

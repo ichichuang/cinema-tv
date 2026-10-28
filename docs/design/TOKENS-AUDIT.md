@@ -395,6 +395,17 @@ stagger 的口径（避免"总时长"被两种理解混用）：
 `reduced = true` 时去掉位移与缩放，只保留 40ms 淡入淡出，`offsetDp = 0`。
 数值全部来自 `Motion.enterSpec()/exitSpec()`，测试直接断言这三个量。
 
+### 8.4 系统缩放读取的真实边界（ST2.1 修正）
+
+`shouldReduceMotion` 里系统 `ANIMATOR_DURATION_SCALE` 只在**用户设置 flow 发值时**重读一次，
+不是对系统全局的持续订阅。也就是说：用户在应用内切「减弱动效」开关时，系统缩放会被重新采样；
+但用户停留在探针会话中、仅改变系统级「移除动画」开关时，不会主动收到通知（要实时跟到平台变化
+需在 `ContentResolver` 上挂 `ContentObserver`，对探针功能不划算，且不可 JVM 测试）。因此：
+- 有效信号的读取是「每次设置发值时采样的即时值」，不是「不会漏掉的实时订阅」；
+- 根部 `ProvideReducedMotion` 在探针之外（`homeProbe == null`）提供 `false`（完整动效）。
+
+该边界由 `ReduceMotionControllerTest.the scale is re-read when the setting emits not continuously` 固化。
+
 ## 9. 存储
 
 - 键：`reduce_motion`（`ReduceMotionPreference.KEY_NAME`），布尔，默认 `false`。
@@ -406,9 +417,8 @@ stagger 的口径（避免"总时长"被两种理解混用）：
 ## 10. 已知缺口（后续子任务）
 
 1. `TypeScale` 已建立但**未接入** `CinemaTheme`：ST1 要求视觉不变，字号切换会改变所有界面的排版，因此留给 ST2/ST4 一次性接线。
-2. ~~`LocalReducedMotion` 尚未在应用根部 provide~~ —— **已由 ST2 关闭**：私有探针新 UI 根部（`MainActivity` 探针 `setContent`）用 `ProvideReducedMotion` 提供 `shouldReduceMotion(用户 reduceMotion, 系统 ANIMATOR_DURATION_SCALE)`，随 DataStore 即时更新。
-3. ~~`rememberMotionEnter/Exit`、`staggerDelayMs()` 已就绪但还没有调用方~~ —— **已由 ST2 关闭**：候选设置页的页面入场（`rememberMotionEnter`）、来源状态切换（`AnimatedContent` + `rememberMotionEnter/Exit`）、逐项列表入场（`staggerDelayMs`）均真实调用。
-4. 白名单 3 处：旧 UI 待 R21 接入时一并处理，不是删除；届时把 `LEGACY_SCREENS` 置空、白名单清空即可，
+2. `LocalReducedMotion` 在应用根部由 `ProvideReducedMotion` 提供，仅限私有探针新 UI；探针之外（`homeProbe == null`）根部提供 `false`（完整动效）。有效信号来自 `ReducedMotionHost`，其取值边界见 §8.4。
+3. 白名单 3 处：旧 UI 待 R21 接入时一并处理，不是删除；届时把 `LEGACY_SCREENS` 置空、白名单清空即可，
    测试不会因为白名单为空而失败（`test_every_whitelist_entry_exists` 遍历现有条目，
    `test_empty_whitelist_does_not_break_the_scan` 专门守住空集路径）。
 
@@ -417,6 +427,20 @@ stagger 的口径（避免"总时长"被两种理解混用）：
 - 新增 `core/design/ReduceMotionController.kt`：把「用户设置 + 系统缩放」合并成 `reduced` Flow，纯函数可 JVM 测试。
 - `VisualHomeRuntime`：暴露 `reduceMotionSetting`（DataStore 直读，驱动开关文案）与 `reduceMotion`（合并后的有效值，驱动根部 `LocalReducedMotion`）；`toggleReduceMotion()` 写回 DataStore。
 - 新增候选设置切片投影（`SettingsProjection`，位于 home 视觉子包）：设置切片四态（加载/空/错误/内容）与来源行的纯投影，JVM 可测。
+
+## 10.2 ST2.1 修正记录（R18-ST2.1）
+
+复核方在干净 worktree 上独立重跑并做了 6 个生产代码变异，3 个未被测试抓住；本节逐条记录修正。
+
+- **链路 seam（P1.1，对应变异 M2/M3/M5）**：新增 `core/design/ReducedMotionHost`（可注入 `ReduceMotionStore` + `AnimatorScaleSource`，内部构造真实 `ReduceMotionController`，JVM 可测）；`CinemaSettings` 实现 `ReduceMotionStore`；`MainActivity` 根部改用 `reducedMotionForRoot(homeProbe?.reduceMotion)` 纯函数；设置项动作改为 `settingsActionFor(label)` 纯映射。由此「设置变 → `LocalReducedMotion` 值变」「开关点击 → 写存储」「减弱动效 → TOGGLE_REDUCE_MOTION」都有走生产类的 JVM 测试（`ReducedMotionHostTest` / `ReducedMotionTest.reducedMotionForRoot` / `SettingsProjectionTest.settingsActionFor`）。
+- **来源状态单一数据源（P1.2）**：设置页「已配置 N 个」改为从探针 fixture 的 `query.enabledSourceIds` 派生（`configuredSourceCount`），不再读生产 DataStore 的 `activeUrls`；首页 `configured` 与设置页来源数来自同一事实，探针路径对「来源状态」零生产 DataStore 读写。减少动效设置本身仍是真实用户偏好，按 P1.1 要求走 DataStore，不属于「来源状态」。
+- **来源重试焦点可达（P1.3）**：设置页焦点序改为 `settingsFocusKeys`（在「减弱动效」与「刷新目录」之间按需插入 `设置来源重试`），`settingsKey` 沿该序列上下移动并可激活重试；重试按钮注册 `FocusRequester` 并回报焦点。
+- **添加来源入口（P2.4）**：**阻塞项**。探针新 UI 复用既有手机扫码入口需要接入生产 `SettingsViewModel`（依赖 `MovieRepository`/`SourceCatalog`/`TvboxImport` 与 Koin），属生产配置服务改动，超出本轮范围；现有入口（旧设置页「手机配置」`ConfigServer` + `QrCode`）仍在旧 UI，未接入探针路径，故未改动生产代码。
+- **页面入场真实触发（P2.5）**：`CandidateSettingsScreen` 的页面级 `AnimatedVisibility` 从 `visible = true` 改为 `MutableTransitionState(false)` 进入组合后置 `true`，入场过渡真实播放；`rememberMotionEnter/Exit` 与 `staggerDelayMs` 继续作用于来源状态切换与逐项列表。
+- **系统缩放读取边界（P2.6，二选一取「修正文档边界」）**：系统 `ANIMATOR_DURATION_SCALE` 仅在设置 flow 发值时重读，不是对全局的持续订阅；要让平台缩放变化实时触发需 `ContentObserver`，对探针功能不划算且不可 JVM 测试。已把 `ReduceMotionController` 的 KDoc 与本节 §8.4 写成真实边界，并加 `ReduceMotionControllerTest` 用例固化。根部 provider 在探针之外（`homeProbe == null`）提供 `false`。
+- **开关写失败不吞异常（P2.7）**：`ReducedMotionHost.toggle()` 去掉 `runCatching`，失败落到 `writeError`（含「重试」文案），设置页在「减弱动效」项下方以文字+图标提示，再次点击即重试；`ReducedMotionHostTest` 覆盖。
+- **失败原因与离线/部分失败重试（P2.8）**：`SettingsSourceState` 增加 `reason`（`loadErrorReason` 捕获真实异常信息），失败态文案带原因；`retryable` 覆盖 `FAILED`/`OFFLINE`/`PARTIAL(failed>0)`；`retry()` 先 `refreshOffline()` 再重载。
+- **安全写法与图标区分（P3.9）**：来源区 `AnimatedContent` 移除 `requireNotNull(display.source)`，改为安全取值；「显示」组三项改用可区分的 `TvOriginalIcons.Text / Filter / Columns`（新增两枚 24 网格纯描边母版 `tv-text.svg` / `tv-columns.svg` 并同步 `TvOriginalIconsTest`）。
 
 ## 11. ST1.1 复核修正记录
 

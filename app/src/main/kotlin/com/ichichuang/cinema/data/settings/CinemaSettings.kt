@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.ichichuang.cinema.core.design.ReduceMotionStore
 import com.ichichuang.cinema.data.sanitizeSourceName
 import com.ichichuang.cinema.data.sourceHost
 import com.ichichuang.cinema.data.sourceUrlKey
@@ -43,7 +44,7 @@ data class ImportOutcome(val added: Int, val enabled: Int)
  *    *可选* 列表（URL 公开可改），首次导入时才联网拉取；不挑不选的话，
  *    应用照样是"空手"状态，首页只会引导你去配置。
  */
-class CinemaSettings(private val context: Context) {
+class CinemaSettings(private val context: Context) : ReduceMotionStore {
 
     private val keyApiBase = stringPreferencesKey("api_base")
     private val keyApiName = stringPreferencesKey("api_name")
@@ -106,9 +107,9 @@ class CinemaSettings(private val context: Context) {
      * 减弱动效（用户设置）。系统动效缩放为 0 时同样生效，合并逻辑在
      * core/design 的 shouldReduceMotion 里，这里只负责存与读。
      */
-    val reduceMotion: Flow<Boolean> = ReduceMotionSetting.flow(context.dataStore.data)
+    override val reduceMotion: Flow<Boolean> = ReduceMotionSetting.flow(context.dataStore.data)
 
-    suspend fun setReduceMotion(enabled: Boolean) {
+    override suspend fun setReduceMotion(enabled: Boolean) {
         context.dataStore.editLegacy(context) { prefs -> ReduceMotionSetting.write(prefs, enabled) }
     }
 

@@ -30,6 +30,15 @@ class ReducedMotionTest {
     }
 
     @Test
+    fun `reducedMotionForRoot maps the nullable probe signal to the root value`() {
+        // The probe runtime is null outside the authorized debug path: full motion.
+        assertEquals(false, reducedMotionForRoot(null))
+        // The effective signal is passed through verbatim when the runtime exists.
+        assertEquals(false, reducedMotionForRoot(false))
+        assertEquals(true, reducedMotionForRoot(true))
+    }
+
+    @Test
     fun `enter transition under reduced motion has no offset and no scale`() {
         val enter = Motion.enterSpec(reduced = true)
         assertEquals(Motion.DUR_REDUCED, enter.durationMs)

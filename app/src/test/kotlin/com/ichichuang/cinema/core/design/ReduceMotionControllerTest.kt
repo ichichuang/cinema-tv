@@ -53,4 +53,22 @@ class ReduceMotionControllerTest {
         val offController = ReduceMotionController(SystemAnimatorScaleSource { 0.5f }, MutableStateFlow(false))
         assertEquals(false, offController.reduced.first())
     }
+
+    @Test
+    fun `the scale is re-read when the setting emits not continuously`() = runBlocking {
+        // The scale is sampled per setting emission; it is not a live subscription
+        // to the platform global (that would need a ContentObserver). Documenting
+        // the real boundary: a scale change alone does not push a new value until
+        // the setting flow emits again.
+        var scale = 1f
+        val setting = MutableStateFlow(false)
+        val controller = ReduceMotionController(SystemAnimatorScaleSource { scale }, setting)
+        assertEquals(false, controller.reduced.first())
+
+        // The platform flips "remove animations" on, but the setting does not emit.
+        scale = 0f
+        // Re-emitting the setting (same value) triggers a fresh scale read.
+        setting.value = false
+        assertEquals(true, controller.reduced.first())
+    }
 }

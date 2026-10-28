@@ -1,5 +1,73 @@
 package com.ichichuang.cinema.feature.home.visual
 
+import com.ichichuang.cinema.domain.model.catalog.SourceId
+
+/**
+ * The action a settings item resolves to. Kept as an enum + pure mapping so the
+ * "减弱动效" item is proven to dispatch [TOGGLE_REDUCE_MOTION] by a JVM test,
+ * instead of relying on an inline `when` branch that a reviewer could silently
+ * gut to a no-op.
+ */
+internal enum class SettingsAction {
+    TOGGLE_LARGE_TEXT,
+    TOGGLE_FILTER,
+    CHANGE_COLUMNS,
+    TOGGLE_REDUCE_MOTION,
+    REFRESH,
+    RELOAD,
+}
+
+/** Maps a settings item label to its action; `null` for labels that do nothing. */
+internal fun settingsActionFor(label: String): SettingsAction? = when (label) {
+    "大字模式" -> SettingsAction.TOGGLE_LARGE_TEXT
+    "筛选栏" -> SettingsAction.TOGGLE_FILTER
+    "列数" -> SettingsAction.CHANGE_COLUMNS
+    "减弱动效" -> SettingsAction.TOGGLE_REDUCE_MOTION
+    "刷新目录" -> SettingsAction.REFRESH
+    "重载首页" -> SettingsAction.RELOAD
+    else -> null
+}
+
+/**
+ * The configured-source count shown on the settings slice.
+ *
+ * The probe path must state only what it can verify, and it must use the *same*
+ * fact the home screen uses for "configured". Both read [enabledSourceIds] from
+ * the fixture query — never the production DataStore — so the settings slice can
+ * neither contradict the home screen ("home has content, settings says
+ * unconfigured") nor invent a count the home screen cannot back up.
+ */
+internal fun configuredSourceCount(enabledSourceIds: Set<SourceId>): Int = enabledSourceIds.size
+
+/**
+ * The focusable keys of the settings screen, in D-pad order.
+ *
+ * The source section's retry button sits between the "动效" item and the two
+ * maintenance items in the layout, so it must be part of the ordered key list —
+ * otherwise a remote that only walks [VisualHomeRuntime.SETTINGS_ITEMS] can never
+ * reach it (the defect this function guards against). The retry key is present
+ * only when the source slice is in a retryable state.
+ */
+internal fun settingsFocusKeys(display: SettingsDisplayState): List<String> {
+    val retryable = display.source?.let { SettingsProjection.retryable(it) } == true ||
+        display.status == SettingsPageStatus.ERROR
+    return buildList {
+        addAll(listOf("大字模式", "筛选栏", "列数", "减弱动效"))
+        if (retryable) add(SettingsSourceSection.RETRY_KEY)
+        addAll(listOf("刷新目录", "重载首页"))
+    }
+}
+
+/**
+ * Focusable keys owned by the source-management section of the settings screen.
+ * Distinct from [VisualHomeRuntime.SETTINGS_ITEMS] so the retry (and any future
+ * add-source) button can join the D-pad order via [settingsFocusKeys].
+ */
+internal object SettingsSourceSection {
+    /** The retry button shown when the source slice is in a retryable failure state. */
+    const val RETRY_KEY = "设置来源重试"
+}
+
 /**
  * Settings page display projection: only states that the runtime can verify.
  *
@@ -12,12 +80,15 @@ internal enum class SettingsPageStatus { LOADING, EMPTY, ERROR, CONTENT }
 /**
  * A single source-management line, stating only what is known.
  * [activeCount] is the number of enabled sources (0 = unconfigured);
- * [readStatus] is the last catalogue read outcome.
+ * [readStatus] is the last catalogue read outcome;
+ * [failedSourceCount] is how many enabled sources failed on the last read;
+ * [reason] is the human-readable cause of a failure, when one was observed.
  */
 internal data class SettingsSourceState(
     val activeCount: Int,
     val readStatus: HomeContentStatus,
     val failedSourceCount: Int,
+    val reason: String? = null,
 )
 
 /**
@@ -39,7 +110,8 @@ internal object SettingsProjection {
      * [loading] is true until the first catalogue read has landed;
      * [loadFailed] is true when the read threw;
      * [activeCount] is the number of enabled sources;
-     * [readStatus]/[failedSourceCount] mirror the home read result.
+     * [readStatus]/[failedSourceCount] mirror the home read result;
+     * [reason] is the observed cause of a failed read, when known.
      */
     fun project(
         loading: Boolean,
@@ -47,6 +119,7 @@ internal object SettingsProjection {
         activeCount: Int,
         readStatus: HomeContentStatus,
         failedSourceCount: Int,
+        reason: String? = null,
     ): SettingsDisplayState {
         val pageStatus = when {
             loadFailed -> SettingsPageStatus.ERROR
@@ -54,7 +127,7 @@ internal object SettingsProjection {
             activeCount == 0 -> SettingsPageStatus.EMPTY
             else -> SettingsPageStatus.CONTENT
         }
-        val source = if (loading) null else SettingsSourceState(activeCount, readStatus, failedSourceCount)
+        val source = if (loading) null else SettingsSourceState(activeCount, readStatus, failedSourceCount, reason)
         return SettingsDisplayState(pageStatus, source)
     }
 
@@ -62,13 +135,23 @@ internal object SettingsProjection {
     fun sourceLine(state: SettingsSourceState): String = when {
         state.activeCount == 0 -> "未配置任何来源；片库目录为空属正常状态，个人记录不受影响"
         state.readStatus == HomeContentStatus.OFFLINE -> "已配置 ${state.activeCount} 个来源；当前离线，最近一次读取未完成"
-        state.readStatus == HomeContentStatus.FAILED -> "已配置 ${state.activeCount} 个来源；最近一次读取失败"
-        state.failedSourceCount > 0 -> "已配置 ${state.activeCount} 个来源，其中 ${state.failedSourceCount} 个读取失败；结果不代表全部片库"
+        state.readStatus == HomeContentStatus.FAILED ->
+            "已配置 ${state.activeCount} 个来源；最近一次读取失败" + (state.reason?.let { "（$it）" } ?: "")
+        state.failedSourceCount > 0 ->
+            "已配置 ${state.activeCount} 个来源，其中 ${state.failedSourceCount} 个读取失败；结果不代表全部片库" +
+                (state.reason?.let { "（$it）" } ?: "")
         state.readStatus == HomeContentStatus.PARTIAL -> "已配置 ${state.activeCount} 个来源；最近一次读取仅部分覆盖"
         else -> "已配置 ${state.activeCount} 个来源；最近一次读取已完成"
     }
 
-    /** Whether the source line carries a retryable failure. */
-    fun retryable(state: SettingsSourceState): Boolean =
-        state.readStatus == HomeContentStatus.FAILED
+    /**
+     * Whether the source line carries a retryable failure. A failed read is
+     * retryable; so are offline (a retry re-checks connectivity) and a partial
+     * read with failures (a retry re-queries the failing sources).
+     */
+    fun retryable(state: SettingsSourceState): Boolean = when (state.readStatus) {
+        HomeContentStatus.FAILED, HomeContentStatus.OFFLINE -> true
+        HomeContentStatus.PARTIAL -> state.failedSourceCount > 0
+        else -> false
+    }
 }

@@ -15,6 +15,19 @@ fun shouldReduceMotion(userSetting: Boolean, animatorDurationScale: Float): Bool
     userSetting || animatorDurationScale == 0f
 
 /**
+ * The value handed to [ProvideReducedMotion] at the probe root.
+ *
+ * The probe runtime is nullable at the root (it is only constructed once the
+ * private debug authorization chain has passed), so the effective signal it
+ * exposes is `Boolean?`. Outside the probe the runtime is `null` and the root
+ * must provide `false` — full motion — because there is no reduced-motion UI
+ * in the production path to drive it. Extracted so the null/non-null mapping
+ * is a JVM-tested pure function instead of an inline `== true` that a reviewer
+ * could silently hard-code to `false`.
+ */
+fun reducedMotionForRoot(runtimeSignal: Boolean?): Boolean = runtimeSignal == true
+
+/**
  * Seam over the platform animator scale.
  *
  * Tests never construct the Android implementation; production reads it once

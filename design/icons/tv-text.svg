@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- cinema-tv 原创图标母版：大字模式（概念 tv-text） -->
+<!-- 作者：cinema-tv 项目（2026-10-28），本路径为本项目手工绘制，未复制任何第三方图标库数据。 -->
+<!-- 规则：24x24 网格；fill=none；stroke=currentColor；stroke-width=2；圆头端点与拐角。 -->
+<!-- 光学说明：大写 A 轮廓加横梁，表达“放大文字”而非具体字号。 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="大字模式">
+  <path d="M5.5 18.0 L12.0 6.0 L18.5 18.0 M8.0 13.0 H16.0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

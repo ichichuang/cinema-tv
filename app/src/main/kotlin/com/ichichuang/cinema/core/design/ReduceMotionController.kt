@@ -22,8 +22,15 @@ class ReduceMotionController(
 ) {
     /**
      * Emits `true` when the user enabled the setting OR the platform scale is 0.
-     * Re-evaluated on every setting emission; the scale is read fresh per emission
-     * so a mid-session accessibility change is not missed.
+     * Re-evaluated on every setting emission; the scale is read fresh per emission.
+     *
+     * Boundary (honest): a *platform* scale change is not observed on its own —
+     * the scale is re-read only when [userSetting] emits. On a TV this is the
+     * "remove animations" accessibility toggle, which changes while the settings
+     * screen is open, i.e. outside the probe's normal session; picking it up
+     * continuously would need a `ContentObserver` on the global, which is not
+     * JVM-testable and adds lifecycle cost for a probe-only feature. The value is
+     * therefore correct at the time it is read, not a live subscription.
      */
     val reduced: Flow<Boolean> = userSetting.map { setting ->
         shouldReduceMotion(setting, scaleSource.animatorDurationScale())

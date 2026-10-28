@@ -14,7 +14,7 @@ import com.ichichuang.cinema.data.local.entity.BrowseSnapshotEntity
 import com.ichichuang.cinema.data.local.codec.StorageReadException
 import com.ichichuang.cinema.data.local.codec.StorageReadFailure
 import com.ichichuang.cinema.data.userdata.storageCommit
-import com.ichichuang.cinema.core.design.ReduceMotionController
+import com.ichichuang.cinema.core.design.ReducedMotionHost
 import com.ichichuang.cinema.core.design.SystemAnimatorScaleSource
 import com.ichichuang.cinema.core.navigation.BrowseTopLevel
 import com.ichichuang.cinema.data.settings.CinemaSettings
@@ -118,21 +118,32 @@ internal class VisualHomeRuntime(
      * The user's stored "减弱动效" preference, read live from DataStore.
      * Drives the settings switch label; do not read this for animation decisions.
      */
-    var reduceMotionSetting by mutableStateOf(false); private set
+    val reduceMotionSetting: Boolean get() = reducedMotionHost.reduceMotionSetting
 
     /**
-     * The effective reduced-motion signal: [reduceMotionSetting] OR the platform
+     * The effective reduced-motion signal: the stored preference OR the platform
      * animator scale being 0. Provided at the probe root as [LocalReducedMotion]
      * so every component in the new UI changes mode in the same frame.
      */
-    var reduceMotion by mutableStateOf(false); private set
+    val reduceMotion: Boolean get() = reducedMotionHost.reduceMotion
 
     private val settings = CinemaSettings(context)
-    private val reduceMotionController =
-        ReduceMotionController(SystemAnimatorScaleSource(context.contentResolver), settings.reduceMotion)
+    private val reducedMotionHost = ReducedMotionHost(
+        scope = scope,
+        store = settings,
+        scaleSource = SystemAnimatorScaleSource(context.contentResolver),
+    )
 
-    /** Number of enabled sources, read live from DataStore; 0 = unconfigured. */
-    var activeSourceCount by mutableStateOf(0); private set
+    /**
+     * Number of enabled sources, derived from the probe fixture's query — the same
+     * fact that drives [recompute]'s `configured` flag. 0 = unconfigured.
+     *
+     * The probe path must not read production DataStore for source state: the
+     * fixture query is the single source of truth here, so the settings slice can
+     * never disagree with the home screen ("home has content, settings says
+     * unconfigured") or fabricate a count the home screen cannot back up.
+     */
+    val activeSourceCount: Int get() = configuredSourceCount(query.enabledSourceIds)
     var lastCommit by mutableStateOf<CommitResult?>(null); private set
     var navigation by mutableStateOf<RestoreNavigationState?>(null); private set
     private var checkpointToken: CheckpointToken? = null
@@ -160,11 +171,6 @@ internal class VisualHomeRuntime(
 
     init {
         browse.onPersonalChanged = { recompute() }
-        // Reduced-motion: mirror the stored preference and the merged effective signal.
-        scope.launch { settings.reduceMotion.collect { reduceMotionSetting = it } }
-        scope.launch { reduceMotionController.reduced.collect { reduceMotion = it } }
-        // Source count for the settings slice, live from DataStore.
-        scope.launch { settings.activeUrls.collect { activeSourceCount = it.size } }
         // 子层（详情/播放器）关闭时，若仍处首页/片库根画面，重新落焦到进入子层前的位置。
         scope.launch {
             var wasChild = false
@@ -204,6 +210,8 @@ internal class VisualHomeRuntime(
 
     private var loadedOnce = false
     private var loadFailed = false
+    /** Human-readable cause of the last catalogue read failure, for the settings slice. */
+    private var loadErrorReason: String? = null
 
     private fun com.ichichuang.cinema.data.userdata.PersonalLibraryCard.toHomeEntry() =
         HomePersonalEntry(workId, title, sourceLabel, episodeId?.value, variantId?.value,
@@ -244,9 +252,10 @@ internal class VisualHomeRuntime(
         restoreToken = token
         revision = maxOf(revision, snapshot.resultRevision ?: 0L) + 1
         loadFailed = false
+        loadErrorReason = null
         runCatching { fixture.query(query, BrowseTopLevel.LIBRARY, revision) }.fold({
             catalogWorks = it.first; catalogResult = it.second
-        }, { catalogWorks = emptyList(); catalogResult = null; loadFailed = true })
+        }, { e -> catalogWorks = emptyList(); catalogResult = null; loadFailed = true; loadErrorReason = e.message ?: "未知原因" })
         loadedOnce = true
         layoutToken = token?.let { restore.advanceLayout(it, revision) }
         recompute()
@@ -277,6 +286,7 @@ internal class VisualHomeRuntime(
         activeCount = activeSourceCount,
         readStatus = display.contentStatus,
         failedSourceCount = display.failedSourceCount,
+        reason = loadErrorReason,
     )
 
     private fun stateNow(): RestoreNavigationState? = navigation?.let { state ->
@@ -310,6 +320,7 @@ internal class VisualHomeRuntime(
         val ticket = restore.reserveLoad()
         VisualHomeTestHooks.traceFocus("retry reserveLoad")
         scope.launch {
+            refreshOffline()
             val saved = runCatching { store.load() }.getOrNull()?.snapshot ?: fixture.initial
             install(saved, restore.completeLoad(ticket, saved))
         }
@@ -335,20 +346,21 @@ internal class VisualHomeRuntime(
 
     fun toggleLargeText() { largeText = !largeText }
 
-    /** Toggle the stored "减弱动效" preference; the merged signal follows the DataStore flow. */
-    fun toggleReduceMotion() {
-        val next = !reduceMotionSetting
-        scope.launch { runCatching { settings.setReduceMotion(next) } }
-    }
+    /** Toggle the stored "减弱动效" preference; the merged signal follows the store flow. */
+    fun toggleReduceMotion() = reducedMotionHost.toggle()
+
+    /** Human-readable write failure for the "减弱动效" toggle, or null when the last write succeeded. */
+    val reduceMotionError: String? get() = reducedMotionHost.writeError
 
     fun activateSettingsItem(label: String) {
-        when (label) {
-            "大字模式" -> toggleLargeText()
-            "筛选栏" -> browse.setFilterBarVisible(!browse.filterVisible)
-            "列数" -> browse.changeColumns()
-            "减弱动效" -> toggleReduceMotion()
-            "刷新目录" -> browse.refresh()
-            "重载首页" -> retry()
+        when (settingsActionFor(label)) {
+            SettingsAction.TOGGLE_LARGE_TEXT -> toggleLargeText()
+            SettingsAction.TOGGLE_FILTER -> browse.setFilterBarVisible(!browse.filterVisible)
+            SettingsAction.CHANGE_COLUMNS -> browse.changeColumns()
+            SettingsAction.TOGGLE_REDUCE_MOTION -> toggleReduceMotion()
+            SettingsAction.REFRESH -> browse.refresh()
+            SettingsAction.RELOAD -> retry()
+            null -> Unit
         }
     }
 
@@ -457,10 +469,11 @@ internal class VisualHomeRuntime(
     }
 
     private fun settingsKey(code: Int) {
-        val items = SETTINGS_ITEMS
+        val items = settingsFocusKeys(settingsDisplay())
         if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
             // 激活以可见焦点为准；未落焦时退回待落焦意图。
-            activateSettingsItem(focusedControl?.takeIf { it in items } ?: controlTarget?.takeIf { it in items } ?: items.first())
+            val focused = focusedControl?.takeIf { it in items } ?: controlTarget?.takeIf { it in items } ?: items.first()
+            if (focused == SettingsSourceSection.RETRY_KEY) retry() else activateSettingsItem(focused)
             return
         }
         val index = items.indexOf(controlTarget).takeIf { it >= 0 } ?: items.indexOf(focusedControl).coerceAtLeast(0)

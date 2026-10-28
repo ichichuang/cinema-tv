@@ -155,7 +155,7 @@ class MainActivity : ComponentActivity(), KoinComponent {
                 CinemaTheme {
                     val runtime = browseProbe
                     if (runtime != null) com.ichichuang.cinema.core.design.ProvideReducedMotion(
-                        reduced = homeProbe?.reduceMotion == true,
+                        reduced = com.ichichuang.cinema.core.design.reducedMotionForRoot(homeProbe?.reduceMotion),
                     ) {
                         CinemaNavHost(runtime, onExit = { finish() }, home = homeProbe, detail = detailProbe,
                             playerControls = playerControlsProbe)

@@ -2,6 +2,7 @@ package com.ichichuang.cinema.feature.home.visual
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -39,6 +40,10 @@ internal fun CandidateSettingsScreen(runtime: VisualHomeRuntime, onExit: () -> U
     val reduced = LocalReducedMotion.current
     val windowFocused = LocalWindowInfo.current.isWindowFocused && runtime.foreground
     val requesters = remember { mutableMapOf<String, FocusRequester>() }
+    // 页面入场必须真实触发：初始 false，进入组合后置 true，让 enter 过渡真正播放
+    //（`visible = true` 从一开始就为真，AnimatedVisibility 不会跑入场动画）。
+    val enterState = remember { MutableTransitionState(false) }
+    LaunchedEffect(Unit) { enterState.targetState = true }
     LaunchedEffect(runtime.controlTarget, windowFocused) {
         if (windowFocused) runtime.controlTarget?.let { requesters[it]?.requestFocus() }
     }
@@ -47,7 +52,7 @@ internal fun CandidateSettingsScreen(runtime: VisualHomeRuntime, onExit: () -> U
     MaterialTheme {
         Box(Modifier.fillMaxSize().background(Ink)) {
             AnimatedVisibility(
-                visible = true,
+                visibleState = enterState,
                 enter = rememberMotionEnter(reduced),
                 exit = rememberMotionExit(reduced),
             ) {
@@ -59,16 +64,24 @@ internal fun CandidateSettingsScreen(runtime: VisualHomeRuntime, onExit: () -> U
 
                     // ── 显示 ─────────────────────────────────────
                     SectionLabel("显示")
-                    VisualHomeRuntime.SETTINGS_ITEMS.filter { it in setOf("大字模式", "筛选栏", "列数") }
-                        .forEach { label -> SettingsItem(runtime, requesters, label, TvOriginalIcons.Details) }
+                    SettingsItem(runtime, requesters, "大字模式", TvOriginalIcons.Text)
+                    SettingsItem(runtime, requesters, "筛选栏", TvOriginalIcons.Filter)
+                    SettingsItem(runtime, requesters, "列数", TvOriginalIcons.Columns)
 
                     // ── 动效 ─────────────────────────────────────
                     SectionLabel("动效")
                     SettingsItem(runtime, requesters, "减弱动效", TvOriginalIcons.Settings)
+                    runtime.reduceMotionError?.let { error ->
+                        TvStatusMessage(
+                            text = error,
+                            tag = "减弱动效保存失败",
+                            icon = TvOriginalIcons.Retry,
+                        )
+                    }
 
                     // ── 来源 ─────────────────────────────────────
                     SectionLabel("来源")
-                    SourceSection(runtime, display)
+                    SourceSection(runtime, display, requesters)
 
                     VisualHomeRuntime.SETTINGS_ITEMS.filter { it in setOf("刷新目录", "重载首页") }
                         .forEach { label -> SettingsItem(runtime, requesters, label, TvOriginalIcons.Retry) }
@@ -128,10 +141,18 @@ private fun SettingsItem(
 
 /** 来源管理：只陈述真实读取到的状态；读不到就显示未配置与引导，不造假、不放死胡同按钮。 */
 @Composable
-private fun SourceSection(runtime: VisualHomeRuntime, display: SettingsDisplayState) {
+private fun SourceSection(
+    runtime: VisualHomeRuntime,
+    display: SettingsDisplayState,
+    requesters: MutableMap<String, FocusRequester>,
+) {
     val reduced = LocalReducedMotion.current
     val enter = rememberMotionEnter(reduced)
     val exit = rememberMotionExit(reduced)
+    val retryKey = SettingsSourceSection.RETRY_KEY
+    val retryRequester = remember(retryKey) { requesters.getOrPut(retryKey) { FocusRequester() } }
+    val retryFocus = { focused: Boolean -> if (focused) runtime.controlFocused(retryKey) }
+    val onRetry = { runtime.retry() }
     // 状态切换（加载 → 空/错误/内容）用 ST1 入场/出场过渡：旧状态淡出、新状态淡入，
     // 减弱动效下只淡入淡出不位移不缩放。
     androidx.compose.animation.AnimatedContent(
@@ -146,7 +167,7 @@ private fun SourceSection(runtime: VisualHomeRuntime, display: SettingsDisplaySt
                 icon = TvOriginalIcons.Library,
             )
             SettingsPageStatus.EMPTY -> TvStatusMessage(
-                text = SettingsProjection.sourceLine(requireNotNull(display.source)),
+                text = display.source?.let { SettingsProjection.sourceLine(it) } ?: "尚未配置来源",
                 tag = "设置来源状态",
                 icon = TvOriginalIcons.Settings,
             )
@@ -156,19 +177,24 @@ private fun SourceSection(runtime: VisualHomeRuntime, display: SettingsDisplaySt
                 icon = TvOriginalIcons.Retry,
                 actionLabel = "重试",
                 actionIcon = TvOriginalIcons.Retry,
-                actionTag = "设置来源重试",
-                onAction = { runtime.retry() },
+                actionTag = retryKey,
+                focusRequester = retryRequester,
+                onFocusChanged = retryFocus,
+                onAction = onRetry,
             )
             SettingsPageStatus.CONTENT -> {
-                val state = requireNotNull(display.source)
+                val state = display.source
+                val retryable = state != null && SettingsProjection.retryable(state)
                 TvStatusMessage(
-                    text = SettingsProjection.sourceLine(state),
+                    text = state?.let { SettingsProjection.sourceLine(it) } ?: "尚未配置来源",
                     tag = "设置来源状态",
-                    icon = if (state.readStatus == HomeContentStatus.FAILED) TvOriginalIcons.Retry else TvOriginalIcons.Library,
-                    actionLabel = if (SettingsProjection.retryable(state)) "重试" else null,
-                    actionIcon = if (SettingsProjection.retryable(state)) TvOriginalIcons.Retry else null,
-                    actionTag = "设置来源重试",
-                    onAction = if (SettingsProjection.retryable(state)) { { runtime.retry() } } else null,
+                    icon = if (retryable) TvOriginalIcons.Retry else TvOriginalIcons.Library,
+                    actionLabel = if (retryable) "重试" else null,
+                    actionIcon = if (retryable) TvOriginalIcons.Retry else null,
+                    actionTag = retryKey,
+                    focusRequester = if (retryable) retryRequester else null,
+                    onFocusChanged = if (retryable) retryFocus else null,
+                    onAction = if (retryable) onRetry else null,
                 )
             }
         }
